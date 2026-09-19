@@ -1,5 +1,13 @@
 export type PlannerId = string;
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  planner_id: string;
+  onboarding_completed_at: string | null;
+};
+
 export type Term = {
   code: string;
   label: string;

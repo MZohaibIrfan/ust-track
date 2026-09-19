@@ -1,11 +1,19 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../lib/auth";
 
-const DEMO_NAME = "Demo Student";
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export function ProfileAvatar() {
-  const initials = DEMO_NAME.split(" ")
-    .map((part) => part[0])
-    .join("");
+  const { user } = useAuth();
+  const label = user?.display_name || user?.email || "?";
 
   return (
     <NavLink
@@ -17,7 +25,7 @@ export function ProfileAvatar() {
         }`
       }
     >
-      {initials}
+      {initials(label)}
     </NavLink>
   );
 }

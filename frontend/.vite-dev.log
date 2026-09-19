@@ -1,0 +1,403 @@
+
+> ust-track-web@0.1.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v7.3.6[39m  [2mready in [0m[1m724[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m17:53:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Overview.tsx, /src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/RequirementTree.tsx[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/Sidebar.tsx, /src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/WeekGrid.tsx[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/Sidebar.tsx, /src/pages/Profile.tsx, /src/pages/Overview.tsx, /src/pages/Timetable.tsx, /src/pages/Degree.tsx[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Career.tsx, /src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/Sidebar.tsx, /src/pages/Profile.tsx, /src/pages/Overview.tsx, /src/pages/Timetable.tsx, /src/pages/Degree.tsx[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Degree.tsx, /src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Overview.tsx, /src/index.css[22m
+[2m17:55:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Timetable.tsx, /src/index.css[22m
+[2m17:55:39[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Failed to resolve import "react-markdown" from "src/components/AgentMarkdown.tsx". Does the file exist?
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/AgentMarkdown.tsx[39m:1:21
+[33m  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import Markdown from "react-markdown";
+     |                        ^
+  3  |  import remarkGfm from "remark-gfm";
+  4  |  export function AgentMarkdown({ children }) {[39m
+[2m17:55:39[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Failed to resolve import "react-markdown" from "src/components/AgentMarkdown.tsx". Does the file exist?
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/AgentMarkdown.tsx[39m:1:21
+[33m  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import Markdown from "react-markdown";
+     |                        ^
+  3  |  import remarkGfm from "remark-gfm";
+  4  |  export function AgentMarkdown({ children }) {[39m
+[2m17:55:40[22m [31m[1m[vite][22m[39m [31mInternal server error: Failed to resolve import "react-markdown" from "src/components/AgentMarkdown.tsx". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/AgentMarkdown.tsx[39m:1:21
+[33m  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import Markdown from "react-markdown";
+     |                        ^
+  3  |  import remarkGfm from "remark-gfm";
+  4  |  export function AgentMarkdown({ children }) {[39m
+      at TransformPluginContext._formatLog (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 1)
+      at async TransformPluginContext.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:24622:20)
+[2m17:56:28[22m [31m[1m[vite][22m[39m [31mInternal server error: Failed to resolve import "react-markdown" from "src/components/AgentMarkdown.tsx". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/AgentMarkdown.tsx[39m:1:21
+[33m  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import Markdown from "react-markdown";
+     |                        ^
+  3  |  import remarkGfm from "remark-gfm";
+  4  |  export function AgentMarkdown({ children }) {[39m
+      at TransformPluginContext._formatLog (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 1)
+      at async TransformPluginContext.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:24622:20)
+[2m17:56:29[22m [31m[1m[vite][22m[39m [31mInternal server error: Failed to resolve import "react-markdown" from "src/components/AgentMarkdown.tsx". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/AgentMarkdown.tsx[39m:1:21
+[33m  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import Markdown from "react-markdown";
+     |                        ^
+  3  |  import remarkGfm from "remark-gfm";
+  4  |  export function AgentMarkdown({ children }) {[39m
+      at TransformPluginContext._formatLog (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 1)
+      at async TransformPluginContext.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:24622:20)
+[2m17:56:30[22m [31m[1m[vite][22m[39m [31mInternal server error: Failed to resolve import "react-markdown" from "src/components/AgentMarkdown.tsx". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/AgentMarkdown.tsx[39m:1:21
+[33m  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import Markdown from "react-markdown";
+     |                        ^
+  3  |  import remarkGfm from "remark-gfm";
+  4  |  export function AgentMarkdown({ children }) {[39m
+      at TransformPluginContext._formatLog (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 1)
+      at async TransformPluginContext.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:24622:20)
+[2m17:57:03[22m [31m[1m[vite][22m[39m [31mInternal server error: Failed to resolve import "react-markdown" from "src/components/AgentMarkdown.tsx". Does the file exist?[39m
+  Plugin: [35mvite:import-analysis[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/AgentMarkdown.tsx[39m:1:21
+[33m  1  |  import { jsxDEV } from "react/jsx-dev-runtime";
+  2  |  import Markdown from "react-markdown";
+     |                        ^
+  3  |  import remarkGfm from "remark-gfm";
+  4  |  export function AgentMarkdown({ children }) {[39m
+      at TransformPluginContext._formatLog (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 1)
+      at async TransformPluginContext.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/Vio/ust-track/frontend/node_modules/vite/dist/node/chunks/config.js:24622:20)
+[2m17:57:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ new dependencies optimized: [33mreact-markdown, remark-gfm[32m[39m
+[2m17:57:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[2m18:04:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/Sidebar.tsx, /src/index.css[22m
+[2m18:04:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m18:05:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m18:05:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m18:05:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m18:05:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/ProgramsPanel.tsx[22m
+[2m18:05:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/ProgramsPanel.tsx[22m Could not Fast Refresh ("roleFor" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m18:05:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Degree.tsx[22m
+[2m18:05:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/ProgramsPanel.tsx[22m
+[2m18:05:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/ProgramsPanel.tsx[22m Could not Fast Refresh ("roleFor" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m18:05:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Degree.tsx[22m
+[2m18:06:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/ProgramsPanel.tsx[22m
+[2m18:06:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/ProgramsPanel.tsx[22m Could not Fast Refresh ("roleFor" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m18:06:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Degree.tsx[22m
+[2m18:06:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/AgentPanel.tsx[22m
+[2m18:07:00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/AgentPanel.tsx[22m
+[2m18:07:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/AgentPanel.tsx[22m
+[2m18:07:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/AgentPanel.tsx[22m
+[2m20:17:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CollapseButton.tsx[22m
+[2m20:19:48[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/Sidebar.tsx, /src/index.css[22m
+[2m20:21:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m20:21:35[22m [31m[1m[vite][22m[39m [31mInternal server error: C:\Users\Vio\ust-track\frontend\src\components\CatalogPanel.tsx: Expected corresponding JSX closing tag for <div>. (439:4)
+
+[0m [90m 437 |[31m         ) [33m:[31m [36mnull[31m}
+ [90m 438 |[31m       [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m
+[31m[1m>[22m[31m[90m 439 |[31m     [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m     |[31m     [31m[1m^[22m[31m
+ [90m 440 |[31m   )[33m;[31m
+ [90m 441 |[31m }
+ [90m 442 |[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/CatalogPanel.tsx[39m:439:4
+[33m  465 |    lecture: CatalogSection | null;
+  466 |    tutorial: CatalogSection | null;
+  467 |    lab: CatalogSection | null;
+      |    ^
+  468 |    onLecture: (s: CatalogSection) => void;
+  469 |    onTutorial: (s: CatalogSection) => void;[39m
+      at constructor (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:369:19)
+      at TypeScriptParserMixin.raise (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6622:19)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4745:16)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4716:32)
+      at TypeScriptParserMixin.jsxParseElement (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4767:17)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4777:19)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11107:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11092:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11072:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9860:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10925:61)
+      at TypeScriptParserMixin.parseExprOps (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10930:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10907:23)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10857:21)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9798:39
+      at TypeScriptParserMixin.tryParse (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6930:20)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9798:18)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10826:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12460:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10826:17)
+      at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12527:17)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11706:28)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11362:23)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4782:20)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11107:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11092:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11072:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9860:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10925:61)
+      at TypeScriptParserMixin.parseExprOps (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10930:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10907:23)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10857:21)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9809:20)
+      at TypeScriptParserMixin.parseExpressionBase (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10810:23)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10806:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12455:16)
+      at TypeScriptParserMixin.parseExpression (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10806:17)
+      at TypeScriptParserMixin.parseReturnStatement (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13176:28)
+      at TypeScriptParserMixin.parseStatementContent (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12832:21)
+      at TypeScriptParserMixin.parseStatementContent (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9531:18)
+      at TypeScriptParserMixin.parseStatementLike (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12801:17)
+      at TypeScriptParserMixin.parseStatementListItem (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12781:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13350:61)
+      at TypeScriptParserMixin.parseBlockBody (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13343:10)
+      at TypeScriptParserMixin.parseBlock (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13331:10)
+      at TypeScriptParserMixin.parseFunctionBody (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12134:24)
+      at TypeScriptParserMixin.parseFunctionBodyAndFinish (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12120:10)
+      at TypeScriptParserMixin.parseFunctionBodyAndFinish (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9195:18)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13479:12
+      at TypeScriptParserMixin.withSmartMixTopicForbiddingContext (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12437:14)
+[2m20:22:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m20:23:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/ProgramsPanel.tsx[22m
+[2m20:23:22[22m [31m[1m[vite][22m[39m [31mInternal server error: C:\Users\Vio\ust-track\frontend\src\components\ProgramsPanel.tsx: Unterminated JSX contents. (166:14)
+
+[0m [90m 164 |[31m         )}
+ [90m 165 |[31m       [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m
+[31m[1m>[22m[31m[90m 166 |[31m     [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m     |[31m               [31m[1m^[22m[31m
+ [90m 167 |[31m   )[33m;[31m
+ [90m 168 |[31m }
+ [90m 169 |[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/ProgramsPanel.tsx[39m:166:14
+      at constructor (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:369:19)
+      at TypeScriptParserMixin.raise (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6622:19)
+      at TypeScriptParserMixin.jsxReadToken (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4466:20)
+      at TypeScriptParserMixin.getTokenFromCode (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4792:12)
+      at TypeScriptParserMixin.getTokenFromCode (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10010:11)
+      at TypeScriptParserMixin.nextToken (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:5805:10)
+      at TypeScriptParserMixin.next (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:5715:10)
+      at TypeScriptParserMixin.eat (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:5719:12)
+      at TypeScriptParserMixin.expect (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6921:15)
+      at TypeScriptParserMixin.jsxParseClosingElementAt (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4698:10)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4713:37)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4716:32)
+      at TypeScriptParserMixin.jsxParseElement (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4767:17)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4777:19)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11107:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11092:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11072:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9860:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10925:61)
+      at TypeScriptParserMixin.parseExprOps (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10930:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10907:23)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10857:21)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9798:39
+      at TypeScriptParserMixin.tryParse (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6930:20)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9798:18)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10826:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12460:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10826:17)
+      at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12527:17)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11706:28)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11362:23)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4782:20)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11107:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11092:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11072:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9860:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10925:61)
+      at TypeScriptParserMixin.parseExprOps (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10930:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10907:23)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10857:21)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9809:20)
+      at TypeScriptParserMixin.parseExpressionBase (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10810:23)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10806:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12455:16)
+      at TypeScriptParserMixin.parseExpression (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10806:17)
+      at TypeScriptParserMixin.parseReturnStatement (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13176:28)
+      at TypeScriptParserMixin.parseStatementContent (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12832:21)
+      at TypeScriptParserMixin.parseStatementContent (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9531:18)
+      at TypeScriptParserMixin.parseStatementLike (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12801:17)
+      at TypeScriptParserMixin.parseStatementListItem (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12781:17)
+[2m20:24:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/ProgramsPanel.tsx[22m
+[2m20:24:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/ProgramsPanel.tsx[22m Could not Fast Refresh ("roleFor" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m20:24:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Degree.tsx[22m
+[2m20:25:18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/AgentPanel.tsx[22m
+[2m20:39:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/Sidebar.tsx, /src/index.css[22m
+[2m20:39:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/Sidebar.tsx, /src/index.css[22m
+[2m21:25:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/AgentPanel.tsx[22m
+[2m21:29:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/Sidebar.tsx, /src/index.css[22m
+[2m21:35:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CourseActions.tsx[22m
+[2m21:35:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m21:35:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Timetable.tsx, /src/index.css[22m
+[2m21:35:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m21:35:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/WeekGrid.tsx[22m
+[2m21:35:05[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: C:\Users\Vio\ust-track\frontend\src\components\CatalogPanel.tsx: Unexpected token (5:1)
+
+[0m [90m 3 |[39m [36mimport[39m { useCollapsed } [36mfrom[39m [32m"../lib/collapse"[39m[33m;[39m
+ [90m 4 |[39m [36mimport[39m { [33mDAY_LABELS[39m } [36mfrom[39m [32m"../lib/time"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 5 |[39m [33m<<[39m[33m<<[39m[33m<<[39m[33m<[39m [33mHEAD[39m
+ [90m   |[39m  [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mCollapseButton[39m } [36mfrom[39m [32m"./CollapseButton"[39m[33m;[39m
+ [90m 7 |[39m [33m===[39m[33m===[39m[33m=[39m
+ [90m 8 |[39m [36mimport[39m type { [33mPreviewSelection[39m } [36mfrom[39m [32m"./WeekGrid"[39m[33m;[39m[0m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/CatalogPanel.tsx[39m:5:1
+[33m  3  |  import { useCollapsed } from "../lib/collapse";
+  4  |  import { DAY_LABELS } from "../lib/time";
+  5  |  <<<<<<< HEAD
+     |       ^
+  6  |  import { CollapseButton } from "./CollapseButton";
+  7  |  =======[39m
+[2m21:35:05[22m [31m[1m[vite][22m[39m [31mInternal server error: C:\Users\Vio\ust-track\frontend\src\components\CatalogPanel.tsx: Unexpected token (5:1)
+
+[0m [90m 3 |[31m [36mimport[31m { useCollapsed } [36mfrom[31m [32m"../lib/collapse"[31m[33m;[31m
+ [90m 4 |[31m [36mimport[31m { [33mDAY_LABELS[31m } [36mfrom[31m [32m"../lib/time"[31m[33m;[31m
+[31m[1m>[22m[31m[90m 5 |[31m [33m<<[31m[33m<<[31m[33m<<[31m[33m<[31m [33mHEAD[31m
+ [90m   |[31m  [31m[1m^[22m[31m
+ [90m 6 |[31m [36mimport[31m { [33mCollapseButton[31m } [36mfrom[31m [32m"./CollapseButton"[31m[33m;[31m
+ [90m 7 |[31m [33m===[31m[33m===[31m[33m=[31m
+ [90m 8 |[31m [36mimport[31m type { [33mPreviewSelection[31m } [36mfrom[31m [32m"./WeekGrid"[31m[33m;[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mC:/Users/Vio/ust-track/frontend/src/components/CatalogPanel.tsx[39m:5:1
+[33m  3  |  import { useCollapsed } from "../lib/collapse";
+  4  |  import { DAY_LABELS } from "../lib/time";
+  5  |  <<<<<<< HEAD
+     |       ^
+  6  |  import { CollapseButton } from "./CollapseButton";
+  7  |  =======[39m
+      at constructor (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:369:19)
+      at TypeScriptParserMixin.raise (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6622:19)
+      at TypeScriptParserMixin.unexpected (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6642:16)
+      at TypeScriptParserMixin.jsxParseIdentifier (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4587:12)
+      at TypeScriptParserMixin.jsxParseNamespacedName (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4594:23)
+      at TypeScriptParserMixin.jsxParseElementName (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4603:21)
+      at TypeScriptParserMixin.jsxParseOpeningElementAt (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4679:22)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4704:33)
+      at TypeScriptParserMixin.jsxParseElement (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4767:17)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:4777:19)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11107:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11092:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:11072:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9860:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10925:61)
+      at TypeScriptParserMixin.parseExprOps (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10930:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10907:23)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10857:21)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9798:39
+      at TypeScriptParserMixin.tryParse (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:6930:20)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9798:18)
+      at TypeScriptParserMixin.parseExpressionBase (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10810:23)
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10806:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12455:16)
+      at TypeScriptParserMixin.parseExpression (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10806:17)
+      at TypeScriptParserMixin.parseStatementContent (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12929:23)
+      at TypeScriptParserMixin.parseStatementContent (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:9531:18)
+      at TypeScriptParserMixin.parseStatementLike (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12801:17)
+      at TypeScriptParserMixin.parseModuleItem (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12778:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13350:36)
+      at TypeScriptParserMixin.parseBlockBody (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:13343:10)
+      at TypeScriptParserMixin.parseProgram (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12656:10)
+      at TypeScriptParserMixin.parseTopLevel (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:12646:25)
+      at TypeScriptParserMixin.parse (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:14522:25)
+      at TypeScriptParserMixin.parse (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:10149:18)
+      at parse (C:\Users\Vio\ust-track\frontend\node_modules\@babel\parser\lib\index.js:14556:38)
+      at parser (C:\Users\Vio\ust-track\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (C:\Users\Vio\ust-track\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:51:37)
+      at normalizeFile.next (<anonymous>)
+      at run (C:\Users\Vio\ust-track\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (C:\Users\Vio\ust-track\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (C:\Users\Vio\ust-track\frontend\node_modules\gensync\index.js:261:32)
+      at C:\Users\Vio\ust-track\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (C:\Users\Vio\ust-track\frontend\node_modules\gensync\index.js:223:11)
+      at C:\Users\Vio\ust-track\frontend\node_modules\gensync\index.js:189:28
+      at C:\Users\Vio\ust-track\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at C:\Users\Vio\ust-track\frontend\node_modules\gensync\index.js:113:33
+[2m21:35:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/CatalogPanel.tsx[22m
+[2m00:06:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/Sidebar.tsx, /src/pages/Profile.tsx, /src/pages/Overview.tsx, /src/pages/Timetable.tsx, /src/pages/Degree.tsx, /src/pages/Career.tsx, /src/pages/History.tsx, /src/components/CourseActions.tsx, /src/components/CatalogPanel.tsx[22m
+[2m00:07:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/Sidebar.tsx, /src/pages/Profile.tsx, /src/pages/Overview.tsx, /src/pages/Timetable.tsx, /src/pages/Degree.tsx, /src/pages/Career.tsx, /src/pages/History.tsx, /src/components/CourseActions.tsx, /src/components/CatalogPanel.tsx[22m
+[2m00:07:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/Sidebar.tsx, /src/pages/Profile.tsx, /src/pages/Overview.tsx, /src/pages/Timetable.tsx, /src/pages/Degree.tsx, /src/pages/Career.tsx, /src/pages/History.tsx[22m
+[2m00:08:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m00:08:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/main.tsx[22m
+[2m00:09:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/ProfileAvatar.tsx[22m
+[2m00:09:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Profile.tsx, /src/index.css[22m
+[2m00:09:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Profile.tsx, /src/index.css[22m
+[2m00:09:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Profile.tsx, /src/index.css[22m
+[2m00:10:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/History.tsx, /src/index.css[22m
+[2m00:10:13[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/History.tsx, /src/index.css[22m
+[2m00:10:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/History.tsx, /src/index.css[22m
+[2m00:11:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/lib/auth.tsx, /src/index.css[22m
+[2m00:11:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/lib/auth.tsx[22m Could not Fast Refresh ("useAuth" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m00:11:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/lib/auth.tsx[22m
+[2m00:11:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/lib/auth.tsx, /src/index.css[22m
+[2m00:11:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/lib/auth.tsx[22m Could not Fast Refresh ("useAuth" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m00:11:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/lib/auth.tsx[22m
+[2m00:12:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m00:12:18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m00:15:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m00:38:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Overview.tsx, /src/index.css[22m
+[2m00:41:40[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Overview.tsx, /src/index.css[22m
+[2m00:46:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Overview.tsx, /src/index.css[22m
