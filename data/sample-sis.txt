@@ -1,0 +1,2 @@
+# Placeholder SIS List View fixture. Replace with a real anonymized paste later.
+# Do not commit official student records or HKUST credentials.

@@ -1,28 +1,48 @@
 # UST Track
 
-Degree and timetable planning for HKUST undergraduates, built on structured course data —
-plus an advisor agent that reads that same data to help plan a pathway.
+Degree and timetable planning for HKUST undergraduates.
+
+This repo is a **framework only**: schema, API stubs, and UI shells. Parsers, ingestion, timetable behavior, and the LLM advisor are not implemented yet.
 
 ## Stack
 
-- **App:** Next.js (App Router) + TypeScript + Tailwind
-- **API:** Next.js route handlers in the same app (`/api/courses`, `/api/programs`, `/api/advisor`)
-- **Database:** SQLite via Prisma
-- **Advisor:** OpenRouter (OpenAI-compatible chat API), with tools that query and write to
-  the Prisma schema — no separate memory of the catalog, it always looks courses up
+- **Web:** React + Vite + TypeScript + Tailwind
+- **API:** FastAPI stubs under `/api`
+- **Database:** local PostgreSQL (`catalog` and `planner` schemas)
+- **Advisor (later):** OpenRouter-backed agent that reads catalog/planner rows and drafts a timetable plus a degree plan
+- **Search (later):** Postgres FTS / trigram. Qdrant is deferred.
 
-A separate Python backend is not needed yet. When we ingest class quota / catalog pages, that can be a script that writes into this schema.
+## Layout
+
+```text
+backend/                 FastAPI, SQLAlchemy 2, Alembic
+  app/models/            catalog + planner + ingestion tables
+  app/ingestion/         WCQ / SIS stubs
+  app/services/          search, conflicts, ics, rules, advisor stubs
+  app/api/               route stubs
+frontend/                Vite + React shells
+data/raw/                official HTML + PDFs (gitignored)
+data/sample-sis.txt      SIS paste fixture placeholder
+```
 
 ## Setup
 
 ```bash
-npm install
-npx prisma migrate dev
-npm run db:seed
-npm run dev
+createdb hkust_planner
+cp .env.example .env
+
+python3 -m venv backend/.venv
+source backend/.venv/bin/activate
+pip install -r backend/requirements.txt
+cd backend && alembic revision --autogenerate -m "init catalog planner" && alembic upgrade head && cd ..
+
+# terminal 1
+cd backend && uvicorn app.main:app --reload --port 8000
+
+# terminal 2
+cd frontend && npm install && npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:5173](http://localhost:5173).
 
-Set `OPENROUTER_API_KEY` in `.env` to enable `/advisor`. Change `OPENROUTER_MODEL` to pick a
-different OpenRouter slug (default `openai/gpt-4.1-mini`). The rest of the app works without it.
+Do not collect HKUST passwords or SIS login. Do not commit files under `data/raw/`.

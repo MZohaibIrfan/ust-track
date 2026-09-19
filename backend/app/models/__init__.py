@@ -1,0 +1,52 @@
+from app.models.base import Base
+from app.models.catalog import (
+    AcademicYear,
+    ClassSection,
+    CombinationRule,
+    Course,
+    CourseOffering,
+    CourseRelationship,
+    CourseRule,
+    CourseVersion,
+    Meeting,
+    Program,
+    ProgramVersion,
+    RequirementGroup,
+    RequirementItem,
+    Term,
+)
+from app.models.ingestion import IngestionRun, ParseReviewQueue, SourceDocument, StagingCourse
+from app.models.planner import (
+    Planner,
+    RequirementCreditAllocation,
+    StudentClassSelection,
+    StudentCourse,
+    StudentProgram,
+)
+
+__all__ = [
+    "AcademicYear",
+    "Base",
+    "ClassSection",
+    "CombinationRule",
+    "Course",
+    "CourseOffering",
+    "CourseRelationship",
+    "CourseRule",
+    "CourseVersion",
+    "IngestionRun",
+    "Meeting",
+    "ParseReviewQueue",
+    "Planner",
+    "Program",
+    "ProgramVersion",
+    "RequirementCreditAllocation",
+    "RequirementGroup",
+    "RequirementItem",
+    "SourceDocument",
+    "StagingCourse",
+    "StudentClassSelection",
+    "StudentCourse",
+    "StudentProgram",
+    "Term",
+]

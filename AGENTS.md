@@ -1,9 +1,10 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# UST Track
 
-# This is NOT the Next.js you know
+FastAPI + React + local PostgreSQL. Framework only — do not assume Next.js, Prisma, SQLite, Docker Compose, or Qdrant.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+- API lives in `backend/app/api`. Routes are stubs.
+- Models live in `backend/app/models` (`catalog` and `planner` schemas).
+- Ingestion and services are stubs in `backend/app/ingestion` and `backend/app/services`.
+- Web app lives in `frontend/`. Vite proxies `/api` to FastAPI.
+- Official HTML/PDFs go in `data/raw/` and are not committed.
+- An LLM advisor will later draft timetables and degree plans from Postgres data. Do not implement it unless asked.
