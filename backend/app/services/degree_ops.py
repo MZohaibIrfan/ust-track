@@ -180,9 +180,15 @@ def get_student_profile(db: Session, planner_id: str) -> dict[str, Any]:
     planner = get_or_create_planner(db, planner_id)
 
     programs = db.scalars(select(StudentProgram).where(StudentProgram.planner_id == planner.id)).all()
+    program_ids = {sp.program_id for sp in programs}
+    programs_by_id = (
+        {p.id: p for p in db.scalars(select(Program).where(Program.id.in_(program_ids))).all()}
+        if program_ids
+        else {}
+    )
     declared = []
     for sp in programs:
-        program = db.get(Program, sp.program_id)
+        program = programs_by_id.get(sp.program_id)
         declared.append(
             {
                 "code": program.code if program else None,
@@ -193,9 +199,15 @@ def get_student_profile(db: Session, planner_id: str) -> dict[str, Any]:
         )
 
     courses = db.scalars(select(StudentCourse).where(StudentCourse.planner_id == planner.id)).all()
+    course_ids = {sc.course_id for sc in courses}
+    courses_by_id = (
+        {c.id: c for c in db.scalars(select(Course).where(Course.id.in_(course_ids))).all()}
+        if course_ids
+        else {}
+    )
     history = []
     for sc in courses:
-        course = db.get(Course, sc.course_id)
+        course = courses_by_id.get(sc.course_id)
         history.append({"course_code": course.course_code if course else None, "status": sc.status})
 
     major = next((d for d in declared if d["role"] == "major"), declared[0] if declared else None)
@@ -321,6 +333,12 @@ def check_pathway_compatibility(db: Session, planner_id: str, program_codes: lis
         resolved.append(program.code)
 
     per_program = {p.code: _requirement_course_ids(db, p, intake_year) for p in programs}
+    all_shared_ids = set().union(*per_program.values()) if per_program else set()
+    course_code_by_id = (
+        {str(c.id): c.course_code for c in db.scalars(select(Course).where(Course.id.in_(all_shared_ids))).all()}
+        if all_shared_ids
+        else {}
+    )
 
     overlaps: list[dict[str, Any]] = []
     seen_pairs: set[tuple[str, str, str]] = set()
@@ -329,12 +347,12 @@ def check_pathway_compatibility(db: Session, planner_id: str, program_codes: lis
         for j in range(i + 1, len(codes)):
             shared = per_program[codes[i]] & per_program[codes[j]]
             for course_id in shared:
-                course = db.get(Course, course_id)
-                key = (course.course_code, codes[i], codes[j])
+                course_code = course_code_by_id.get(course_id)
+                key = (course_code, codes[i], codes[j])
                 if key in seen_pairs:
                     continue
                 seen_pairs.add(key)
-                overlaps.append({"course_code": course.course_code, "programs": [codes[i], codes[j]]})
+                overlaps.append({"course_code": course_code, "programs": [codes[i], codes[j]]})
 
     return {"programs": resolved, "overlaps": overlaps}
 
