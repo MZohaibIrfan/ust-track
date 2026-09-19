@@ -26,13 +26,14 @@ export function Sidebar() {
 
   useEffect(() => {
     let cancelled = false;
-    setIdentity({ title: profile.label, detail: profile.name });
+    const fallback = profile ? { title: profile.label, detail: profile.name } : null;
+    setIdentity(fallback);
     apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
       .then((next) => {
-        if (!cancelled) setIdentity(studentHeading(next) ?? { title: profile.label, detail: profile.name });
+        if (!cancelled) setIdentity(studentHeading(next) ?? fallback);
       })
       .catch(() => {
-        if (!cancelled) setIdentity({ title: profile.label, detail: profile.name });
+        if (!cancelled) setIdentity(fallback);
       });
     return () => {
       cancelled = true;

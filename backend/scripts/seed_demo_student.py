@@ -1,6 +1,7 @@
-"""Seed three isolated demo planners (separate accounts).
+"""Seed isolated demo planners (separate accounts).
 
   demo-y4-comp  Year 4 COMP major + IT minor
+  demo-y3-cosc  Year 3 COSC major + ELEC additional major + BIEN minor (login: fangle@connect.ust.hk)
   demo-y2-cosc  Year 2 COSC major + ELEC additional major
   demo-y1-seng  Year 1 School of Engineering, undeclared
 
@@ -14,7 +15,7 @@ Usage (from the repo root):
 from __future__ import annotations
 
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +53,7 @@ from app.services.planner_ops import (
 
 CURRENT_TERM = "2610"
 
-HOME_IDS = ("demo-y4-comp", "demo-y2-cosc", "demo-y1-seng", "demo-student")
+HOME_IDS = ("demo-y4-comp", "demo-y3-cosc", "demo-y2-cosc", "demo-y1-seng", "demo-student")
 
 # Fall / Spring labels for History. Current WCQ snapshot only has 2610;
 # earlier terms are created here so completed rows can show a real term name.
@@ -230,6 +231,74 @@ def _seed_y4_comp(db, terms: dict[str, Term]) -> None:
     print(f"Seeded {planner_id}: year-4 COMP + MINOR-IT (intake {intake})")
 
 
+def _ensure_demo_account(db, planner_id: str, email: str, password: str, display_name: str) -> None:
+    """Attach a login to a named demo planner. Idempotent; resets the password."""
+    from app.models import User
+    from app.services.auth_ops import hash_password
+
+    email = email.strip().lower()
+    user = db.scalar(select(User).where(User.email == email))
+    if user is None:
+        user = User(email=email, password_hash=hash_password(password), display_name=display_name)
+        db.add(user)
+        db.flush()
+    else:
+        user.password_hash = hash_password(password)
+        user.display_name = display_name
+    user.onboarding_completed_at = datetime.now(timezone.utc)
+
+    for other in db.scalars(select(Planner).where(Planner.user_id == user.id)).all():
+        if other.planner_id != planner_id:
+            other.user_id = None
+            if other.planner_id == str(user.id):
+                db.delete(other)
+    db.flush()
+
+    planner = get_or_create_planner(db, planner_id)
+    planner.user_id = user.id
+    db.commit()
+
+
+def _seed_y3_cosc(db, terms: dict[str, Term]) -> None:
+    """Year 3 COSC + ELEC + BIEN minor, courses laid out on the CSE recommended pathway."""
+    planner_id = "demo-y3-cosc"
+    intake = 2024
+    _ensure_demo_account(db, planner_id, "fangle@connect.ust.hk", "fangledemo", "Fangle")
+    planner = get_or_create_planner(db, planner_id)
+    planner.entry_year = intake
+    db.commit()
+    _declare(db, planner, _require_program(db, "COSC"), "major", intake)
+    _declare(db, planner, _require_program(db, "ELEC"), "additional_major", intake)
+    _declare(db, planner, _require_program(db, "MINOR-BIEN"), "minor", intake)
+
+    # CSE recommended pathway (major + minor), with ELEC cores slotted into open terms.
+    completed = [
+        ("2410", ["MATH1013", "COMP1023", "HMAW1905B", "LANG1402", "PHYS1112"]),
+        ("2430", ["MATH1014", "LANG1406", "ELEC1100", "SOSC1960"]),
+        ("2510", ["MATH2111", "COMP2011", "COMP2711", "ELEC2100"]),
+        ("2530", ["MATH2411", "COMP2012", "COMP2611", "BIEN2610", "ELEC2400"]),
+    ]
+    for term_code, codes in completed:
+        for code in codes:
+            _add_course(db, planner_id, code, "completed", terms.get(term_code))
+    # Year 3 Fall (current): SE / OS / algorithms + BIEN minor + ELEC.
+    for code in ["COMP3111", "COMP3511", "COMP3711", "BIEN3410", "ELEC3100"]:
+        _add_course(db, planner_id, code, "in_progress", terms.get(CURRENT_TERM))
+    for code in ["COMP3111", "COMP3511", "COMP3711"]:
+        _enroll(db, planner_id, code)
+    _experience(
+        db,
+        planner_id,
+        title="Firmware intern",
+        organization="ASM Pacific Technology",
+        kind="internship",
+        start_date=date(2026, 6, 1),
+        end_date=date(2026, 8, 21),
+        description="C++ tooling for die-bonding equipment; mixed COSC systems work with ELEC lab bring-up.",
+    )
+    print(f"Seeded {planner_id}: year-3 COSC + ELEC + MINOR-BIEN (intake {intake})")
+
+
 def _seed_y2_cosc(db, terms: dict[str, Term]) -> None:
     planner_id = "demo-y2-cosc"
     intake = 2025
@@ -282,6 +351,7 @@ def main() -> None:
             _wipe_tree(db, root)
         terms = _ensure_terms(db)
         _seed_y4_comp(db, terms)
+        _seed_y3_cosc(db, terms)
         _seed_y2_cosc(db, terms)
         _seed_y1_seng(db, terms)
     finally:

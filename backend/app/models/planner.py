@@ -17,8 +17,12 @@ class Planner(Base):
     id: Mapped[uuid.UUID] = uuid_pk()
     planner_id: Mapped[str] = mapped_column(String(64), unique=True)
     entry_year: Mapped[int | None] = mapped_column(Integer)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("planner.app_user.id", ondelete="CASCADE"), unique=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    user: Mapped["User | None"] = relationship(back_populates="planner")
     programs: Mapped[list[StudentProgram]] = relationship(
         back_populates="planner",
         cascade="all, delete-orphan",

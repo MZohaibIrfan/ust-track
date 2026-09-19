@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { usePlanner } from "../lib/PlannerContext";
 import type { DeclaredProgram, DegreeProfile } from "../lib/types";
 
@@ -8,8 +10,11 @@ const MINOR_ROLES = new Set(["minor"]);
 function initials(name: string): string {
   return name
     .split(" ")
+    .filter(Boolean)
     .map((part) => part[0])
-    .join("");
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 function ProgramCard({ program }: { program: DeclaredProgram }) {
@@ -27,8 +32,16 @@ function ProgramCard({ program }: { program: DeclaredProgram }) {
 
 export function ProfilePage() {
   const { plannerId, profile: demo } = usePlanner();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const displayName = user?.display_name || user?.email || demo?.name || "Signed in";
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  async function handleLogout() {
+    await logout();
+    navigate("/login");
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -63,13 +76,25 @@ export function ProfilePage() {
       <div className="flex flex-col gap-4 p-4">
         <section className="flex items-center gap-3 rounded-md border border-line bg-surface-raised p-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[18px] font-medium text-accent">
-            {initials(demo.name)}
+            {initials(displayName)}
           </span>
-          <div className="min-w-0">
-            <p className="truncate text-[16px] font-semibold text-ink">{demo.name}</p>
-            <p className="text-[12px] text-muted">{demo.label} · demo account</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[16px] font-semibold text-ink">{displayName}</p>
+            {user?.display_name ? <p className="text-[12px] text-muted">{user.email}</p> : null}
+            {demo ? (
+              <p className="text-[12px] text-muted">
+                {demo.label} · demo account
+              </p>
+            ) : null}
             <p className="mt-1 font-mono text-[11px] text-muted">Planner ID: {plannerId}</p>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium hover:bg-fill"
+          >
+            Log out
+          </button>
         </section>
 
         {loading ? (
@@ -80,7 +105,7 @@ export function ProfilePage() {
               <div className="rounded-md border border-line bg-surface-raised p-3">
                 <p className="text-[11px] font-medium tracking-wide text-muted uppercase">School</p>
                 <p className="mt-1 text-[13px] text-ink">
-                  {schools.length > 0 ? schools.join(", ") : demo.school}
+                  {schools.length > 0 ? schools.join(", ") : (demo?.school ?? "HKUST")}
                 </p>
               </div>
               <div className="rounded-md border border-line bg-surface-raised p-3">

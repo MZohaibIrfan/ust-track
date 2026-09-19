@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "bytedance-seed/seed-2.0-lite"
     raw_data_dir: Path = ROOT_DIR / "data" / "raw"
+    secret_key: str
+    session_cookie_name: str = "ust_session"
+    session_max_age_seconds: int = 60 * 60 * 24 * 30
 
     @property
     def cors_origin_list(self) -> list[str]:

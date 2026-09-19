@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useAuth } from "./auth";
 import {
-  DEMO_PROFILES,
   getDemoProfile,
   getPlannerId,
   setPlannerId as persistPlannerId,
@@ -9,15 +9,20 @@ import {
 
 type PlannerContextValue = {
   plannerId: string;
-  profile: DemoProfile;
+  profile: DemoProfile | null;
   setPlannerId: (id: string) => void;
 };
 
 const PlannerContext = createContext<PlannerContextValue | null>(null);
 
 export function PlannerProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [plannerId, setPlannerIdState] = useState(getPlannerId);
-  const profile = getDemoProfile(plannerId) ?? DEMO_PROFILES[0];
+  const profile = getDemoProfile(plannerId) ?? null;
+
+  useEffect(() => {
+    setPlannerIdState(getPlannerId());
+  }, [user?.planner_id]);
 
   const setPlannerId = useCallback((id: string) => {
     persistPlannerId(id);

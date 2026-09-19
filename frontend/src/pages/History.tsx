@@ -110,6 +110,7 @@ export function HistoryPage() {
       <header className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-line px-3 py-2">
         <h1 className="text-[15px] font-semibold tracking-tight">History</h1>
         <span className="text-[11px] text-muted">{loading ? "Loading…" : `${rows.length} courses`}</span>
+        <span className="font-mono text-[11px] text-muted">{plannerId}</span>
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto">

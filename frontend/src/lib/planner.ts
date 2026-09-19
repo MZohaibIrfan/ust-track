@@ -24,6 +24,13 @@ export const DEMO_PROFILES: DemoProfile[] = [
     school: "School of Engineering",
   },
   {
+    id: "demo-y3-cosc",
+    name: "Fangle",
+    initials: "Fg",
+    label: "Year 3 · COSC + ELEC + BIEN",
+    school: "School of Engineering",
+  },
+  {
     id: "demo-y1-seng",
     name: "Zozo",
     initials: "Z",
@@ -32,9 +39,11 @@ export const DEMO_PROFILES: DemoProfile[] = [
   },
 ];
 
-export const DEMO_PLANNER_ID = DEMO_PROFILES[0].id;
+/** Shared demo planner that already has course history and sections in Supabase — only
+ * used as a last-resort fallback before a real session has set the planner id below. */
+export const DEMO_PLANNER_ID = "demo-student";
 
-const PLANNER_KEY = "ust-track:planner-id";
+const PLANNER_ID_KEY = "ust-track:planner-id";
 const PATHWAY_KEY = "ust-track:degree-pathway";
 
 function readStorage(key: string): string | null {
@@ -57,15 +66,22 @@ export function getDemoProfile(id: string): DemoProfile | undefined {
   return DEMO_PROFILES.find((profile) => profile.id === id);
 }
 
+/** The logged-in user's planner id. Set by the auth provider on login/signup/session
+ * restore, cleared on logout. Falls back to the shared demo planner only pre-auth. */
 export function getPlannerId(): string {
-  const stored = readStorage(PLANNER_KEY);
-  if (stored && getDemoProfile(stored)) return stored;
-  return DEMO_PLANNER_ID;
+  return readStorage(PLANNER_ID_KEY) || DEMO_PLANNER_ID;
 }
 
 export function setPlannerId(id: string) {
-  if (!getDemoProfile(id)) return;
-  writeStorage(PLANNER_KEY, id);
+  writeStorage(PLANNER_ID_KEY, id);
+}
+
+export function clearPlannerId() {
+  try {
+    localStorage.removeItem(PLANNER_ID_KEY);
+  } catch {
+    // private mode / tests
+  }
 }
 
 export function pathwayRoot(plannerId: string): string {

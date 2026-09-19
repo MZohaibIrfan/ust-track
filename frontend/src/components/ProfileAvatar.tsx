@@ -1,12 +1,30 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { useAuth } from "../lib/auth";
 import { usePlanner } from "../lib/PlannerContext";
 import { DEMO_PROFILES } from "../lib/planner";
 
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export function ProfileAvatar() {
+  const { user } = useAuth();
   const { plannerId, profile, setPlannerId } = usePlanner();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  const label = user?.display_name || user?.email || profile?.name || "?";
+  const onProfile = location.pathname === "/profile";
+  const ownPlannerId = user?.planner_id;
+  const onOwnPlanner = Boolean(ownPlannerId) && plannerId === ownPlannerId;
 
   useEffect(() => {
     if (!open) return;
@@ -28,19 +46,38 @@ export function ProfileAvatar() {
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        aria-label="Switch demo profile"
+        aria-label="Profile menu"
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-medium text-accent transition-opacity hover:opacity-80"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-medium transition-opacity ${
+          onProfile ? "bg-accent text-accent-ink" : "bg-accent-soft text-accent hover:opacity-80"
+        }`}
       >
-        {profile.initials}
+        {initials(label)}
       </button>
       {open ? (
         <div
           role="menu"
           className="absolute top-full right-0 z-50 mt-1 w-56 rounded-md border border-line bg-surface-raised py-1 shadow-lg sm:top-auto sm:right-auto sm:bottom-full sm:left-0 sm:mt-0 sm:mb-1"
         >
+          {ownPlannerId ? (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={onOwnPlanner}
+              onClick={() => {
+                setPlannerId(ownPlannerId);
+                setOpen(false);
+              }}
+              className={`flex w-full flex-col items-start px-2.5 py-1.5 text-left ${
+                onOwnPlanner ? "bg-fill" : "hover:bg-fill"
+              }`}
+            >
+              <span className="text-[13px] font-medium text-ink">{label}</span>
+              <span className="text-[11px] text-muted">Your account</span>
+            </button>
+          ) : null}
           <p className="px-2.5 py-1 text-[11px] text-muted">Demo profiles</p>
           {DEMO_PROFILES.map((item) => {
             const active = item.id === plannerId;
