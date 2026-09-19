@@ -1,11 +1,36 @@
-const KEY = "ust-track:planner-id";
+import type { DegreeProfile } from "./types";
 
-/** Browser-issued planner id — not an ITSC account, just a local identity for this browser. */
+export const DEMO_PLANNER_ID = "demo-student";
+
+/** Shared year-2 COMP student so Overview, Timetable, and Degree stay in sync. */
 export function getPlannerId(): string {
-  let id = localStorage.getItem(KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(KEY, id);
-  }
-  return id;
+  return DEMO_PLANNER_ID;
+}
+
+const PATHWAY_KEY = "ust-track:degree-pathway";
+
+export function getDegreePathwayId(): string {
+  return localStorage.getItem(PATHWAY_KEY) || DEMO_PLANNER_ID;
+}
+
+export function setDegreePathwayId(id: string) {
+  localStorage.setItem(PATHWAY_KEY, id);
+}
+
+export function studentHeading(profile: DegreeProfile | null): { title: string; detail: string } | null {
+  if (!profile?.declared_programs.length) return null;
+  const major =
+    profile.declared_programs.find((d) => d.role === "major") ?? profile.declared_programs[0];
+  if (!major.code) return null;
+  const extras = profile.declared_programs
+    .filter((d) => d.role !== "major" && d.code)
+    .map((d) => d.code);
+  const year = profile.standing_year ? `Year ${profile.standing_year}` : null;
+  const title = [year, [major.code, ...extras].join(" + ")].filter(Boolean).join(" · ");
+  const bits = [
+    major.name,
+    major.intake_year != null ? `intake ${major.intake_year}` : null,
+    profile.catalog_year ? `catalog ${profile.catalog_year}` : null,
+  ].filter(Boolean);
+  return { title, detail: bits.join(" · ") };
 }

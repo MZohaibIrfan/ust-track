@@ -40,7 +40,17 @@ class DeclareBody(BaseModel):
 
 @router.post("/degree/apply")
 def apply_declaration(body: DeclareBody, db: Session = Depends(get_db)) -> dict:
-    return degree_ops.declare_program(db, body.planner_id, body.program_code, body.role)
+    return degree_ops.create_pathway(db, body.planner_id, body.program_code, body.role)
+
+
+@router.get("/degree/pathways")
+def get_pathways(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return degree_ops.list_pathways(db, planner_id)
+
+
+@router.post("/degree/pathways")
+def post_pathway(body: DeclareBody, db: Session = Depends(get_db)) -> dict:
+    return degree_ops.create_pathway(db, body.planner_id, body.program_code, body.role)
 
 
 @router.get("/degree/profile")

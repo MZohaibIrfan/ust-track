@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { WeekGrid } from "../components/WeekGrid";
 import { apiGet } from "../lib/api";
-import { getPlannerId } from "../lib/planner";
+import { getPlannerId, studentHeading } from "../lib/planner";
 import { formatWeekRange, mondayOf } from "../lib/time";
-import type { Plan } from "../lib/types";
+import type { DegreeProfile, Plan } from "../lib/types";
 
 const tools = [
   {
@@ -17,7 +17,7 @@ const tools = [
     href: "/degree",
     color: "var(--page-degree)",
     label: "Degree",
-    body: "Requirements and minor trade-offs.",
+    body: "See what's done and what's still missing.",
   },
   {
     href: "/career",
@@ -31,17 +31,32 @@ const tools = [
 export function OverviewPage() {
   const weekStart = useMemo(() => mondayOf(new Date()), []);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [profile, setProfile] = useState<DegreeProfile | null>(null);
 
   useEffect(() => {
-    apiGet<Plan>(`/api/plan?planner_id=${getPlannerId()}`).then(setPlan).catch(() => {
+    const id = getPlannerId();
+    apiGet<Plan>(`/api/plan?planner_id=${id}`).then(setPlan).catch(() => {
+      // backend may not be running yet
+    });
+    apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${id}`).then(setProfile).catch(() => {
       // backend may not be running yet
     });
   }, []);
 
+  const identity = studentHeading(profile);
+
   return (
     <main className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-2 border-b border-line px-3 py-2">
-        <h1 className="text-[15px] font-semibold tracking-tight">Overview</h1>
+        <div className="min-w-0">
+          <h1 className="text-[15px] font-semibold tracking-tight">Overview</h1>
+          {identity ? (
+            <p className="mt-0.5 truncate text-[12px] text-muted">
+              <span className="font-medium text-ink">{identity.title}</span>
+              {identity.detail ? <span> · {identity.detail}</span> : null}
+            </p>
+          ) : null}
+        </div>
         <p className="font-mono text-[12px] text-muted tabular-nums">{formatWeekRange(weekStart)}</p>
       </header>
 
