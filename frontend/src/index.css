@@ -209,10 +209,47 @@ body {
   text-underline-offset: 2px;
 }
 
-.agent-md blockquote {
-  border-left: 2px solid var(--line);
-  padding-left: 0.65em;
-  color: var(--muted);
+.tt-block {
+  background: hsl(var(--course-h) 52% 93%);
+  color: hsl(var(--course-h) 38% 26%);
+  box-shadow: inset 2px 0 0 hsl(var(--course-h) 54% 46%);
+}
+
+html[data-theme="dark"] .tt-block {
+  background: hsl(var(--course-h) 28% 22%);
+  color: hsl(var(--course-h) 40% 88%);
+  box-shadow: inset 2px 0 0 hsl(var(--course-h) 48% 62%);
+}
+
+.tt-block[data-lit="true"] {
+  background: hsl(var(--course-h) 54% 44%);
+  color: #fff;
+  box-shadow: inset 2px 0 0 hsl(var(--course-h) 40% 22%);
+}
+
+html[data-theme="dark"] .tt-block[data-lit="true"] {
+  background: hsl(var(--course-h) 50% 48%);
+  box-shadow: inset 2px 0 0 #fff;
+}
+
+.tt-block[data-dim="true"] {
+  opacity: 0.42;
+}
+
+.tt-block[data-preview="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.tt-block[data-clash="true"] {
+  color: var(--danger);
+  outline: 1px solid color-mix(in srgb, var(--danger) 70%, transparent);
+  outline-offset: -1px;
+}
+
+.tt-block[data-clash="true"][data-lit="true"] {
+  color: var(--danger);
+  outline-color: var(--danger);
 }
 
 @media (prefers-reduced-motion: reduce) {

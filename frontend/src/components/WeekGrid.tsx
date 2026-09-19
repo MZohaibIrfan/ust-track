@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { courseHues, withCourseHues } from "../lib/courseColor";
 import { DAY_LABELS, WEEKDAYS, addDays, formatShortDate, isoDate, toMinutes, type Weekday } from "../lib/time";
-import type { ClassSelection } from "../lib/types";
+import type { ClassSelection, Meeting } from "../lib/types";
 
 const START_MIN = 8 * 60;
 const END_MIN = 20 * 60;
@@ -15,11 +16,18 @@ type Block = {
   venue: string;
   course_code: string;
   section_code: string;
+  preview: boolean;
 };
 
 type LaidOutBlock = Block & { col: number; cols: number };
 
 export type GridSelection = { course_code: string; section_code: string };
+
+export type PreviewSelection = {
+  course_code: string;
+  section_code: string;
+  meetings: Meeting[];
+};
 
 function isWeekday(value: string | null): value is Weekday {
   return !!value && (WEEKDAYS as readonly string[]).includes(value);
@@ -92,8 +100,45 @@ function layoutDay(blocks: Block[]): LaidOutBlock[] {
   }));
 }
 
-function clashingCourseCodes(blocksByDay: Record<Weekday, Block[]>): Set<string> {
-  const codes = new Set<string>();
+function blockKey(block: Block): string {
+  return `${block.day}|${block.course_code}|${block.section_code}|${block.start}|${block.end}`;
+}
+
+function selectionKey(courseCode: string, sectionCode: string): string {
+  return `${courseCode}|${sectionCode}`;
+}
+
+function emptyDayBlocks(): Record<Weekday, Block[]> {
+  return { Mo: [], Tu: [], We: [], Th: [], Fr: [] };
+}
+
+function pushMeetings(
+  blocksByDay: Record<Weekday, Block[]>,
+  item: { course_code: string; section_code: string; meetings: Meeting[] },
+  columnDates: Date[],
+  preview: boolean,
+) {
+  WEEKDAYS.forEach((day, i) => {
+    const dateStr = isoDate(columnDates[i]);
+    for (const m of item.meetings) {
+      if (!isWeekday(m.weekday) || m.weekday !== day || !m.start_time || !m.end_time) continue;
+      if (!activeOn(dateStr, m.start_date, m.end_date)) continue;
+      blocksByDay[day].push({
+        day,
+        start: toMinutes(m.start_time),
+        end: toMinutes(m.end_time),
+        label: `${item.course_code} ${item.section_code}`,
+        venue: m.venue,
+        course_code: item.course_code,
+        section_code: item.section_code,
+        preview,
+      });
+    }
+  });
+}
+
+function clashingBlockKeys(blocksByDay: Record<Weekday, Block[]>): Set<string> {
+  const keys = new Set<string>();
   for (const day of WEEKDAYS) {
     const blocks = blocksByDay[day];
     for (let i = 0; i < blocks.length; i++) {
@@ -102,23 +147,25 @@ function clashingCourseCodes(blocksByDay: Record<Weekday, Block[]>): Set<string>
         const b = blocks[j];
         if (a.course_code === b.course_code && a.section_code === b.section_code) continue;
         if (!timesOverlap(a, b)) continue;
-        codes.add(a.course_code);
-        codes.add(b.course_code);
+        keys.add(blockKey(a));
+        keys.add(blockKey(b));
       }
     }
   }
-  return codes;
+  return keys;
 }
 
 export function WeekGrid({
   selections,
   weekStart,
   selectedCourse,
+  preview,
   onSelect,
 }: {
   selections: ClassSelection[];
   weekStart: Date;
   selectedCourse?: string | null;
+  preview?: PreviewSelection[] | null;
   onSelect?: (selection: GridSelection | null) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
@@ -140,27 +187,24 @@ export function WeekGrid({
   const y = (minutes: number) => (minutes - START_MIN) * pxPerMin;
   const columnDates = WEEKDAYS.map((_, i) => addDays(weekStart, i));
 
-  const blocksByDay: Record<Weekday, Block[]> = { Mo: [], Tu: [], We: [], Th: [], Fr: [] };
-  WEEKDAYS.forEach((day, i) => {
-    const dateStr = isoDate(columnDates[i]);
-    for (const selection of selections) {
-      for (const m of selection.meetings) {
-        if (!isWeekday(m.weekday) || m.weekday !== day || !m.start_time || !m.end_time) continue;
-        if (!activeOn(dateStr, m.start_date, m.end_date)) continue;
-        blocksByDay[day].push({
-          day,
-          start: toMinutes(m.start_time),
-          end: toMinutes(m.end_time),
-          label: `${selection.course_code} ${selection.section_code}`,
-          venue: m.venue,
-          course_code: selection.course_code,
-          section_code: selection.section_code,
-        });
-      }
-    }
-  });
+  const blocksByDay = emptyDayBlocks();
+  const onPlan = new Set(selections.map((selection) => selectionKey(selection.course_code, selection.section_code)));
+  for (const selection of selections) {
+    pushMeetings(blocksByDay, selection, columnDates, false);
+  }
+  for (const item of preview ?? []) {
+    if (onPlan.has(selectionKey(item.course_code, item.section_code))) continue;
+    pushMeetings(blocksByDay, item, columnDates, true);
+  }
 
-  const clashing = clashingCourseCodes(blocksByDay);
+  const hues = useMemo(() => {
+    const planHues = courseHues(selections.map((selection) => selection.course_code));
+    return withCourseHues(
+      planHues,
+      (preview ?? []).map((item) => item.course_code),
+    );
+  }, [selections, preview]);
+  const clashing = clashingBlockKeys(blocksByDay);
   const laidOutByDay: Record<Weekday, LaidOutBlock[]> = {
     Mo: layoutDay(blocksByDay.Mo),
     Tu: layoutDay(blocksByDay.Tu),
@@ -208,48 +252,40 @@ export function WeekGrid({
                 />
               ))}
               {laidOutByDay[day].map((b, i) => {
-                const lit = selectedCourse != null && b.course_code === selectedCourse;
-                const dimmed = selectedCourse != null && !lit;
-                const clash = clashing.has(b.course_code);
-                const className = `absolute overflow-hidden rounded-[3px] py-0.5 pr-1 pl-1.5 text-left text-[11px] leading-tight ${
-                  clash && lit
-                    ? "bg-danger text-danger-ink"
-                    : clash && dimmed
-                      ? "bg-danger-soft/50 text-muted"
-                      : clash
-                        ? "bg-danger-soft text-danger"
-                        : lit
-                          ? "bg-accent text-accent-ink"
-                          : dimmed
-                            ? "bg-accent-soft/50 text-muted"
-                            : "bg-accent-soft"
-                }`;
+                const lit = !b.preview && selectedCourse != null && b.course_code === selectedCourse;
+                const dimmed = !b.preview && selectedCourse != null && !lit;
+                const clash = clashing.has(blockKey(b));
+                const className =
+                  "tt-block absolute overflow-hidden rounded-[3px] py-0.5 pr-1 pl-1.5 text-left text-[11px] leading-tight";
                 const style = {
+                  "--course-h": String(hues.get(b.course_code.toUpperCase()) ?? 234),
                   top: `${y(b.start)}px`,
                   height: `${Math.max((b.end - b.start) * pxPerMin, 20)}px`,
                   left: `calc(${(b.col / b.cols) * 100}% + 2px)`,
                   width: `calc(${100 / b.cols}% - 4px)`,
-                  boxShadow: clash
-                    ? lit
-                      ? "inset 2px 0 0 var(--danger-ink)"
-                      : "inset 2px 0 0 var(--danger)"
-                    : lit
-                      ? "inset 2px 0 0 var(--accent-ink)"
-                      : "inset 2px 0 0 var(--accent)",
-                };
+                } as CSSProperties;
                 const body = (
                   <>
                     <p className="font-medium">{b.label}</p>
-                    <p className={lit ? "tabular-nums opacity-80" : clash ? "tabular-nums opacity-80" : "text-muted tabular-nums"}>
+                    <p className="tabular-nums opacity-80">
                       {formatMinutes(b.start)}–{formatMinutes(b.end)}
                       {b.venue ? ` · ${b.venue}` : ""}
                     </p>
                   </>
                 );
-                const title = clash ? "Time clash" : undefined;
-                if (!onSelect) {
+                const title = b.preview ? "Preview" : clash ? "Time clash" : undefined;
+                const attrs = {
+                  className,
+                  style,
+                  title,
+                  "data-lit": lit || undefined,
+                  "data-dim": dimmed || undefined,
+                  "data-clash": clash || undefined,
+                  "data-preview": b.preview || undefined,
+                };
+                if (b.preview || !onSelect) {
                   return (
-                    <div key={`${b.course_code}-${b.section_code}-${i}`} className={className} style={style} title={title}>
+                    <div key={`${b.preview ? "preview-" : ""}${b.course_code}-${b.section_code}-${i}`} {...attrs}>
                       {body}
                     </div>
                   );
@@ -258,9 +294,8 @@ export function WeekGrid({
                   <button
                     key={`${b.course_code}-${b.section_code}-${i}`}
                     type="button"
+                    {...attrs}
                     className={`${className} cursor-pointer`}
-                    style={style}
-                    title={title}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelect({ course_code: b.course_code, section_code: b.section_code });
