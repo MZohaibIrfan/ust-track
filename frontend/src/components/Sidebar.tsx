@@ -3,7 +3,8 @@ import { NavLink } from "react-router-dom";
 import logo from "../assets/ustrack-logo.png";
 import { apiGet } from "../lib/api";
 import { useCollapsed } from "../lib/collapse";
-import { getPlannerId, studentHeading } from "../lib/planner";
+import { usePlanner } from "../lib/PlannerContext";
+import { studentHeading } from "../lib/planner";
 import type { DegreeProfile } from "../lib/types";
 import { CollapseButton } from "./CollapseButton";
 import { CareerIcon, DegreeIcon, HistoryIcon, OverviewIcon, TimetableIcon } from "./NavIcons";
@@ -19,16 +20,25 @@ const links = [
 ];
 
 export function Sidebar() {
+  const { plannerId, profile } = usePlanner();
   const [identity, setIdentity] = useState<{ title: string; detail: string } | null>(null);
   const [collapsed, setCollapsed] = useCollapsed("ust-track:sidebar-collapsed");
 
   useEffect(() => {
-    apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${getPlannerId()}`)
-      .then((profile) => setIdentity(studentHeading(profile)))
+    let cancelled = false;
+    const fallback = profile ? { title: profile.label, detail: profile.name } : null;
+    setIdentity(fallback);
+    apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
+      .then((next) => {
+        if (!cancelled) setIdentity(studentHeading(next) ?? fallback);
+      })
       .catch(() => {
-        // backend may not be running yet
+        if (!cancelled) setIdentity(fallback);
       });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [plannerId, profile]);
 
   return (
     <header

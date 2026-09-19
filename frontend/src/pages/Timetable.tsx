@@ -16,7 +16,7 @@ import {
   mondayOf,
   parseISODate,
 } from "../lib/time";
-import { getPlannerId } from "../lib/planner";
+import { usePlanner } from "../lib/PlannerContext";
 import type { Plan, SectionActionPayload, Term } from "../lib/types";
 
 type Mode = AgentMode;
@@ -195,7 +195,7 @@ function ChatBubble({
 }
 
 export function TimetablePage() {
-  const plannerId = useRef(getPlannerId()).current;
+  const { plannerId } = usePlanner();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -237,20 +237,41 @@ export function TimetablePage() {
   }
 
   useEffect(() => {
-    refreshPlan();
+    let cancelled = false;
+    setMessages([]);
+    setAppliedKeys(new Set());
+    setPreview(null);
+    setSelected(null);
+    setError(null);
+    apiGet<Plan>(`/api/plan?planner_id=${plannerId}`)
+      .then((next) => {
+        if (!cancelled) setPlan(next);
+      })
+      .catch(() => {
+        // backend may not be running yet — the grid just stays empty
+      });
     apiGetCached<Term[]>("/api/term")
-      .then(setTerms)
+      .then((next) => {
+        if (!cancelled) setTerms(next);
+      })
       .catch(() => {
         // no terms yet — the calendar still shows, just anchored on today with no nav bounds
       });
+    setChatLoaded(false);
     apiGet<{ messages: ChatMessage[] }>(`/api/timetable/chat?planner_id=${plannerId}`)
-      .then((res) => setMessages(res.messages))
+      .then((res) => {
+        if (!cancelled) setMessages(res.messages);
+      })
       .catch(() => {
         // backend may not be running yet — chat just starts empty
       })
-      .finally(() => setChatLoaded(true));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .finally(() => {
+        if (!cancelled) setChatLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [plannerId]);
 
   async function clearChat() {
     setMessages([]);

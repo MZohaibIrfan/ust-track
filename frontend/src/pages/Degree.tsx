@@ -3,12 +3,14 @@ import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
+import { DegreeDashboard } from "../components/DegreeDashboard";
 import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
 import { RequirementGroup } from "../components/RequirementTree";
+import { StudyPlan } from "../components/StudyPlan";
 import { ThinkingDots } from "../components/ThinkingDots";
 import { apiDelete, apiGet, apiGetCached, apiPost, apiPostStream, apiPut } from "../lib/api";
+import { DUMMY_EXCHANGE_OPTIONS, programTotals, suggestCourses } from "../lib/degreeDashboard";
 import {
-  DEFAULT_SCOPE,
   PATHWAY_SCOPES,
   PATHWAY_VIEWS,
   countStatuses,
@@ -16,7 +18,8 @@ import {
   type PathwayScope,
   type PathwayView,
 } from "../lib/pathway";
-import { getDegreePathwayId, getPlannerId, setDegreePathwayId } from "../lib/planner";
+import { getDegreePathwayId, setDegreePathwayId, studentHeading } from "../lib/planner";
+import { usePlanner } from "../lib/PlannerContext";
 import type {
   AcademicYear,
   CatalogProgram,
@@ -24,8 +27,10 @@ import type {
   DegreeProfile,
   ProgramActionPayload,
   RequirementProgress,
+  StudyPathway,
 } from "../lib/types";
 
+type Pane = "requirements" | "study_plan";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Segment =
   | { kind: "text"; text: string }
@@ -160,16 +165,19 @@ function ChatBubble({
 }
 
 export function DegreePage() {
+  const { plannerId } = usePlanner();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const loadGen = useRef(0);
 
-  const [pathwayId, setPathwayId] = useState(getDegreePathwayId);
+  const [pathwayId, setPathwayId] = useState(() => getDegreePathwayId(plannerId));
   const [pathways, setPathways] = useState<DegreePathway[]>([]);
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
-  const [years, setYears] = useState<AcademicYear[]>([]);
   const [programs, setPrograms] = useState<CatalogProgram[]>([]);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [progress, setProgress] = useState<RequirementProgress | null>(null);
+  const [studyPlan, setStudyPlan] = useState<StudyPathway | null>(null);
   const [loadingTree, setLoadingTree] = useState(false);
+  const [pane, setPane] = useState<Pane>("requirements");
   const [mode, setMode] = useState<AgentMode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoaded, setChatLoaded] = useState(false);
@@ -180,20 +188,28 @@ export function DegreePage() {
   const [error, setError] = useState<string | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
   const [view, setView] = useState<PathwayView>("remaining");
-  const [scope, setScope] = useState<PathwayScope>(DEFAULT_SCOPE);
+  const [scope, setScope] = useState<PathwayScope>("all");
   const [query, setQuery] = useState("");
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [progressByCode, setProgressByCode] = useState<Record<string, RequirementProgress>>({});
+  const [years, setYears] = useState<AcademicYear[]>([]);
 
   const declared = profile?.declared_programs ?? [];
   const selectedProgram = programs.find((p) => p.code === selectedCode) ?? null;
   const declaredEntry = declared.find((d) => d.code === selectedCode);
   const entryYear = profile?.entry_year ?? declared.find((d) => d.intake_year)?.intake_year ?? null;
+  const studyPlanCode =
+    selectedCode === "COMP" || declared.some((d) => d.code === "COMP") ? "COMP" : selectedCode;
+  const studyPlanAvailable = Boolean(studyPlan?.available);
 
   async function refreshProfile() {
+    const gen = ++loadGen.current;
     try {
       const [listed, p] = await Promise.all([
-        apiGet<{ pathways: DegreePathway[] }>(`/api/degree/pathways?planner_id=${getPlannerId()}`),
+        apiGet<{ pathways: DegreePathway[] }>(`/api/degree/pathways?planner_id=${plannerId}`),
         apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${pathwayId}`),
       ]);
+      if (gen !== loadGen.current) return;
       setPathways(listed.pathways);
       setProfile(p);
       setAppliedKeys((prev) => {
@@ -208,6 +224,7 @@ export function DegreePage() {
         return p.declared_programs.find((d) => d.code)?.code ?? null;
       });
     } catch {
+      if (gen !== loadGen.current) return;
       setError("Couldn't load the student profile.");
     }
   }
@@ -222,26 +239,10 @@ export function DegreePage() {
         if (current && list.some((program) => program.code === current)) return current;
         const declaredCode = declared.find((d) => d.code)?.code;
         if (declaredCode && list.some((program) => program.code === declaredCode)) return declaredCode;
-        return list.find((p) => p.code === "COMP")?.code ?? list.find((p) => p.has_requirements)?.code ?? null;
+        return null;
       });
     } catch {
       setError("Couldn't load the program catalog.");
-    }
-  }
-
-  async function loadProgress(code: string, year: number | null) {
-    setLoadingTree(true);
-    try {
-      const yearQuery = year ? `&intake_year=${year}` : "";
-      const next = await apiGet<RequirementProgress>(
-        `/api/degree/progress?planner_id=${pathwayId}&program_code=${encodeURIComponent(code)}${yearQuery}`,
-      );
-      setProgress(next);
-    } catch {
-      setError("Couldn't load that program's requirements.");
-      setProgress(null);
-    } finally {
-      setLoadingTree(false);
     }
   }
 
@@ -258,10 +259,49 @@ export function DegreePage() {
     }
   }
 
+  async function loadProgress(code: string, year: number | null) {
+    setLoadingTree(true);
+    try {
+      const yearQuery = year ? `&intake_year=${year}` : "";
+      const next = await apiGet<RequirementProgress>(
+        `/api/degree/progress?planner_id=${pathwayId}&program_code=${encodeURIComponent(code)}${yearQuery}`,
+      );
+      setProgress(next);
+      if (next.code) {
+        setProgressByCode((prev) => ({ ...prev, [next.code]: next }));
+      }
+    } catch {
+      setError("Couldn't load that program's requirements.");
+      setProgress(null);
+    } finally {
+      setLoadingTree(false);
+    }
+  }
+
   useEffect(() => {
-    apiGetCached<AcademicYear[]>("/api/academic-years").then(setYears).catch(() => {
-      // year picker stays empty until the catalog years load
-    });
+    setPathwayId(getDegreePathwayId(plannerId));
+    setSelectedCode(null);
+    setMessages([]);
+    setAppliedKeys(new Set());
+    setProgress(null);
+    setProgressByCode({});
+    setStudyPlan(null);
+    setProfile(null);
+    setPathways([]);
+    setError(null);
+    setBrowseOpen(false);
+    setPane("requirements");
+  }, [plannerId]);
+
+  useEffect(() => {
+    apiGetCached<AcademicYear[]>("/api/academic-years")
+      .then(setYears)
+      .catch(() => {
+        // year picker stays empty until the catalog years load
+      });
+  }, []);
+
+  useEffect(() => {
     refreshProfile();
 
     setChatLoaded(false);
@@ -290,7 +330,7 @@ export function DegreePage() {
     if (!profile) return;
     void loadPrograms(entryYear, selectedCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.entry_year]);
+  }, [profile?.entry_year, profile?.planner_id]);
 
   useEffect(() => {
     if (!selectedCode || !profile) return;
@@ -298,6 +338,48 @@ export function DegreePage() {
     loadProgress(selectedCode, entryYear);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCode, entryYear, profile]);
+
+  const otherDeclaredCodes = declared
+    .map((item) => item.code)
+    .filter((code): code is string => Boolean(code) && code !== selectedCode)
+    .join(",");
+
+  useEffect(() => {
+    if (!profile || !otherDeclaredCodes) return;
+    const codes = otherDeclaredCodes.split(",");
+    const yearQuery = entryYear ? `&intake_year=${entryYear}` : "";
+    void Promise.all(
+      codes.map(async (code) => {
+        const next = await apiGet<RequirementProgress>(
+          `/api/degree/progress?planner_id=${pathwayId}&program_code=${encodeURIComponent(code)}${yearQuery}`,
+        );
+        return [code, next] as const;
+      }),
+    )
+      .then((entries) => {
+        setProgressByCode((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+      })
+      .catch(() => {
+        // selected program tree still loads on its own
+      });
+  }, [otherDeclaredCodes, entryYear, pathwayId, profile]);
+
+  useEffect(() => {
+    if (!studyPlanCode || !profile) {
+      setStudyPlan(null);
+      return;
+    }
+    const yearQuery = entryYear ? `&intake_year=${entryYear}` : "";
+    apiGet<StudyPathway>(
+      `/api/degree/study-pathway?program_code=${encodeURIComponent(studyPlanCode)}&planner_id=${pathwayId}${yearQuery}`,
+    )
+      .then((next) => {
+        setStudyPlan(next);
+      })
+      .catch(() => {
+        setStudyPlan(null);
+      });
+  }, [studyPlanCode, entryYear, pathwayId, profile]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -422,6 +504,23 @@ export function DegreePage() {
     [progress, view, scopeBuckets, query],
   );
   const totals = useMemo(() => countStatuses(visibleGroups), [visibleGroups]);
+  const identity = studentHeading(profile);
+  const suggestions = useMemo(() => suggestCourses(progress, studyPlan), [progress, studyPlan]);
+  const dashboardPrograms = useMemo(
+    () =>
+      declared
+        .filter((item): item is { code: string; role: string; intake_year: number | null } => Boolean(item.code))
+        .map((item) => {
+          const totalsFor = programTotals(progressByCode[item.code] ?? (item.code === selectedCode ? progress : null));
+          return {
+            code: item.code,
+            name: progressByCode[item.code]?.name ?? item.code,
+            role: item.role,
+            ...totalsFor,
+          };
+        }),
+    [declared, progressByCode, progress, selectedCode],
+  );
 
   return (
     <main className="flex h-full min-h-0 flex-col">
@@ -440,6 +539,15 @@ export function DegreePage() {
             ))}
           </select>
         ) : null}
+        <button
+          type="button"
+          onClick={() => setBrowseOpen((open) => !open)}
+          className={`rounded-xl px-2.5 py-1 text-[12px] ${
+            browseOpen ? "bg-fill font-medium text-ink" : "border border-line text-muted hover:text-ink"
+          }`}
+        >
+          Browse catalog
+        </button>
         <label className="flex items-center gap-1.5 text-[12px] text-muted">
           Entry
           <select
@@ -464,14 +572,39 @@ export function DegreePage() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
-        <ProgramsPanel
-          programs={programs}
-          declared={declared}
-          selected={selectedCode}
-          onSelect={setSelectedCode}
-        />
-
-        <section className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl border border-line bg-surface-raised shadow-soft">
+        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft">
+          {browseOpen ? (
+            <>
+              <button
+                type="button"
+                className="absolute inset-0 z-20 bg-ink/20"
+                aria-label="Close catalog"
+                onClick={() => setBrowseOpen(false)}
+              />
+              <div className="absolute inset-y-0 left-0 z-30 flex w-72 max-w-[85%] shadow-lg">
+                <ProgramsPanel
+                  programs={programs}
+                  declared={declared}
+                  selected={selectedCode}
+                  onSelect={(code) => {
+                    setSelectedCode(code);
+                    setBrowseOpen(false);
+                  }}
+                  onClose={() => setBrowseOpen(false)}
+                />
+              </div>
+            </>
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-auto">
+          <DegreeDashboard
+            title={identity?.title ?? "Degree planner"}
+            detail={identity?.detail ?? "Declare a program to see remaining requirements."}
+            programs={dashboardPrograms}
+            selectedCode={selectedCode}
+            onSelect={setSelectedCode}
+            suggestions={suggestions}
+            exchanges={DUMMY_EXCHANGE_OPTIONS}
+          />
           {progress ? (
             <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-2">
               <div className="min-w-0">
@@ -508,55 +641,93 @@ export function DegreePage() {
             <h2 className="border-b border-line px-4 py-2 text-[12px] font-medium text-muted">Requirements</h2>
           )}
 
-          {progress ? (
-            <div className="flex flex-wrap items-end gap-x-4 border-b border-line px-3">
-              {PATHWAY_VIEWS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setView(option.id)}
-                  className={`-mb-px border-b-2 py-2 text-[13px] ${
-                    view === option.id
-                      ? "border-ink font-medium text-ink"
-                      : "border-transparent text-muted hover:text-ink"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-              <div className="ml-auto flex min-w-0 items-center gap-3 py-1.5">
-                <span className="hidden font-mono text-[11px] text-muted sm:inline">
-                  {totals.missing} open{progress.catalog_year || progress.year ? ` · ${progress.catalog_year ?? progress.year}` : ""}
-                </span>
-                <select
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value as PathwayScope)}
-                  className="bg-bg py-0.5 text-[13px] text-ink"
-                >
-                  {PATHWAY_SCOPES.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Find a course"
-                  className="w-28 bg-transparent py-0.5 text-[13px] outline-none placeholder:text-muted focus:w-40 sm:w-36"
-                />
-              </div>
-            </div>
+          {studyPlanAvailable ? (
+          <div className="flex flex-wrap items-end gap-x-4 border-b border-line px-3">
+            <button
+              type="button"
+              onClick={() => setPane("requirements")}
+              className={`-mb-px border-b-2 py-2 text-[13px] ${
+                pane === "requirements"
+                  ? "border-ink font-medium text-ink"
+                  : "border-transparent text-muted hover:text-ink"
+              }`}
+            >
+              Requirements
+            </button>
+            <button
+              type="button"
+              onClick={() => setPane("study_plan")}
+              className={`-mb-px border-b-2 py-2 text-[13px] ${
+                pane === "study_plan"
+                  ? "border-ink font-medium text-ink"
+                  : "border-transparent text-muted hover:text-ink"
+              }`}
+            >
+              Study plan
+            </button>
+          </div>
           ) : null}
 
-          {loadingTree ? (
+          {pane === "requirements" && progress ? (
+            <>
+              <div className="flex flex-wrap items-end gap-x-1 border-b border-line bg-fill px-3" role="tablist" aria-label="Requirement section">
+                {PATHWAY_SCOPES.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={scope === option.id}
+                    onClick={() => setScope(option.id)}
+                    className={`-mb-px border-b-2 px-3 py-2 text-[13px] ${
+                      scope === option.id
+                        ? "border-ink bg-bg font-medium text-ink"
+                        : "border-transparent text-muted hover:text-ink"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-end gap-x-4 border-b border-line px-3">
+                {PATHWAY_VIEWS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setView(option.id)}
+                    className={`-mb-px border-b-2 py-2 text-[13px] ${
+                      view === option.id
+                        ? "border-ink font-medium text-ink"
+                        : "border-transparent text-muted hover:text-ink"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <div className="ml-auto flex min-w-0 items-center gap-3 py-1.5">
+                  <span className="hidden font-mono text-[11px] text-muted sm:inline">
+                    {totals.missing} open{progress.catalog_year || progress.year ? ` · ${progress.catalog_year ?? progress.year}` : ""}
+                  </span>
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Find a course"
+                    className="w-28 bg-transparent py-0.5 text-[13px] outline-none placeholder:text-muted focus:w-40 sm:w-36"
+                  />
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {pane === "study_plan" ? (
+            <StudyPlan data={studyPlan?.available ? studyPlan : null} progress={progress} plannerId={pathwayId} />
+          ) : loadingTree ? (
             <p className="px-4 py-2.5 text-[13px] text-muted">Loading requirements…</p>
           ) : progress?.error ? (
             <p className="px-4 py-2.5 text-[13px] text-muted">{progress.error}</p>
           ) : progress && visibleGroups.length > 0 ? (
             <div className="flex flex-col gap-2 p-3">
               {visibleGroups.map((group, i) => (
-                <RequirementGroup key={`${group.name}-${i}`} group={group} />
+                <RequirementGroup key={`${group.name}-${i}`} group={group} programCode={progress.code} />
               ))}
             </div>
           ) : progress && progress.requirements.length > 0 ? (
@@ -568,6 +739,7 @@ export function DegreePage() {
               {selectedCode ? "No requirement data for this program yet." : "Select a program to see its requirements."}
             </p>
           )}
+          </div>
         </section>
 
         <AgentPanel>

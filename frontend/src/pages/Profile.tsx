@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { getPlannerId } from "../lib/planner";
+import { usePlanner } from "../lib/PlannerContext";
 import type { DeclaredProgram, DegreeProfile } from "../lib/types";
 
 const MINOR_ROLES = new Set(["minor"]);
@@ -10,8 +10,11 @@ const MINOR_ROLES = new Set(["minor"]);
 function initials(name: string): string {
   return name
     .split(" ")
+    .filter(Boolean)
     .map((part) => part[0])
-    .join("");
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 function ProgramCard({ program }: { program: DeclaredProgram }) {
@@ -28,10 +31,10 @@ function ProgramCard({ program }: { program: DeclaredProgram }) {
 }
 
 export function ProfilePage() {
-  const plannerId = getPlannerId();
+  const { plannerId, profile: demo } = usePlanner();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const displayName = user?.display_name || user?.email || "Signed in";
+  const displayName = user?.display_name || user?.email || demo?.name || "Signed in";
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,12 +44,22 @@ export function ProfilePage() {
   }
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setProfile(null);
     apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
-      .then(setProfile)
-      .catch(() => {
-        // backend may not be running yet
+      .then((next) => {
+        if (!cancelled) setProfile(next);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setProfile(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [plannerId]);
 
   const declared = profile?.declared_programs.filter((d) => d.code) ?? [];
@@ -68,6 +81,11 @@ export function ProfilePage() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-[17px] font-semibold text-ink">{displayName}</p>
             {user?.display_name ? <p className="text-[12px] text-muted">{user.email}</p> : null}
+            {demo ? (
+              <p className="text-[12px] text-muted">
+                {demo.label} · demo account
+              </p>
+            ) : null}
             <p className="mt-1 font-mono text-[11px] text-muted">Planner ID: {plannerId}</p>
           </div>
           <button
@@ -90,7 +108,7 @@ export function ProfilePage() {
                   School
                 </p>
                 <p className="mt-1.5 text-[14px] font-medium text-ink">
-                  {schools.length > 0 ? schools.join(", ") : "HKUST"}
+                  {schools.length > 0 ? schools.join(", ") : (demo?.school ?? "HKUST")}
                 </p>
               </div>
               <div className="rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">

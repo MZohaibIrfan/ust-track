@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.services import chat_ops, degree_ops
 from app.services.agents.degree import Mode, stream_advisor
+from app.services.study_pathway import get_study_pathway
 
 router = APIRouter()
 
@@ -104,3 +105,13 @@ def get_progress(
     db: Session = Depends(get_db),
 ) -> dict:
     return degree_ops.check_requirement_progress(db, planner_id, program_code, intake_year)
+
+
+@router.get("/degree/study-pathway")
+def study_pathway(
+    program_code: str,
+    planner_id: str | None = None,
+    intake_year: int | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    return get_study_pathway(db, program_code, planner_id, intake_year)

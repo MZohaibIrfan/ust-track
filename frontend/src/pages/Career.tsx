@@ -4,7 +4,7 @@ import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { CareerIcon } from "../components/NavIcons";
 import { apiDelete, apiGet, apiPost, apiPostStream } from "../lib/api";
-import { getPlannerId } from "../lib/planner";
+import { usePlanner } from "../lib/PlannerContext";
 import type { CourseMatch, Experience, JobMatchResult } from "../lib/types";
 
 function Icon({ children, className }: { children: ReactNode; className?: string }) {
@@ -281,7 +281,7 @@ function ChatBubble({ message, pending }: { message: ChatMessage; pending: boole
 }
 
 export function CareerPage() {
-  const plannerId = getPlannerId();
+  const { plannerId } = usePlanner();
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -319,15 +319,39 @@ export function CareerPage() {
   }
 
   useEffect(() => {
-    refreshExperiences();
+    let cancelled = false;
+    setMessages([]);
+    setInput("");
+    setShowForm(false);
+    setError(null);
+    setChatError(null);
+    setLoading(true);
+    setExperiences([]);
+    setChatLoaded(false);
+    apiGet<{ experiences: Experience[] }>(`/api/career/experiences?planner_id=${plannerId}`)
+      .then((result) => {
+        if (!cancelled) setExperiences(result.experiences);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Couldn't reach the server.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     apiGet<{ messages: ChatMessage[] }>(`/api/career/chat?planner_id=${plannerId}`)
-      .then((res) => setMessages(res.messages))
+      .then((res) => {
+        if (!cancelled) setMessages(res.messages);
+      })
       .catch(() => {
         // backend may not be running yet — chat just starts empty
       })
-      .finally(() => setChatLoaded(true));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .finally(() => {
+        if (!cancelled) setChatLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [plannerId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });

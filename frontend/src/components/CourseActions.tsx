@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { apiGetCached, apiPost } from "../lib/api";
-import { courseHue } from "../lib/courseColor";
+import { courseHue, courseHues } from "../lib/courseColor";
 import { DAY_LABELS } from "../lib/time";
 import type { CatalogSection, CourseDetail, Plan, RemovedPayload, SectionActionPayload } from "../lib/types";
 import type { GridSelection } from "./WeekGrid";
@@ -69,6 +69,7 @@ function PickList({
 
 export function CourseActions({
   plannerId,
+  plan,
   selected,
   onClose,
   onChanged,
@@ -79,6 +80,11 @@ export function CourseActions({
   onClose: () => void;
   onChanged: (plan?: Plan) => void;
 }) {
+  const hues = useMemo(
+    () => courseHues((plan?.class_selections ?? []).map((row) => row.course_code)),
+    [plan],
+  );
+  const hue = hues.get(selected.course_code.toUpperCase()) ?? courseHue(selected.course_code);
   const [swapping, setSwapping] = useState(false);
   const [detail, setDetail] = useState<CourseDetail | null>(null);
   const [busy, setBusy] = useState(false);
@@ -206,19 +212,20 @@ export function CourseActions({
 
   return (
     <div
-      className="tt-block shrink-0 border-b border-line px-3 py-2"
-      style={{ "--course-h": String(courseHue(selected.course_code)) } as CSSProperties}
+      className="tt-block tt-action-bar shrink-0 border-b border-line px-3 py-2"
+      style={{ "--course-h": String(hue) } as CSSProperties}
+      data-lit="true"
     >
       <div className="flex flex-wrap items-center gap-2">
         <p className="font-mono text-[13px] font-medium">
-          {selected.course_code} <span className="text-muted">{selected.section_code}</span>
+          {selected.course_code} <span className="opacity-70">{selected.section_code}</span>
         </p>
         <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
             disabled={busy}
             onClick={openSwap}
-            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill disabled:opacity-40"
+            className="rounded-xl border border-white/30 bg-white/15 px-2 py-1 text-[12px] font-medium hover:bg-white/25 disabled:opacity-40"
           >
             Swap section
           </button>
@@ -226,14 +233,14 @@ export function CourseActions({
             type="button"
             disabled={busy}
             onClick={dropCourse}
-            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill disabled:opacity-40"
+            className="rounded-xl border border-white/30 bg-white/15 px-2 py-1 text-[12px] font-medium hover:bg-white/25 disabled:opacity-40"
           >
             Drop
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl px-1.5 py-1 text-[12px] text-muted hover:bg-fill hover:text-ink"
+            className="rounded-xl px-1.5 py-1 text-[12px] opacity-70 hover:bg-white/15 hover:opacity-100"
           >
             Close
           </button>

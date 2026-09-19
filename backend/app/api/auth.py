@@ -25,11 +25,12 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 def _user_payload(user: User) -> dict:
+    planner_id = user.planner.planner_id if user.planner is not None else str(user.id)
     return {
         "id": str(user.id),
         "email": user.email,
         "display_name": user.display_name,
-        "planner_id": str(user.id),
+        "planner_id": planner_id,
         "onboarding_completed_at": user.onboarding_completed_at.isoformat()
         if user.onboarding_completed_at
         else None,
