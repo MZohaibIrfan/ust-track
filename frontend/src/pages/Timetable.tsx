@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AgentMarkdown } from "../components/AgentMarkdown";
+import { CatalogPanel } from "../components/CatalogPanel";
+import { CourseActions } from "../components/CourseActions";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
-import { WeekGrid } from "../components/WeekGrid";
-import { apiGet, apiPost, apiPostStream } from "../lib/api";
+import { ThinkingDots } from "../components/ThinkingDots";
+import { WeekGrid, type GridSelection } from "../components/WeekGrid";
+import { apiGet, apiGetCached, apiPost, apiPostStream } from "../lib/api";
 import {
   DAY_LABELS,
   addDays,
@@ -72,6 +76,9 @@ function SectionCard({
   const meeting = data.meetings?.[0];
   const isApplied = kind === "applied" || applied;
   const isRemoved = kind === "removed";
+  const replacing = data.replaces_course_code
+    ? `${data.replaces_course_code}${data.replaces_section_code ? ` ${data.replaces_section_code}` : ""}`
+    : null;
 
   return (
     <div className="rounded-md border border-line bg-surface-raised px-3 py-2.5 text-[13px]">
@@ -80,6 +87,7 @@ function SectionCard({
           <p className="font-mono font-medium">
             {data.course_code} {data.section_code}
           </p>
+          {replacing ? <p className="mt-0.5 text-[12px] text-muted">Replaces {replacing}</p> : null}
           {meeting?.weekday && meeting.start_time && meeting.end_time ? (
             <p className="mt-0.5 text-[12px] text-muted tabular-nums">
               {DAY_LABELS[meeting.weekday] ?? meeting.weekday} {meeting.start_time.slice(0, 5)}–
@@ -91,13 +99,13 @@ function SectionCard({
         {isRemoved ? (
           <span className="shrink-0 text-[12px] text-muted">Removed</span>
         ) : isApplied ? (
-          <span className="shrink-0 text-[12px] font-medium text-accent">Added</span>
+          <span className="shrink-0 text-[12px] font-medium text-accent">{replacing ? "Replaced" : "Added"}</span>
         ) : (
           <button
             onClick={() => onApply(data)}
             className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
           >
-            Apply
+            {replacing ? "Replace" : "Apply"}
           </button>
         )}
       </div>
@@ -131,21 +139,14 @@ function ChatBubble({
 
   const segments = parseSegments(message.content);
   if (segments.length === 0) {
-    return pending ? (
-      <div className="mr-auto max-w-[85%] rounded-md bg-bg px-3 py-2 text-[13px] text-muted">…</div>
-    ) : null;
+    return pending ? <ThinkingDots /> : null;
   }
 
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-2">
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
-          <p
-            key={i}
-            className="rounded-md bg-bg px-3 py-2 text-[13px] leading-5 whitespace-pre-wrap"
-          >
-            {seg.text.trim()}
-          </p>
+          <AgentMarkdown key={i}>{seg.text}</AgentMarkdown>
         ) : (
           <SectionCard
             key={i}
@@ -156,6 +157,7 @@ function ChatBubble({
           />
         ),
       )}
+      {pending ? <ThinkingDots boxed={false} /> : null}
     </div>
   );
 }
@@ -173,6 +175,7 @@ export function TimetablePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<GridSelection | null>(null);
 
   // Bounds come from whatever terms the catalog actually has — nothing here is a fixed date.
   const bounds = useMemo(() => {
@@ -193,9 +196,14 @@ export function TimetablePage() {
     }
   }
 
+  function applyPlanUpdate(next?: Plan) {
+    if (next) setPlan(next);
+    else void refreshPlan();
+  }
+
   useEffect(() => {
     refreshPlan();
-    apiGet<Term[]>("/api/term")
+    apiGetCached<Term[]>("/api/term")
       .then(setTerms)
       .catch(() => {
         // no terms yet — the calendar still shows, just anchored on today with no nav bounds
@@ -215,14 +223,16 @@ export function TimetablePage() {
 
   async function applySuggestion(data: SectionActionPayload) {
     try {
-      await apiPost("/api/timetable/apply", {
+      const result = await apiPost<SectionActionPayload>("/api/timetable/apply", {
         planner_id: plannerId,
         course_code: data.course_code,
         section_code: data.section_code,
         term_code: data.term_code,
+        replaces_course_code: data.replaces_course_code,
+        replaces_section_code: data.replaces_section_code,
       });
       setAppliedKeys((prev) => new Set(prev).add(`${data.course_code}|${data.section_code}`));
-      refreshPlan();
+      applyPlanUpdate(result.plan);
     } catch {
       setError("Couldn't apply that suggestion — check the server is running.");
     }
@@ -305,8 +315,33 @@ export function TimetablePage() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="min-h-0 min-w-0 flex-1 border-r border-line">
-          <WeekGrid selections={plan?.class_selections ?? []} weekStart={weekStart} />
+        <CatalogPanel plannerId={plannerId} plan={plan} onApplied={applyPlanUpdate} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-line">
+          {selected ? (
+            <CourseActions
+              plannerId={plannerId}
+              plan={plan}
+              selected={selected}
+              onClose={() => setSelected(null)}
+              onChanged={applyPlanUpdate}
+            />
+          ) : null}
+          <WeekGrid
+            selections={plan?.class_selections ?? []}
+            weekStart={weekStart}
+            selectedCourse={selected?.course_code ?? null}
+            onSelect={(next) => {
+              if (!next) {
+                setSelected(null);
+                return;
+              }
+              setSelected((cur) =>
+                cur && cur.course_code === next.course_code && cur.section_code === next.section_code
+                  ? null
+                  : next,
+              );
+            }}
+          />
         </div>
 
         <section className="flex h-64 min-h-0 shrink-0 flex-col border-t border-line bg-surface-raised lg:h-auto lg:w-80 lg:border-t-0 lg:border-l">

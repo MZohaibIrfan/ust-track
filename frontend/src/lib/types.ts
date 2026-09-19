@@ -17,6 +17,50 @@ export type Meeting = {
   venue: string;
 };
 
+export type CourseHit = {
+  course_code: string;
+  title: string | null;
+  credits: number | null;
+};
+
+export type CommonCoreLabel = {
+  id: string;
+  family: string;
+  area: string;
+  group: string;
+  wcq_text: string;
+};
+
+export type SectionKind = "lecture" | "tutorial" | "lab" | "other";
+export type MatchMode = "aligned" | "any";
+
+export type CatalogSection = {
+  section_code: string;
+  kind: SectionKind;
+  number: string;
+  instructor: string;
+  quota: number | null;
+  avail: number | null;
+  remarks: string;
+  meetings: Meeting[];
+};
+
+export type CatalogOffering = {
+  term_code: string;
+  term_label: string;
+  matching: { tutorials: MatchMode; labs: MatchMode };
+  sections: CatalogSection[];
+};
+
+export type CourseDetail = {
+  course_code: string;
+  title: string | null;
+  credits: number | null;
+  description: string;
+  offerings: CatalogOffering[];
+  error?: string;
+};
+
 export type ClassSelection = {
   section_id: string;
   course_code: string;
@@ -56,12 +100,16 @@ export type SectionActionPayload = {
   meetings: Meeting[];
   conflicts: ConflictEntry[];
   error?: string;
+  plan?: Plan;
+  replaces_course_code?: string;
+  replaces_section_code?: string;
 };
 
 export type RemovedPayload = {
   ok: boolean;
   removed: number;
   error?: string;
+  plan?: Plan;
 };
 
 export type DeclaredProgram = { code: string | null; role: string; intake_year: number | null };
@@ -69,8 +117,24 @@ export type CourseRecord = { course_code: string | null; status: string };
 
 export type DegreeProfile = {
   planner_id: string;
+  entry_year: number | null;
   declared_programs: DeclaredProgram[];
   courses: CourseRecord[];
+};
+
+export type AcademicYear = {
+  code: string;
+  start_year: number;
+};
+
+export type CatalogProgram = {
+  code: string;
+  name: string;
+  school: string;
+  kind: string | null;
+  year: string | null;
+  duration?: string | null;
+  has_requirements?: boolean;
 };
 
 export type RequirementItemProgress = {
@@ -86,6 +150,7 @@ export type RequirementGroupProgress = {
   items: RequirementItemProgress[];
   done: number;
   of: number;
+  status?: "done" | "in_progress" | "missing" | "info";
   children: RequirementGroupProgress[];
 };
 
@@ -93,6 +158,10 @@ export type RequirementProgress = {
   code: string;
   name: string;
   school?: string;
+  kind?: string | null;
+  year?: string | null;
+  duration?: string | null;
+  award_title?: string | null;
   requirements: RequirementGroupProgress[];
   summary?: string;
   error?: string;

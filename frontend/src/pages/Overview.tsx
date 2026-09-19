@@ -20,6 +20,12 @@ const tools = [
     body: "Requirements and minor trade-offs.",
   },
   {
+    href: "/history",
+    color: "var(--page-history)",
+    label: "History",
+    body: "Completed, in-progress, and planned courses.",
+  },
+  {
     href: "/career",
     color: "var(--page-career)",
     label: "Career",

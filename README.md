@@ -8,7 +8,7 @@ This repo is a **framework only**: schema, API stubs, and UI shells. Parsers, in
 
 - **Web:** React + Vite + TypeScript + Tailwind
 - **API:** FastAPI stubs under `/api`
-- **Database:** local PostgreSQL (`catalog` and `planner` schemas)
+- **Database:** Supabase Postgres (`catalog` and `planner` schemas), via the session pooler in `DATABASE_URL`
 - **Advisor (later):** OpenRouter-backed agent that reads catalog/planner rows and drafts a timetable plus a degree plan
 - **Search (later):** Postgres FTS / trigram. Qdrant is deferred.
 
@@ -28,13 +28,12 @@ data/sample-sis.txt      SIS paste fixture placeholder
 ## Setup
 
 ```bash
-createdb hkust_planner
 cp .env.example .env
 
 python3 -m venv backend/.venv
 source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
-cd backend && alembic revision --autogenerate -m "init catalog planner" && alembic upgrade head && cd ..
+cd backend && alembic upgrade head && cd ..
 
 # terminal 1
 cd backend && uvicorn app.main:app --reload --port 8000

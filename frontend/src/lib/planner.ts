@@ -1,11 +1,7 @@
-const KEY = "ust-track:planner-id";
+/** Shared demo planner that already has course history and sections in Supabase. */
+export const DEMO_PLANNER_ID = "demo-student";
 
-/** Browser-issued planner id — not an ITSC account, just a local identity for this browser. */
+/** Identity used for plan/degree fetches — the catalog lives in Supabase. */
 export function getPlannerId(): string {
-  let id = localStorage.getItem(KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(KEY, id);
-  }
-  return id;
+  return DEMO_PLANNER_ID;
 }

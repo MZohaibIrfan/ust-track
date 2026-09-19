@@ -45,7 +45,9 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         connection.execute(text("CREATE SCHEMA IF NOT EXISTS catalog"))
         connection.execute(text("CREATE SCHEMA IF NOT EXISTS planner"))
+        # Local Postgres installs pg_trgm in public; Supabase keeps it in extensions.
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        connection.execute(text("SET search_path TO public, catalog, planner, extensions"))
         connection.commit()
         context.configure(
             connection=connection,

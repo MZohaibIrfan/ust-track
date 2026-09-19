@@ -13,7 +13,13 @@ type Block = {
   end: number;
   label: string;
   venue: string;
+  course_code: string;
+  section_code: string;
 };
+
+type LaidOutBlock = Block & { col: number; cols: number };
+
+export type GridSelection = { course_code: string; section_code: string };
 
 function isWeekday(value: string | null): value is Weekday {
   return !!value && (WEEKDAYS as readonly string[]).includes(value);
@@ -31,7 +37,90 @@ function activeOn(date: string, startDate: string | null, endDate: string | null
   return true;
 }
 
-export function WeekGrid({ selections, weekStart }: { selections: ClassSelection[]; weekStart: Date }) {
+function timesOverlap(a: { start: number; end: number }, b: { start: number; end: number }): boolean {
+  return a.start < b.end && b.start < a.end;
+}
+
+function layoutDay(blocks: Block[]): LaidOutBlock[] {
+  if (blocks.length === 0) return [];
+
+  const sorted = [...blocks].sort(
+    (a, b) => a.start - b.start || a.end - b.end || a.label.localeCompare(b.label),
+  );
+  const placed: { block: Block; col: number }[] = [];
+  const active: { block: Block; col: number }[] = [];
+
+  for (const block of sorted) {
+    for (let i = active.length - 1; i >= 0; i--) {
+      if (active[i].block.end <= block.start) active.splice(i, 1);
+    }
+    const used = new Set(active.map((item) => item.col));
+    let col = 0;
+    while (used.has(col)) col += 1;
+    const item = { block, col };
+    placed.push(item);
+    active.push(item);
+  }
+
+  const parent = placed.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      if (!timesOverlap(placed[i].block, placed[j].block)) continue;
+      const a = find(i);
+      const b = find(j);
+      if (a !== b) parent[a] = b;
+    }
+  }
+
+  const clusterWidth = new Map<number, number>();
+  for (let i = 0; i < placed.length; i++) {
+    const root = find(i);
+    clusterWidth.set(root, Math.max(clusterWidth.get(root) ?? 0, placed[i].col + 1));
+  }
+
+  return placed.map((item, i) => ({
+    ...item.block,
+    col: item.col,
+    cols: clusterWidth.get(find(i)) ?? 1,
+  }));
+}
+
+function clashingCourseCodes(blocksByDay: Record<Weekday, Block[]>): Set<string> {
+  const codes = new Set<string>();
+  for (const day of WEEKDAYS) {
+    const blocks = blocksByDay[day];
+    for (let i = 0; i < blocks.length; i++) {
+      for (let j = i + 1; j < blocks.length; j++) {
+        const a = blocks[i];
+        const b = blocks[j];
+        if (a.course_code === b.course_code && a.section_code === b.section_code) continue;
+        if (!timesOverlap(a, b)) continue;
+        codes.add(a.course_code);
+        codes.add(b.course_code);
+      }
+    }
+  }
+  return codes;
+}
+
+export function WeekGrid({
+  selections,
+  weekStart,
+  selectedCourse,
+  onSelect,
+}: {
+  selections: ClassSelection[];
+  weekStart: Date;
+  selectedCourse?: string | null;
+  onSelect?: (selection: GridSelection | null) => void;
+}) {
   const shellRef = useRef<HTMLDivElement>(null);
   const [pxPerMin, setPxPerMin] = useState(0.7);
 
@@ -64,15 +153,29 @@ export function WeekGrid({ selections, weekStart }: { selections: ClassSelection
           end: toMinutes(m.end_time),
           label: `${selection.course_code} ${selection.section_code}`,
           venue: m.venue,
+          course_code: selection.course_code,
+          section_code: selection.section_code,
         });
       }
     }
   });
 
+  const clashing = clashingCourseCodes(blocksByDay);
+  const laidOutByDay: Record<Weekday, LaidOutBlock[]> = {
+    Mo: layoutDay(blocksByDay.Mo),
+    Tu: layoutDay(blocksByDay.Tu),
+    We: layoutDay(blocksByDay.We),
+    Th: layoutDay(blocksByDay.Th),
+    Fr: layoutDay(blocksByDay.Fr),
+  };
   const totalPx = (END_MIN - START_MIN) * pxPerMin;
 
   return (
-    <div ref={shellRef} className="h-full min-h-0 overflow-auto bg-surface-raised">
+    <div
+      ref={shellRef}
+      className="h-full min-h-0 overflow-auto bg-surface-raised"
+      onClick={() => onSelect?.(null)}
+    >
       <div className="min-w-[640px]">
         <div className="sticky top-0 z-10 grid grid-cols-[2.75rem_repeat(5,1fr)] border-b border-line bg-surface-raised">
           <div />
@@ -104,23 +207,69 @@ export function WeekGrid({ selections, weekStart }: { selections: ClassSelection
                   style={{ top: `${y(h * 60)}px` }}
                 />
               ))}
-              {blocksByDay[day].map((b, i) => (
-                <div
-                  key={i}
-                  className="absolute right-0.5 left-0.5 overflow-hidden rounded-[3px] bg-accent-soft py-0.5 pr-1 pl-1.5 text-[11px] leading-tight"
-                  style={{
-                    top: `${y(b.start)}px`,
-                    height: `${Math.max((b.end - b.start) * pxPerMin, 20)}px`,
-                    boxShadow: "inset 2px 0 0 var(--accent)",
-                  }}
-                >
-                  <p className="font-medium">{b.label}</p>
-                  <p className="text-muted tabular-nums">
-                    {formatMinutes(b.start)}–{formatMinutes(b.end)}
-                    {b.venue ? ` · ${b.venue}` : ""}
-                  </p>
-                </div>
-              ))}
+              {laidOutByDay[day].map((b, i) => {
+                const lit = selectedCourse != null && b.course_code === selectedCourse;
+                const dimmed = selectedCourse != null && !lit;
+                const clash = clashing.has(b.course_code);
+                const className = `absolute overflow-hidden rounded-[3px] py-0.5 pr-1 pl-1.5 text-left text-[11px] leading-tight ${
+                  clash && lit
+                    ? "bg-danger text-danger-ink"
+                    : clash && dimmed
+                      ? "bg-danger-soft/50 text-muted"
+                      : clash
+                        ? "bg-danger-soft text-danger"
+                        : lit
+                          ? "bg-accent text-accent-ink"
+                          : dimmed
+                            ? "bg-accent-soft/50 text-muted"
+                            : "bg-accent-soft"
+                }`;
+                const style = {
+                  top: `${y(b.start)}px`,
+                  height: `${Math.max((b.end - b.start) * pxPerMin, 20)}px`,
+                  left: `calc(${(b.col / b.cols) * 100}% + 2px)`,
+                  width: `calc(${100 / b.cols}% - 4px)`,
+                  boxShadow: clash
+                    ? lit
+                      ? "inset 2px 0 0 var(--danger-ink)"
+                      : "inset 2px 0 0 var(--danger)"
+                    : lit
+                      ? "inset 2px 0 0 var(--accent-ink)"
+                      : "inset 2px 0 0 var(--accent)",
+                };
+                const body = (
+                  <>
+                    <p className="font-medium">{b.label}</p>
+                    <p className={lit ? "tabular-nums opacity-80" : clash ? "tabular-nums opacity-80" : "text-muted tabular-nums"}>
+                      {formatMinutes(b.start)}–{formatMinutes(b.end)}
+                      {b.venue ? ` · ${b.venue}` : ""}
+                    </p>
+                  </>
+                );
+                const title = clash ? "Time clash" : undefined;
+                if (!onSelect) {
+                  return (
+                    <div key={`${b.course_code}-${b.section_code}-${i}`} className={className} style={style} title={title}>
+                      {body}
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={`${b.course_code}-${b.section_code}-${i}`}
+                    type="button"
+                    className={`${className} cursor-pointer`}
+                    style={style}
+                    title={title}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelect({ course_code: b.course_code, section_code: b.section_code });
+                    }}
+                  >
+                    {body}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>

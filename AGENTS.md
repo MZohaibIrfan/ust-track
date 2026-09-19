@@ -1,6 +1,6 @@
 # UST Track
 
-FastAPI + React + local PostgreSQL. Framework only — do not assume Next.js, Prisma, SQLite, Docker Compose, or Qdrant.
+FastAPI + React + Supabase Postgres. Framework only — do not assume Next.js, Prisma, SQLite, Docker Compose, or Qdrant.
 
 - API lives in `backend/app/api`. Routes are stubs.
 - Models live in `backend/app/models` (`catalog` and `planner` schemas).

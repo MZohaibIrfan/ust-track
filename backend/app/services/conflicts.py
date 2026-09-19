@@ -12,9 +12,9 @@ from itertools import combinations
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import ClassSection, Meeting, StudentClassSelection
+from app.models import ClassSection, CourseOffering, Meeting, Planner, StudentClassSelection
 
 
 def _overlaps(a: Meeting, b: Meeting) -> bool:
@@ -47,19 +47,33 @@ def sections_conflict(section_a: ClassSection, section_b: ClassSection) -> list[
     return hits
 
 
-def selected_sections(db: Session, planner_id: str) -> list[ClassSection]:
+def selected_sections(
+    db: Session,
+    planner_id: str | None = None,
+    *,
+    planner: Planner | None = None,
+) -> list[ClassSection]:
     from app.services.planner_ops import get_or_create_planner  # local import breaks the cycle
 
-    planner = get_or_create_planner(db, planner_id)
-    selections = db.scalars(
-        select(StudentClassSelection).where(StudentClassSelection.planner_id == planner.id)
+    if planner is None:
+        if planner_id is None:
+            return []
+        planner = get_or_create_planner(db, planner_id)
+    ids = db.scalars(
+        select(StudentClassSelection.section_id).where(StudentClassSelection.planner_id == planner.id)
     ).all()
-    sections: list[ClassSection] = []
-    for selection in selections:
-        section = db.get(ClassSection, selection.section_id)
-        if section is not None:
-            sections.append(section)
-    return sections
+    if not ids:
+        return []
+    return list(
+        db.scalars(
+            select(ClassSection)
+            .where(ClassSection.id.in_(ids))
+            .options(
+                selectinload(ClassSection.meetings),
+                joinedload(ClassSection.offering).joinedload(CourseOffering.course),
+            )
+        ).unique()
+    )
 
 
 def plan_conflicts(db: Session, planner_id: str) -> list[dict[str, Any]]:
@@ -74,11 +88,13 @@ def conflicts_with_candidate(
     db: Session,
     planner_id: str,
     candidate: ClassSection,
+    exclude_section_ids: set | None = None,
 ) -> list[dict[str, Any]]:
     """Conflicts a not-yet-saved section would have against what's already selected."""
+    skip = exclude_section_ids or set()
     conflicts: list[dict[str, Any]] = []
     for existing in selected_sections(db, planner_id):
-        if existing.id == candidate.id:
+        if existing.id == candidate.id or existing.id in skip:
             continue
         conflicts += sections_conflict(existing, candidate)
     return conflicts

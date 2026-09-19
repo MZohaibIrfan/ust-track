@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { AgentMarkdown } from "../components/AgentMarkdown";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
+import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
 import { RequirementGroup } from "../components/RequirementTree";
-import { apiGet, apiPost, apiPostStream } from "../lib/api";
-import type { DegreeProfile, ProgramActionPayload, RequirementProgress } from "../lib/types";
-
-// Fixed demo identity for now — the pathway builder needs a student with real
-// course history to reason against, and there's no auth/onboarding yet.
-const DEMO_PLANNER_ID = "demo-student";
+import { ThinkingDots } from "../components/ThinkingDots";
+import { apiGet, apiGetCached, apiPost, apiPostStream, apiPut } from "../lib/api";
+import { DEMO_PLANNER_ID } from "../lib/planner";
+import type {
+  AcademicYear,
+  CatalogProgram,
+  DegreeProfile,
+  ProgramActionPayload,
+  RequirementProgress,
+} from "../lib/types";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Segment =
@@ -116,21 +122,14 @@ function ChatBubble({
 
   const segments = parseSegments(message.content);
   if (segments.length === 0) {
-    return pending ? (
-      <div className="mr-auto max-w-[85%] rounded-md bg-bg px-3 py-2 text-[13px] text-muted">…</div>
-    ) : null;
+    return pending ? <ThinkingDots /> : null;
   }
 
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-2">
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
-          <p
-            key={i}
-            className="rounded-md bg-bg px-3 py-2 text-[13px] leading-5 whitespace-pre-wrap"
-          >
-            {seg.text.trim()}
-          </p>
+          <AgentMarkdown key={i}>{seg.text}</AgentMarkdown>
         ) : (
           <ProgramCard
             key={i}
@@ -141,6 +140,7 @@ function ChatBubble({
           />
         ),
       )}
+      {pending ? <ThinkingDots boxed={false} /> : null}
     </div>
   );
 }
@@ -149,38 +149,110 @@ export function DegreePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
-  const [progressByCode, setProgressByCode] = useState<Record<string, RequirementProgress>>({});
+  const [years, setYears] = useState<AcademicYear[]>([]);
+  const [programs, setPrograms] = useState<CatalogProgram[]>([]);
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [progress, setProgress] = useState<RequirementProgress | null>(null);
+  const [loadingTree, setLoadingTree] = useState(false);
   const [mode, setMode] = useState<AgentMode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
+
+  const declared = profile?.declared_programs ?? [];
+  const selectedProgram = programs.find((p) => p.code === selectedCode) ?? null;
+  const declaredEntry = declared.find((d) => d.code === selectedCode);
+  const entryYear = profile?.entry_year ?? declared.find((d) => d.intake_year)?.intake_year ?? null;
 
   async function refreshProfile() {
     try {
       const p = await apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${DEMO_PLANNER_ID}`);
       setProfile(p);
-      const entries = await Promise.all(
-        p.declared_programs
-          .filter((d): d is { code: string; role: string; intake_year: number | null } => !!d.code)
-          .map(async (d) => {
-            const progress = await apiGet<RequirementProgress>(
-              `/api/degree/progress?planner_id=${DEMO_PLANNER_ID}&program_code=${d.code}`,
-            );
-            return [d.code, progress] as const;
-          }),
-      );
-      setProgressByCode(Object.fromEntries(entries));
+      setAppliedKeys((prev) => {
+        const next = new Set(prev);
+        for (const d of p.declared_programs) {
+          if (d.code) next.add(d.code);
+        }
+        return next;
+      });
+      setSelectedCode((current) => {
+        if (current) return current;
+        return p.declared_programs.find((d) => d.code)?.code ?? null;
+      });
     } catch {
-      // backend may not be running yet
+      setError("Couldn't load the student profile.");
+    }
+  }
+
+  async function loadPrograms(year: number | null, preferredCode?: string | null) {
+    const yearQuery = year ? `?intake_year=${year}` : "";
+    try {
+      const list = await apiGetCached<CatalogProgram[]>(`/api/programs${yearQuery}`);
+      setPrograms(list);
+      setSelectedCode((current) => {
+        if (preferredCode && list.some((program) => program.code === preferredCode)) return preferredCode;
+        if (current && list.some((program) => program.code === current)) return current;
+        const declaredCode = declared.find((d) => d.code)?.code;
+        if (declaredCode && list.some((program) => program.code === declaredCode)) return declaredCode;
+        return list.find((p) => p.code === "COMP")?.code ?? list.find((p) => p.has_requirements)?.code ?? null;
+      });
+    } catch {
+      setError("Couldn't load the program catalog.");
+    }
+  }
+
+  async function loadProgress(code: string, year: number | null) {
+    setLoadingTree(true);
+    try {
+      const yearQuery = year ? `&intake_year=${year}` : "";
+      const next = await apiGet<RequirementProgress>(
+        `/api/degree/progress?planner_id=${DEMO_PLANNER_ID}&program_code=${encodeURIComponent(code)}${yearQuery}`,
+      );
+      setProgress(next);
+    } catch {
+      setError("Couldn't load that program's requirements.");
+      setProgress(null);
+    } finally {
+      setLoadingTree(false);
+    }
+  }
+
+  async function saveEntryYear(year: number) {
+    setError(null);
+    try {
+      const next = await apiPut<DegreeProfile>("/api/degree/entry-year", {
+        planner_id: DEMO_PLANNER_ID,
+        entry_year: year,
+      });
+      setProfile(next);
+    } catch {
+      setError("Couldn't save the entry year.");
     }
   }
 
   useEffect(() => {
+    apiGetCached<AcademicYear[]>("/api/academic-years").then(setYears).catch(() => {
+      // year picker stays empty until the catalog years load
+    });
     refreshProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    void loadPrograms(entryYear, selectedCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.entry_year]);
+
+  useEffect(() => {
+    if (!selectedCode || !profile) return;
+    setProgress(null);
+    loadProgress(selectedCode, entryYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCode, entryYear, profile]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -192,11 +264,55 @@ export function DegreePage() {
         planner_id: DEMO_PLANNER_ID,
         program_code: data.code,
         role: data.role,
+        intake_year: entryYear,
       });
       setAppliedKeys((prev) => new Set(prev).add(data.code));
+      setSelectedCode(data.code);
       refreshProfile();
     } catch {
       setError("Couldn't apply that — check the server is running.");
+    }
+  }
+
+  async function declareSelected() {
+    if (!selectedProgram || acting) return;
+    setActing(true);
+    setError(null);
+    try {
+      await apiPost("/api/degree/apply", {
+        planner_id: DEMO_PLANNER_ID,
+        program_code: selectedProgram.code,
+        role: roleFor(selectedProgram),
+        intake_year: entryYear,
+      });
+      setAppliedKeys((prev) => new Set(prev).add(selectedProgram.code));
+      await refreshProfile();
+    } catch {
+      setError("Couldn't declare that program.");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function removeSelected() {
+    if (!selectedCode || acting) return;
+    setActing(true);
+    setError(null);
+    try {
+      await apiPost("/api/degree/remove", {
+        planner_id: DEMO_PLANNER_ID,
+        program_code: selectedCode,
+      });
+      setAppliedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedCode);
+        return next;
+      });
+      await refreshProfile();
+    } catch {
+      setError("Couldn't remove that program.");
+    } finally {
+      setActing(false);
     }
   }
 
@@ -242,49 +358,89 @@ export function DegreePage() {
     <main className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
         <h1 className="text-[15px] font-semibold tracking-tight">Degree</h1>
-        <span className="font-mono text-[11px] text-muted">Demo · {DEMO_PLANNER_ID}</span>
+        <label className="flex items-center gap-1.5 text-[12px] text-muted">
+          Entry
+          <select
+            value={entryYear ?? ""}
+            onChange={(e) => {
+              const year = Number(e.target.value);
+              if (year) void saveEntryYear(year);
+            }}
+            className="rounded-md border border-line bg-bg px-1.5 py-1 font-mono text-[12px] text-ink outline-none focus:border-accent"
+          >
+            {entryYear == null ? <option value="">Year</option> : null}
+            {years.map((year) => (
+              <option key={year.start_year} value={year.start_year}>
+                {year.code}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="ml-auto">
           <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto declare" />
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <ProgramsPanel
+          programs={programs}
+          declared={declared}
+          selected={selectedCode}
+          onSelect={setSelectedCode}
+        />
+
         <section className="min-h-0 min-w-0 flex-1 overflow-auto border-b border-line lg:border-r lg:border-b-0">
-          <h2 className="border-b border-line px-4 py-2 text-[12px] font-medium text-muted">Pathway</h2>
-          {profile && profile.declared_programs.length > 0 ? (
-            <div className="grid gap-3 p-3 md:grid-cols-2">
-              {Object.entries(progressByCode).map(([code, progress]) => (
-                <div key={code} className="flex flex-col gap-2">
-                  <p className="text-[13px] font-medium">
-                    {progress.name} <span className="font-mono text-[11px] text-muted">({progress.summary})</span>
-                  </p>
-                  {progress.requirements.map((g, i) => (
-                    <RequirementGroup key={i} group={g} />
-                  ))}
-                </div>
+          {progress ? (
+            <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-2">
+              <div className="min-w-0">
+                <h2 className="text-[13px] font-medium">
+                  {progress.name}{" "}
+                  <span className="font-mono text-[11px] text-muted">
+                    {progress.code}
+                    {progress.year ? ` · ${progress.year}` : ""}
+                  </span>
+                </h2>
+                <p className="mt-0.5 text-[12px] text-muted">{progress.summary}</p>
+              </div>
+              {declaredEntry ? (
+                <button
+                  type="button"
+                  onClick={removeSelected}
+                  disabled={acting}
+                  className="shrink-0 rounded-md border border-line px-2.5 py-1 text-[12px] hover:bg-fill disabled:opacity-40"
+                >
+                  Remove
+                </button>
+              ) : selectedProgram ? (
+                <button
+                  type="button"
+                  onClick={declareSelected}
+                  disabled={acting}
+                  className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg disabled:opacity-40"
+                >
+                  Declare {roleFor(selectedProgram).replaceAll("_", " ")}
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <h2 className="border-b border-line px-4 py-2 text-[12px] font-medium text-muted">Requirements</h2>
+          )}
+
+          {loadingTree ? (
+            <p className="px-4 py-2.5 text-[13px] text-muted">Loading requirements…</p>
+          ) : progress?.error ? (
+            <p className="px-4 py-2.5 text-[13px] text-muted">{progress.error}</p>
+          ) : progress && progress.requirements.length > 0 ? (
+            <div className="flex flex-col gap-2 p-3">
+              {progress.requirements.map((group, i) => (
+                <RequirementGroup key={`${group.name}-${i}`} group={group} />
               ))}
             </div>
           ) : (
-            <p className="px-4 py-2.5 text-[13px] text-muted">No program declared yet.</p>
+            <p className="px-4 py-2.5 text-[13px] text-muted">
+              {selectedCode ? "No requirement data for this program yet." : "Select a program to see its requirements."}
+            </p>
           )}
-          {profile && profile.courses.length > 0 ? (
-            <div>
-              <h3 className="border-t border-b border-line px-4 py-2 text-[12px] font-medium text-muted">
-                Course history
-              </h3>
-              <ul>
-                {profile.courses.map((c) => (
-                  <li
-                    key={`${c.course_code}-${c.status}`}
-                    className="flex items-baseline justify-between gap-3 border-b border-line px-4 py-1.5 text-[13px] last:border-b-0"
-                  >
-                    <span className="font-mono">{c.course_code}</span>
-                    <span className="text-[12px] text-muted">{c.status.replaceAll("_", " ")}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </section>
 
         <section className="flex h-64 min-h-0 shrink-0 flex-col bg-surface-raised lg:h-auto lg:w-80">
