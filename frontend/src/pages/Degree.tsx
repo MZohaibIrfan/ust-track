@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
+import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
 import { RequirementGroup } from "../components/RequirementTree";
 import { ThinkingDots } from "../components/ThinkingDots";
-import { apiGet, apiGetCached, apiPost, apiPostStream, apiPut } from "../lib/api";
+import { apiDelete, apiGet, apiGetCached, apiPost, apiPostStream, apiPut } from "../lib/api";
 import {
   DEFAULT_SCOPE,
   PATHWAY_SCOPES,
@@ -171,6 +172,8 @@ export function DegreePage() {
   const [loadingTree, setLoadingTree] = useState(false);
   const [mode, setMode] = useState<AgentMode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatLoaded, setChatLoaded] = useState(false);
+  const [panelTab, setPanelTab] = useState<"chat" | "history">("chat");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [acting, setActing] = useState(false);
@@ -260,8 +263,23 @@ export function DegreePage() {
       // year picker stays empty until the catalog years load
     });
     refreshProfile();
+
+    setChatLoaded(false);
+    apiGet<{ messages: ChatMessage[] }>(`/api/degree/chat?planner_id=${pathwayId}`)
+      .then((res) => setMessages(res.messages))
+      .catch(() => setMessages([]))
+      .finally(() => setChatLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathwayId]);
+
+  async function clearChat() {
+    setMessages([]);
+    try {
+      await apiDelete(`/api/degree/chat?planner_id=${pathwayId}`);
+    } catch {
+      // best-effort — local state is already cleared
+    }
+  }
 
   function selectPathway(id: string) {
     setPathwayId(id);
@@ -553,31 +571,39 @@ export function DegreePage() {
         </section>
 
         <AgentPanel>
+          <ChatTabs tab={panelTab} onChange={setPanelTab} historyCount={messages.length} />
+
           <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
-            {messages.length === 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <p className="text-[12px] text-muted">Ask about programs</p>
-                {STARTERS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => send(s)}
-                    className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
-                  >
-                    {s}
-                  </button>
-                ))}
-                <p className="pt-1 text-[11px] leading-4 text-muted">
-                  {mode === "suggest"
-                    ? "Suggest mode: click Apply to declare a program."
-                    : "Auto declare: the agent declares a program after checking fit."}
-                </p>
-              </div>
+            {!chatLoaded ? (
+              <p className="text-[12px] text-muted">Loading chat…</p>
+            ) : messages.length === 0 ? (
+              panelTab === "history" ? (
+                <p className="text-[12px] text-muted">No conversation yet with the degree agent.</p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[12px] text-muted">Ask about programs</p>
+                  {STARTERS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => send(s)}
+                      className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                  <p className="pt-1 text-[11px] leading-4 text-muted">
+                    {mode === "suggest"
+                      ? "Suggest mode: click Apply to declare a program."
+                      : "Auto declare: the agent declares a program after checking fit."}
+                  </p>
+                </div>
+              )
             ) : (
               messages.map((m, i) => (
                 <ChatBubble
                   key={i}
                   message={m}
-                  pending={busy && i === messages.length - 1}
+                  pending={busy && panelTab === "chat" && i === messages.length - 1}
                   appliedKeys={appliedKeys}
                   onApply={applySuggestion}
                 />
@@ -589,28 +615,36 @@ export function DegreePage() {
             <p className="border-t border-line bg-bg px-2.5 py-1.5 text-[12px] text-accent">{error}</p>
           ) : null}
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="flex gap-1.5 border-t border-line p-2"
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about programs…"
-              disabled={busy}
-              className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+          {panelTab === "chat" ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(input);
+              }}
+              className="flex gap-1.5 border-t border-line p-2"
             >
-              Send
-            </button>
-          </form>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about programs…"
+                disabled={busy}
+                className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+              >
+                Send
+              </button>
+            </form>
+          ) : (
+            <ChatHistoryFooter
+              label="Full conversation with the degree agent"
+              onClear={clearChat}
+              disabled={messages.length === 0}
+            />
+          )}
         </AgentPanel>
       </div>
     </main>

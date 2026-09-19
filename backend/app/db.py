@@ -21,8 +21,12 @@ if _transaction_pooler:
 elif _supabase:
     # Session pooler can keep connections. A pre-ping here is an extra HK→Tokyo
     # RTT on every request; recycle stale sockets instead.
-    _engine_kwargs["pool_size"] = 8
-    _engine_kwargs["max_overflow"] = 8
+    # Keep this well under the pooler's account-wide cap (15 connections total,
+    # shared across every dev machine hitting this project) — a single instance
+    # asking for pool_size + max_overflow anywhere near that limit starves
+    # everyone else's connections out from under them.
+    _engine_kwargs["pool_size"] = 3
+    _engine_kwargs["max_overflow"] = 2
     _engine_kwargs["pool_recycle"] = 280
     _engine_kwargs["pool_use_lifo"] = True
 else:

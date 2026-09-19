@@ -17,6 +17,7 @@ from app.models.catalog import (
 )
 from app.models.ingestion import IngestionRun, ParseReviewQueue, SourceDocument, StagingCourse
 from app.models.planner import (
+    ChatMessage,
     Planner,
     RequirementCreditAllocation,
     StudentClassSelection,
@@ -28,6 +29,7 @@ from app.models.planner import (
 __all__ = [
     "AcademicYear",
     "Base",
+    "ChatMessage",
     "ClassSection",
     "CombinationRule",
     "Course",

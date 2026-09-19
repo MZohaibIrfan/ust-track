@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
 import { CatalogPanel } from "../components/CatalogPanel";
+import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { CourseActions } from "../components/CourseActions";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { ThinkingDots } from "../components/ThinkingDots";
 import { WeekGrid, type GridSelection, type PreviewSelection } from "../components/WeekGrid";
-import { apiGet, apiGetCached, apiPost, apiPostStream } from "../lib/api";
+import { apiDelete, apiGet, apiGetCached, apiPost, apiPostStream } from "../lib/api";
 import {
   DAY_LABELS,
   addDays,
@@ -202,6 +203,8 @@ export function TimetablePage() {
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const [mode, setMode] = useState<Mode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatLoaded, setChatLoaded] = useState(false);
+  const [panelTab, setPanelTab] = useState<"chat" | "history">("chat");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -240,8 +243,23 @@ export function TimetablePage() {
       .catch(() => {
         // no terms yet — the calendar still shows, just anchored on today with no nav bounds
       });
+    apiGet<{ messages: ChatMessage[] }>(`/api/timetable/chat?planner_id=${plannerId}`)
+      .then((res) => setMessages(res.messages))
+      .catch(() => {
+        // backend may not be running yet — chat just starts empty
+      })
+      .finally(() => setChatLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function clearChat() {
+    setMessages([]);
+    try {
+      await apiDelete(`/api/timetable/chat?planner_id=${plannerId}`);
+    } catch {
+      // best-effort — local state is already cleared
+    }
+  }
 
   // Once term bounds are known, snap an out-of-range default week into the real catalog window.
   useEffect(() => {
@@ -379,34 +397,42 @@ export function TimetablePage() {
         </div>
 
         <AgentPanel>
+          <ChatTabs tab={panelTab} onChange={setPanelTab} historyCount={messages.length} />
+
           <div
             ref={scrollRef}
             className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5"
           >
-            {messages.length === 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <p className="text-[12px] text-muted">Ask about a class</p>
-                {STARTERS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => send(s)}
-                    className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
-                  >
-                    {s}
-                  </button>
-                ))}
-                <p className="pt-1 text-[11px] leading-4 text-muted">
-                  {mode === "suggest"
-                    ? "Suggest mode: click Apply to put a class on the calendar."
-                    : "Auto apply: the agent adds a class as soon as it finds a fit."}
-                </p>
-              </div>
+            {!chatLoaded ? (
+              <p className="text-[12px] text-muted">Loading chat…</p>
+            ) : messages.length === 0 ? (
+              panelTab === "history" ? (
+                <p className="text-[12px] text-muted">No conversation yet with the timetable agent.</p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[12px] text-muted">Ask about a class</p>
+                  {STARTERS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => send(s)}
+                      className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                  <p className="pt-1 text-[11px] leading-4 text-muted">
+                    {mode === "suggest"
+                      ? "Suggest mode: click Apply to put a class on the calendar."
+                      : "Auto apply: the agent adds a class as soon as it finds a fit."}
+                  </p>
+                </div>
+              )
             ) : (
               messages.map((m, i) => (
                 <ChatBubble
                   key={i}
                   message={m}
-                  pending={busy && i === messages.length - 1}
+                  pending={busy && panelTab === "chat" && i === messages.length - 1}
                   appliedKeys={appliedKeys}
                   preview={preview}
                   onApply={applySuggestion}
@@ -422,28 +448,36 @@ export function TimetablePage() {
             <p className="border-t border-line bg-bg px-2.5 py-1.5 text-[12px] text-accent">{error}</p>
           ) : null}
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="flex gap-1.5 border-t border-line p-2"
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about classes…"
-              disabled={busy}
-              className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+          {panelTab === "chat" ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(input);
+              }}
+              className="flex gap-1.5 border-t border-line p-2"
             >
-              Send
-            </button>
-          </form>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about classes…"
+                disabled={busy}
+                className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+              >
+                Send
+              </button>
+            </form>
+          ) : (
+            <ChatHistoryFooter
+              label="Full conversation with the timetable agent"
+              onClear={clearChat}
+              disabled={messages.length === 0}
+            />
+          )}
         </AgentPanel>
       </div>
     </main>
