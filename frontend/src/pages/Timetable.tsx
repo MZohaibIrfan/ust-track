@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AgentPanel } from "../components/AgentPanel";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { WeekGrid } from "../components/WeekGrid";
 import { apiGet, apiPost, apiPostStream } from "../lib/api";
@@ -20,9 +21,9 @@ type Segment =
   | { kind: "suggest" | "applied" | "removed"; data: SectionActionPayload };
 
 const STARTERS = [
-  "Put COMP2011 on my calendar",
   "What's on my calendar right now?",
-  "Find a calculus class",
+  "Does COMP2711 clash with COMP3511?",
+  "Find a COMP lecture that fits",
 ];
 
 const MARKER_RE = /<<(SUGGEST|APPLIED|REMOVED):([A-Za-z0-9+/=]+)>>/g;
@@ -309,7 +310,7 @@ export function TimetablePage() {
           <WeekGrid selections={plan?.class_selections ?? []} weekStart={weekStart} />
         </div>
 
-        <section className="flex h-64 min-h-0 shrink-0 flex-col border-t border-line bg-surface-raised lg:h-auto lg:w-80 lg:border-t-0 lg:border-l">
+        <AgentPanel>
           <div
             ref={scrollRef}
             className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5"
@@ -371,7 +372,7 @@ export function TimetablePage() {
               Send
             </button>
           </form>
-        </section>
+        </AgentPanel>
       </div>
     </main>
   );

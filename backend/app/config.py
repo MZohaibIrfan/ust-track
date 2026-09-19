@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://localhost/hkust_planner"
     cors_origins: str = "http://localhost:5173"
     openrouter_api_key: str = ""
-    openrouter_model: str = "openai/gpt-4.1-mini"
+    openrouter_model: str = "bytedance-seed/seed-2.0-lite"
     raw_data_dir: Path = ROOT_DIR / "data" / "raw"
 
     @property
