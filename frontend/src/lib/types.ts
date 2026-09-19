@@ -115,6 +115,7 @@ export type RemovedPayload = {
 export type DeclaredProgram = {
   code: string | null;
   name?: string | null;
+  school?: string | null;
   role: string;
   intake_year: number | null;
 };

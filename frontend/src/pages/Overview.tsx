@@ -170,21 +170,40 @@ export function OverviewPage() {
 
       <div className="grid gap-3 p-4 md:grid-cols-3">
         <section className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
-          <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Pathway</p>
+          <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Pathway & requirements</p>
           {profile && profile.declared_programs.length > 0 ? (
             <ul className="flex flex-col gap-1">
-              {profile.declared_programs.map((d) => (
-                <li key={`${d.code}-${d.role}`} className="text-[13px]">
-                  <span className="font-mono">{d.code}</span>{" "}
-                  <span className="text-muted">· {d.role.replaceAll("_", " ")}</span>
-                </li>
-              ))}
+              {profile.declared_programs.map((d) => {
+                const bar = d.code ? programBars.find((b) => b.code === d.code) : undefined;
+                return (
+                  <li key={`${d.code}-${d.role}`} className="text-[13px]">
+                    <span className="font-mono">{d.code}</span>{" "}
+                    <span className="text-muted">· {d.role.replaceAll("_", " ")}</span>
+                    {bar ? (
+                      <span className="text-muted">
+                        {" "}
+                        · {bar.done} of {bar.total} met
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-[13px] text-muted">No program declared yet.</p>
           )}
           <Link to="/degree" className="mt-auto pt-1 text-[12px] font-medium text-accent hover:underline">
             Open degree planner →
+          </Link>
+        </section>
+
+        <section className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
+          <p className="text-[11px] font-medium tracking-wide text-muted uppercase">My experiences</p>
+          <p className="text-[13px] text-muted">
+            Not tracked yet — Co-op, internships, and exchange will show up here once Career is wired up.
+          </p>
+          <Link to="/career" className="mt-auto pt-1 text-[12px] font-medium text-accent hover:underline">
+            Open Career →
           </Link>
         </section>
 
@@ -208,27 +227,6 @@ export function OverviewPage() {
           )}
           <Link to="/timetable" className="mt-auto pt-1 text-[12px] font-medium text-accent hover:underline">
             Open timetable →
-          </Link>
-        </section>
-
-        <section className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
-          <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Requirements</p>
-          {programBars.length > 0 ? (
-            <ul className="flex flex-col gap-1">
-              {programBars.map((b) => (
-                <li key={b.code} className="text-[13px]">
-                  <span className="font-mono">{b.code}</span>{" "}
-                  <span className="text-muted">
-                    · {b.done} of {b.total} met
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[13px] text-muted">Declare a program to see progress.</p>
-          )}
-          <Link to="/degree" className="mt-auto pt-1 text-[12px] font-medium text-accent hover:underline">
-            See full breakdown →
           </Link>
         </section>
       </div>

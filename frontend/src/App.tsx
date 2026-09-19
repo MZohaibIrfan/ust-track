@@ -4,6 +4,7 @@ import { CareerPage } from "./pages/Career";
 import { DegreePage } from "./pages/Degree";
 import { HistoryPage } from "./pages/History";
 import { OverviewPage } from "./pages/Overview";
+import { ProfilePage } from "./pages/Profile";
 import { TimetablePage } from "./pages/Timetable";
 
 // Every page is kept mounted and just shown/hidden by path, instead of being
@@ -17,6 +18,7 @@ const pages = [
   { path: "/degree", element: <DegreePage /> },
   { path: "/history", element: <HistoryPage /> },
   { path: "/career", element: <CareerPage /> },
+  { path: "/profile", element: <ProfilePage /> },
 ];
 
 export function App() {
