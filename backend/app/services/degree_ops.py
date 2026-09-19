@@ -246,6 +246,10 @@ def _requirement_course_ids(db: Session, program: Program, intake_year: int | No
     return {str(course.id) for course in _requirement_courses(db, program, intake_year)}
 
 
+def requirement_course_codes(db: Session, program: Program, intake_year: int | None = None) -> set[str]:
+    return {course.course_code for course in _requirement_courses(db, program, intake_year)}
+
+
 def rank_add_on_pathways(
     db: Session,
     planner_id: str,
@@ -568,6 +572,7 @@ def create_pathway(db: Session, planner_id: str, program_code: str, role: str) -
 
 __all__ = [
     "find_program",
+    "requirement_course_codes",
     "planner_intake_year",
     "check_requirement_progress",
     "get_student_profile",
