@@ -32,6 +32,8 @@ from app.services.catalog_queries import (
     catalog_year_code,
     get_program_detail,
     list_academic_years,
+    load_exclusion_map,
+    pretty_course_code,
     program_kind,
     program_version_for_intake,
     resolve_program,
@@ -44,12 +46,15 @@ IN_PROGRESS_STATUSES = {"in_progress", "planned"}
 
 COURSE_CODE_RE = re.compile(r"\b([A-Z]{2,8})\s*(\d{4}[A-Z]?)\b")
 COMPACT_CODE_RE = re.compile(r"\b[A-Z]{2,8}\d{4}[A-Z]?\b")
-N_COURSES_RE = re.compile(r"(\d+)\s+courses?", re.I)
+N_COURSES_RE = re.compile(
+    r"(?:any\s+)?(\d+)\s+courses?\s+(?:from|out of|of the subject|should be taken)",
+    re.I,
+)
 TRAILING_CREDITS_RE = re.compile(r"\s+\d{1,2}(?:\s*-\s*\d{1,2})?\s*$")
 
 OPTION_KINDS = {"area", "elective_list", "electives", "area_constraint"}
 OR_KINDS = {"or_group"}
-INFO_KINDS = {"remarks", "advisory_pathway", "placeholder"}
+INFO_KINDS = {"remarks", "advisory_pathway", "placeholder", "option"}
 
 
 def find_program(db: Session, program_code: str, intake_year: int | None = None) -> Program | None:
@@ -103,6 +108,16 @@ def student_entry_year(db: Session, planner_id: str, program: Program | None = N
     )
 
 
+_STATUS_RANK = {
+    "completed": 4,
+    "done": 4,
+    "exempt": 4,
+    "transferred": 4,
+    "in_progress": 3,
+    "planned": 2,
+}
+
+
 def _student_course_status_by_code(db: Session, planner_id: str) -> dict[str, str]:
     planner = get_or_create_planner(db, planner_id)
     rows = db.execute(
@@ -110,7 +125,11 @@ def _student_course_status_by_code(db: Session, planner_id: str) -> dict[str, st
         .join(Course, Course.id == StudentCourse.course_id)
         .where(StudentCourse.planner_id == planner.id)
     ).all()
-    return {code: status for code, status in rows}
+    best: dict[str, str] = {}
+    for code, status in rows:
+        if _STATUS_RANK.get(status, 0) >= _STATUS_RANK.get(best.get(code, ""), 0):
+            best[code] = status
+    return best
 
 
 def _codes_in(text: str | None) -> list[str]:
@@ -136,6 +155,16 @@ def _item_status(course_code: str | None, by_code: dict[str, str]) -> str:
     if status in IN_PROGRESS_STATUSES:
         return "in_progress"
     return "missing"
+
+
+def _held_codes(by_code: dict[str, str]) -> set[str]:
+    return {code for code, status in by_code.items() if status in DONE_STATUSES | IN_PROGRESS_STATUSES}
+
+
+def _excluded_by(course_code: str | None, held: set[str], exclusion_map: dict[str, frozenset[str]]) -> list[str]:
+    if not course_code:
+        return []
+    return sorted(exclusion_map.get(course_code, frozenset()) & held)
 
 
 def _resolve_item_code(item: dict[str, Any]) -> str | None:
@@ -263,19 +292,29 @@ def _done_codes(group: dict[str, Any]) -> set[str]:
     return codes
 
 
-def _annotate_group(group: dict[str, Any], by_code: dict[str, str]) -> dict[str, Any]:
+def _annotate_group(
+    group: dict[str, Any],
+    by_code: dict[str, str],
+    exclusion_map: dict[str, frozenset[str]],
+    held: set[str],
+) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     for raw in group.get("items", []):
         code = _resolve_item_code(raw)
+        status = _item_status(code, by_code)
+        blockers = _excluded_by(code, held, exclusion_map) if status == "missing" else []
+        if blockers:
+            status = "excluded"
         items.append(
             {
                 "course_code": code,
                 "note": raw.get("note"),
-                "status": _item_status(code, by_code),
+                "status": status,
+                "excluded_by": [pretty_course_code(blocker) for blocker in blockers] or None,
                 "sort_index": raw.get("sort_index"),
             }
         )
-    children = [_annotate_group(child, by_code) for child in group.get("children", [])]
+    children = [_annotate_group(child, by_code, exclusion_map, held) for child in group.get("children", [])]
     kind = group.get("kind") or ""
     name = group["name"]
 
@@ -283,19 +322,36 @@ def _annotate_group(group: dict[str, Any], by_code: dict[str, str]) -> dict[str,
         done, of, status = 0, 0, "info"
     elif kind in OR_KINDS:
         expr = next((item["note"] for item in items if item["status"] == "info" and item.get("note")), None)
-        status = _or_expression_status(expr, by_code)
-        if status is None:
-            trackable = [item for item in items if item["course_code"]]
-            if any(item["status"] == "done" for item in trackable):
+        blob = f"{name} {expr or ''}"
+        n_match = N_COURSES_RE.search(blob)
+        if n_match and re.search(r"\bout of\b", blob, re.I):
+            required_n = int(n_match.group(1))
+            taken = [item for item in items if item.get("course_code") and item["status"] == "done"]
+            in_flight = any(item.get("course_code") and item["status"] == "in_progress" for item in items)
+            done, of = min(len(taken), required_n), required_n
+            if len(taken) >= required_n:
                 status = "done"
-            elif any(item["status"] == "in_progress" for item in trackable):
+            elif taken or in_flight:
                 status = "in_progress"
             else:
                 status = "missing"
-        done, of = (1, 1) if status == "done" else (0, 1)
-        if expr:
-            name = _display_expr(expr)
-            items = [item for item in items if item.get("note") != expr]
+            if expr:
+                items = [item for item in items if item.get("note") != expr]
+        else:
+            status = _or_expression_status(expr, by_code)
+            if status is None:
+                trackable = [item for item in items if item["course_code"]]
+                if any(item["status"] == "done" for item in trackable):
+                    status = "done"
+                elif any(item["status"] == "in_progress" for item in trackable):
+                    status = "in_progress"
+                else:
+                    status = "missing"
+            done, of = (1, 1) if status == "done" else (0, 1)
+            if expr:
+                if "engineering introduction course" not in name.lower():
+                    name = _display_expr(expr)
+                items = [item for item in items if item.get("note") != expr]
     elif kind in OPTION_KINDS:
         blob = f"{group['name']} " + " ".join(item.get("note") or "" for item in group.get("items", []))
         match = N_COURSES_RE.search(blob)
@@ -362,7 +418,9 @@ def check_requirement_progress(
         return {**detail, "summary": "No requirement data for this program yet", "error": "No requirement data for this program yet"}
 
     by_code = _student_course_status_by_code(db, planner_id)
-    groups = [_annotate_group(group, by_code) for group in detail["requirements"]]
+    exclusion_map = load_exclusion_map(db)
+    held = _held_codes(by_code)
+    groups = [_annotate_group(group, by_code, exclusion_map, held) for group in detail["requirements"]]
     counted = [group for group in groups if group["kind"] not in INFO_KINDS]
     total_done = sum(group["done"] for group in counted)
     total_of = sum(group["of"] for group in counted)

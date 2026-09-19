@@ -58,7 +58,7 @@ const STARTERS: Record<DegreeSubpage, string[]> = {
   requirements: ["What have I already completed?", "What's still open?", "Which electives should I prioritize?"],
   plan: [
     "I want to go on exchange year 3 fall, help me modify my study plan",
-    "Mark year 2 spring as leave",
+    "Add a fifth year so I can finish after exchange",
     "Do I need to defer if I take a term off?",
   ],
 };
@@ -468,6 +468,11 @@ export function DegreePage() {
 
   const programCode = studyPlan?.program_code ?? progress?.code ?? studyPlanCode ?? "PLAN";
   const variant = studyPlan?.variants?.find((item) => item.id === variantId) ?? studyPlan?.variants?.[0];
+  const planProgramCodes = [
+    programCode,
+    selectedCode,
+    ...declared.map((item) => item.code).filter((code): code is string => Boolean(code)),
+  ];
 
   useEffect(() => {
     setVariantId(suggestedVariant(studyPlan));
@@ -475,22 +480,46 @@ export function DegreePage() {
 
   useEffect(() => {
     const saved = loadDraft(pathwayId, programCode, variantId);
-    const seeded = saved?.courses ?? seedFromPathway(variant, progress);
+    const seeded =
+      saved?.courses ??
+      seedFromPathway(variant, progress, profile?.courses, entryYear, profile?.standing_year, planProgramCodes, saved?.termStatuses ?? {});
     skipSave.current = true;
-    setPlanCourses(reconcileDraft(seeded, progress));
+    setPlanCourses(
+      reconcileDraft(
+        seeded,
+        progress,
+        profile?.courses,
+        entryYear,
+        profile?.standing_year,
+        planProgramCodes,
+        saved?.termStatuses ?? {},
+      ),
+    );
     setTermStatuses(saved?.termStatuses ?? {});
     setPlanNote(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathwayId, programCode, variantId, studyPlan?.program_code]);
+  }, [pathwayId, programCode, variantId, studyPlan?.program_code, profile?.planner_id, entryYear]);
 
   useEffect(() => {
-    if (!progress) return;
+    if (!progress && !profile?.courses?.length) return;
     setPlanCourses((current) => {
-      if (current.length) return reconcileDraft(current, progress);
-      const seeded = seedFromPathway(variant, progress);
-      return seeded.length ? reconcileDraft(seeded, progress) : current;
+      if (current.length) {
+        return reconcileDraft(current, progress, profile?.courses, entryYear, profile?.standing_year, planProgramCodes, termStatuses);
+      }
+      const seeded = seedFromPathway(
+        variant,
+        progress,
+        profile?.courses,
+        entryYear,
+        profile?.standing_year,
+        planProgramCodes,
+        termStatuses,
+      );
+      return seeded.length
+        ? reconcileDraft(seeded, progress, profile?.courses, entryYear, profile?.standing_year, planProgramCodes, termStatuses)
+        : current;
     });
-  }, [progress, variant]);
+  }, [progress, variant, profile?.courses, entryYear, profile?.standing_year]);
 
   useEffect(() => {
     if (skipSave.current) {
@@ -532,7 +561,17 @@ export function DegreePage() {
       return;
     }
     skipSave.current = false;
-    setPlanCourses(snapshot.courses);
+    setPlanCourses(
+      reconcileDraft(
+        snapshot.courses,
+        progress,
+        profile?.courses,
+        entryYear,
+        profile?.standing_year,
+        planProgramCodes,
+        snapshot.termStatuses,
+      ),
+    );
     setTermStatuses(snapshot.termStatuses);
     setAppliedKeys((prev) => new Set(prev).add(data.title));
     setPlanNote(data.deferral?.reason ?? data.summary);
@@ -724,9 +763,6 @@ export function DegreePage() {
             ))}
           </select>
         </label>
-        <div className="ml-auto">
-          <ModeToggle mode={mode} onChange={setMode} autoLabel={subpage === "plan" ? "Auto apply" : "Auto create"} />
-        </div>
       </header>
 
       <nav className="flex shrink-0 gap-1 border-b border-line px-3">
@@ -856,6 +892,9 @@ export function DegreePage() {
               </div>
               <DegreeRequirements
                 programs={combinedProgress}
+                roles={Object.fromEntries(
+                  declared.filter((item) => item.code).map((item) => [item.code as string, item.role]),
+                )}
                 view={view}
                 buckets={scopeBuckets}
                 query={query}
@@ -877,11 +916,14 @@ export function DegreePage() {
                 onCourses={setPlanCourses}
                 onTermStatuses={setTermStatuses}
                 onReset={() => {
-                  setPlanCourses(seedFromPathway(variant, progress));
+                  setPlanCourses(
+                    seedFromPathway(variant, progress, profile?.courses, entryYear, profile?.standing_year, planProgramCodes, {}),
+                  );
                   setTermStatuses({});
                   setPlanNote(null);
                 }}
                 note={planNote}
+                intakeYear={entryYear}
               />
             )
           ) : null}
@@ -941,28 +983,37 @@ export function DegreePage() {
           ) : null}
 
           {panelTab === "chat" ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send(input);
-              }}
-              className="flex gap-1.5 border-t border-line p-2"
-            >
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={subpage === "plan" ? "Ask to change the study plan…" : "Ask about programs…"}
-                disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-              />
-              <button
-                type="submit"
-                disabled={busy || !input.trim()}
-                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            <div className="border-t border-line p-2">
+              <div className="mb-1.5">
+                <ModeToggle
+                  mode={mode}
+                  onChange={setMode}
+                  autoLabel={subpage === "plan" ? "Auto apply" : "Auto create"}
+                />
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  send(input);
+                }}
+                className="flex gap-1.5"
               >
-                Send
-              </button>
-            </form>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={subpage === "plan" ? "Ask to change the study plan…" : "Ask about programs…"}
+                  disabled={busy}
+                  className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !input.trim()}
+                  className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
           ) : (
             <ChatHistoryFooter
               label="Full conversation with the degree agent"

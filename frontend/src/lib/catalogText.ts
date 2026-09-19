@@ -15,6 +15,27 @@ export const COMP_4900_NOTE =
 export const COSC_4900_NOTE =
   "Students are required to take COMP 4900 for every regular term in which they are in residency at HKUST with major in COSC";
 
+export const BIEN_ELECTIVES_RULE =
+  "Bioengineering Electives (5 courses from the specified elective list, of which at least 9 credits should be taken from a single specialty area (Area 1 or Area 2). Out of the 15 credits taken, at least 9 credits should be at 4000-level or above. Courses taken as Major Required Courses may not be counted towards this elective requirement.)";
+
+export const BIEN_MINOR_ELECTIVES_RULE =
+  "Bioengineering Electives (3 courses from the specified list, of which at least one course must be at 4000-level)";
+
+export const BIEN_LIFS_EXEMPTION =
+  "Students with level 3 or above in HKDSE 1x Biology are exempted from taking LIFS 1901";
+
+export const SENG_INTRO_NOTE =
+  "Engineering Introduction course (If the students take an introduction course included in their major, this course can be counted towards their major requirement.)";
+
+export const ELEC_3000_RULE =
+  "ELEC 3000-level or above Electives (Courses of the subject and level as specified, out of which at least 2 courses must be at 4000-level. ELEC 4940 cannot be used to count towards this elective requirement)";
+
+export const ELEC_MATH_RULE_6 =
+  "(ELEC 2600 OR ELEC 2600H) OR MATH 2011 OR MATH 2111 OR MATH 2350 OR MATH 2351 (3 courses out of 6)";
+
+export const ELEC_MATH_RULE_5 =
+  "ELEC 2600 OR MATH 2011 OR MATH 2111 OR MATH 2350 OR MATH 2351 (3 courses out of 5)";
+
 function isCosc2000(text: string, programCode?: string): boolean {
   return (
     /any 6 course/i.test(text) ||
@@ -27,6 +48,32 @@ function isCosc2000(text: string, programCode?: string): boolean {
 
 const OFFICIAL_RULES: { test: (text: string, programCode?: string) => boolean; text: string }[] = [
   { test: (text, program) => isCosc2000(text, program), text: COSC_2000_RULE },
+  {
+    test: (text, program) =>
+      (program || "").toUpperCase() === "MINOR-BIEN" &&
+      (/bioengineering electives/i.test(text) || /^Electives$/i.test(text.trim()) || /3 courses from the specified/i.test(text)),
+    text: BIEN_MINOR_ELECTIVES_RULE,
+  },
+  {
+    test: (text, program) =>
+      (program || "").toUpperCase() === "BIEN" &&
+      (/bioengineering electives/i.test(text) || /specialty area/i.test(text) || /^Electives$/i.test(text.trim()) || /5 courses from the specified/i.test(text)),
+    text: BIEN_ELECTIVES_RULE,
+  },
+  { test: (text) => /hkdse/i.test(text) && /lifs 1901/i.test(text), text: BIEN_LIFS_EXEMPTION },
+  { test: (text) => /engineering introduction course/i.test(text), text: SENG_INTRO_NOTE },
+  {
+    test: (text) => /ELEC 3000-level or above/i.test(text) || (/3000-level or above Electives/i.test(text) && /4940|4000-level/i.test(text)),
+    text: ELEC_3000_RULE,
+  },
+  {
+    test: (text) => /3 courses out of/i.test(text) && /ELEC 2600/i.test(text) && (/2600H/i.test(text) || /out of 6/i.test(text)),
+    text: ELEC_MATH_RULE_6,
+  },
+  {
+    test: (text) => /3 courses out of/i.test(text) && /ELEC 2600/i.test(text),
+    text: ELEC_MATH_RULE_5,
+  },
   {
     test: (text) => /specified elective list/i.test(text) || /^COMP Electives\b/i.test(text),
     text: COMP_ELECTIVES_RULE,

@@ -27,6 +27,8 @@ export type PreviewSelection = {
   course_code: string;
   section_code: string;
   meetings: Meeting[];
+  replaces_course_code?: string;
+  replaces_section_code?: string;
 };
 
 function isWeekday(value: string | null): value is Weekday {
@@ -98,6 +100,22 @@ function layoutDay(blocks: Block[]): LaidOutBlock[] {
     col: item.col,
     cols: clusterWidth.get(find(i)) ?? 1,
   }));
+}
+
+function compactCode(code: string): string {
+  return code.replace(/\s+/g, "").toUpperCase();
+}
+
+function hiddenByPreview(
+  selection: { course_code: string; section_code: string },
+  preview: PreviewSelection[] | null | undefined,
+): boolean {
+  return (preview ?? []).some((item) => {
+    if (!item.replaces_course_code) return false;
+    if (compactCode(selection.course_code) !== compactCode(item.replaces_course_code)) return false;
+    if (!item.replaces_section_code) return true;
+    return selection.section_code.toUpperCase() === item.replaces_section_code.toUpperCase();
+  });
 }
 
 function blockKey(block: Block): string {
@@ -190,6 +208,7 @@ export function WeekGrid({
   const blocksByDay = emptyDayBlocks();
   const onPlan = new Set(selections.map((selection) => selectionKey(selection.course_code, selection.section_code)));
   for (const selection of selections) {
+    if (hiddenByPreview(selection, preview)) continue;
     pushMeetings(blocksByDay, selection, columnDates, false);
   }
   for (const item of preview ?? []) {

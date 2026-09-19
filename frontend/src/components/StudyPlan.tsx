@@ -2,9 +2,14 @@ import { useMemo, useState } from "react";
 import {
   PLAN_SEASONS,
   TERM_STATUSES,
+  addTerm,
+  canRemoveTerm,
+  catalogTermLabel,
   getTermStatus,
-  planYears,
+  nextAddableTerm,
+  planBoard,
   moveCourse,
+  removeTerm,
   setCourseCode,
   setTermStatus,
   termCredits,
@@ -53,10 +58,17 @@ function CourseCard({
       }}
       onClick={(event) => event.stopPropagation()}
       className={`rounded-md border px-2 py-1.5 text-left text-[13px] ${
-        selected ? "border-accent bg-accent-soft" : "border-line bg-bg"
+        selected ? "border-accent bg-accent-soft" : course.locked ? "border-line bg-fill" : "border-line bg-bg"
       } ${course.locked ? "cursor-default" : "cursor-grab"}`}
     >
-      <button type="button" onClick={onSelect} className="flex w-full items-start gap-2 text-left">
+      <button
+        type="button"
+        onClick={() => {
+          if (course.locked) return;
+          onSelect();
+        }}
+        className="flex w-full items-start gap-2 text-left"
+      >
         <span className={`mt-0.5 w-3 shrink-0 font-mono text-[11px] ${MARK_COLOR[course.status]}`}>{MARK[course.status]}</span>
         <span className="min-w-0 flex-1">
           <span className={course.code ? "font-mono" : ""}>{title}</span>
@@ -64,7 +76,17 @@ function CourseCard({
             <span className="mt-0.5 block text-[11px] text-muted">{course.label}</span>
           ) : null}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-muted tabular-nums">{course.credits}</span>
+        <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted tabular-nums">
+          {course.locked ? (
+            <span className="text-muted" title={course.status === "in_progress" ? "In progress — locked" : "Taken — locked"} aria-label="Locked">
+              <svg viewBox="0 0 12 12" className="size-3" fill="none" aria-hidden="true">
+                <rect x="2.25" y="5.5" width="7.5" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            </span>
+          ) : null}
+          {course.credits}
+        </span>
       </button>
       {canPick ? (
         <div className="mt-1.5 flex flex-wrap gap-1 pl-5">
@@ -90,26 +112,32 @@ function TermBoard({
   year,
   season,
   label,
+  catalogLabel,
   courses,
   status,
   selectedId,
   dropActive,
+  removable,
   onSelect,
   onDrop,
   onPick,
   onStatus,
+  onRemove,
 }: {
   year: number;
   season: PlanSeason;
   label: string;
+  catalogLabel?: string | null;
   courses: PlanCourse[];
   status: TermStatus;
   selectedId: string | null;
   dropActive: boolean;
+  removable: boolean;
   onSelect: (id: string) => void;
   onDrop: (year: number, season: PlanSeason, id?: string) => void;
   onPick: (id: string, code: string) => void;
   onStatus: (status: TermStatus) => void;
+  onRemove: () => void;
 }) {
   const credits = termCredits(courses, year, season);
   const heavy = credits > 18;
@@ -134,7 +162,10 @@ function TermBoard({
       }`}
     >
       <p className="mb-2 flex items-baseline justify-between gap-2 text-[11px] font-medium tracking-wide text-muted uppercase">
-        <span>{label}</span>
+        <span>
+          {label}
+          {catalogLabel ? <span className="ml-1.5 font-normal normal-case tracking-normal">{catalogLabel}</span> : null}
+        </span>
         <span className="flex items-center gap-2">
           <select
             value={status}
@@ -148,6 +179,18 @@ function TermBoard({
               </option>
             ))}
           </select>
+          {removable ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemove();
+              }}
+              className="font-sans text-[11px] font-medium normal-case tracking-normal text-muted hover:text-ink"
+            >
+              Remove
+            </button>
+          ) : null}
           <span className={`font-mono font-normal tabular-nums ${heavy ? "text-accent" : ""}`}>
             {away ? status : `${credits} cr`}
           </span>
@@ -189,6 +232,7 @@ export function StudyPlan({
   onTermStatuses,
   onReset,
   note,
+  intakeYear,
 }: {
   data: StudyPathway | null;
   courses: PlanCourse[];
@@ -199,6 +243,7 @@ export function StudyPlan({
   onTermStatuses: (statuses: Record<string, TermStatus>) => void;
   onReset: () => void;
   note?: string | null;
+  intakeYear?: number | null;
 }) {
   const variants = data?.variants ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -206,10 +251,11 @@ export function StudyPlan({
   const [localNote, setLocalNote] = useState<string | null>(null);
   const variant = variants.find((item) => item.id === variantId) ?? variants[0];
   const tray = useMemo(() => trayCourses(courses), [courses]);
-  const years = planYears(courses, termStatuses).map((item) => ({
+  const years = planBoard(courses, termStatuses).map((item) => ({
     ...item,
     current: Boolean(variant?.years.find((year) => year.year === item.year)?.current),
   }));
+  const extra = nextAddableTerm(courses, termStatuses);
   const banner = note ?? localNote;
 
   function place(year: number | null, season: PlanSeason | null, id?: string | null) {
@@ -230,6 +276,28 @@ export function StudyPlan({
     onCourses(result.courses);
     onTermStatuses(result.termStatuses);
     setLocalNote(result.deferral?.reason ?? (result.moved.length ? `Moved ${result.moved.length} course${result.moved.length === 1 ? "" : "s"} off ${termLabel(year, season)}.` : null));
+  }
+
+  function addSemester() {
+    const result = addTerm(courses, termStatuses);
+    if (result.error) {
+      setLocalNote(result.error);
+      return;
+    }
+    onCourses(result.courses);
+    onTermStatuses(result.termStatuses);
+    setLocalNote(`Added ${termLabel(result.year, result.season)}.`);
+  }
+
+  function removeSemester(year: number, season: PlanSeason) {
+    const result = removeTerm(courses, termStatuses, year, season);
+    if (result.error) {
+      setLocalNote(result.error);
+      return;
+    }
+    onCourses(result.courses);
+    onTermStatuses(result.termStatuses);
+    setLocalNote(`Removed ${termLabel(year, season)}.`);
   }
 
   return (
@@ -289,7 +357,7 @@ export function StudyPlan({
           <p className="text-[12px] text-muted">Every open course is on a term. Drag one back here to unplace it.</p>
         )}
         <p className="mt-2 text-[11px] text-muted">
-          {selectedId ? "Click a regular term to place the selected course, or drag it." : "Select or drag a course onto a term. Mark a semester Exchange or Leave to clear it."}
+          {selectedId ? "Click a regular term to place the selected course, or drag it." : "Select or drag a course onto a term. Mark a semester Exchange or Leave to clear it. Add a semester if you need a fifth year."}
         </p>
       </div>
 
@@ -305,25 +373,37 @@ export function StudyPlan({
               {year.current ? <span className="ml-1.5 text-[11px] font-normal text-muted">now</span> : null}
             </h3>
             <div className="grid grid-cols-1 gap-3 @min-[32rem]:grid-cols-2">
-              {PLAN_SEASONS.map((season) => (
+              {year.seasons.map((season) => (
                 <TermBoard
-                  key={season.id}
+                  key={season}
                   year={year.year}
-                  season={season.id}
-                  label={season.label}
+                  season={season}
+                  label={PLAN_SEASONS.find((item) => item.id === season)?.label ?? season}
+                  catalogLabel={catalogTermLabel(intakeYear, year.year, season)}
                   courses={courses}
-                  status={getTermStatus(termStatuses, year.year, season.id)}
+                  status={getTermStatus(termStatuses, year.year, season)}
                   selectedId={selectedId}
                   dropActive={dragging || Boolean(selectedId)}
+                  removable={canRemoveTerm(courses, year.year, season)}
                   onSelect={(id) => setSelectedId((current) => (current === id ? null : id))}
                   onDrop={(nextYear, nextSeason, id) => place(nextYear, nextSeason, id)}
                   onPick={(id, code) => onCourses(setCourseCode(courses, id, code))}
-                  onStatus={(status) => changeStatus(year.year, season.id, status)}
+                  onStatus={(status) => changeStatus(year.year, season, status)}
+                  onRemove={() => removeSemester(year.year, season)}
                 />
               ))}
             </div>
           </section>
         ))}
+        {extra ? (
+          <button
+            type="button"
+            onClick={addSemester}
+            className="rounded-md border border-dashed border-line px-3 py-2 text-left text-[13px] text-muted hover:border-ink hover:text-ink"
+          >
+            Add {termLabel(extra.year, extra.season)}
+          </button>
+        ) : null}
       </div>
 
       <div className="border-t border-line px-4 py-2.5 text-[11px] leading-4 text-muted">

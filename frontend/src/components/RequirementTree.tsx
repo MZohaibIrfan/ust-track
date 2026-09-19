@@ -2,18 +2,20 @@ import { useState } from "react";
 import { completeCatalogText } from "../lib/catalogText";
 import type { RequirementGroupProgress, RequirementItemProgress } from "../lib/types";
 
-const MARK: Record<NonNullable<RequirementGroupProgress["status"]>, string> = {
+const MARK: Record<NonNullable<RequirementItemProgress["status"]>, string> = {
   done: "✓",
   in_progress: "◐",
   missing: "○",
   info: "–",
+  excluded: "×",
 };
 
-const MARK_COLOR: Record<NonNullable<RequirementGroupProgress["status"]>, string> = {
+const MARK_COLOR: Record<NonNullable<RequirementItemProgress["status"]>, string> = {
   done: "text-page-degree",
   in_progress: "text-page-career",
   missing: "text-muted",
   info: "text-muted",
+  excluded: "text-muted",
 };
 
 const STATUS_PILL: Record<NonNullable<RequirementItemProgress["status"]>, string> = {
@@ -21,6 +23,7 @@ const STATUS_PILL: Record<NonNullable<RequirementItemProgress["status"]>, string
   in_progress: "bg-page-career/10 text-page-career",
   missing: "bg-fill text-muted",
   info: "bg-fill text-muted",
+  excluded: "bg-fill text-muted",
 };
 
 const STATUS_LABEL: Record<NonNullable<RequirementItemProgress["status"]>, string> = {
@@ -28,6 +31,7 @@ const STATUS_LABEL: Record<NonNullable<RequirementItemProgress["status"]>, strin
   in_progress: "In progress",
   missing: "Not yet",
   info: "Note",
+  excluded: "Excluded",
 };
 
 function progressLabel(group: RequirementGroupProgress): string {
@@ -37,18 +41,46 @@ function progressLabel(group: RequirementGroupProgress): string {
   return "";
 }
 
-function Item({ item, programCode }: { item: RequirementItemProgress; programCode?: string }) {
+function Item({
+  item,
+  programCode,
+  doubleCounts,
+}: {
+  item: RequirementItemProgress;
+  programCode?: string;
+  doubleCounts?: Record<string, string[]>;
+}) {
+  const shared = item.course_code ? doubleCounts?.[item.course_code] : undefined;
+  const others = (shared ?? item.double_counts ?? []).filter((code) => code !== programCode);
   return (
     <div className="flex items-baseline gap-2 py-1.5">
       <span className={`w-4 shrink-0 font-mono text-xs ${MARK_COLOR[item.status]}`}>{MARK[item.status]}</span>
       <span className="min-w-0 flex-1 text-[13px] whitespace-normal break-words">
-        {item.course_code ? <span className="font-mono">{item.course_code}</span> : <span className="break-words">{completeCatalogText(item.note, programCode)}</span>}
-        {item.course_code && item.note ? (
+        {item.course_code ? (
+          <span className={`font-mono ${item.status === "excluded" ? "line-through" : ""}`}>{item.course_code}</span>
+        ) : (
+          <span className="break-words">{completeCatalogText(item.note, programCode)}</span>
+        )}
+        {item.status === "excluded" && item.excluded_by?.length ? (
+          <span className="mt-0.5 block text-[12px] text-muted">Excluded by {item.excluded_by.join(", ")}</span>
+        ) : item.course_code && item.note ? (
           <span className="mt-0.5 block text-[12px] text-muted">{completeCatalogText(item.note, programCode)}</span>
         ) : null}
+        {others.length > 0 ? (
+          <span className="mt-0.5 block text-[11px] text-accent">
+            Double-counts with {others.join(", ")}
+          </span>
+        ) : null}
       </span>
-      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${STATUS_PILL[item.status]}`}>
-        {STATUS_LABEL[item.status]}
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${STATUS_PILL[item.status]}`}>
+          {STATUS_LABEL[item.status]}
+        </span>
+        {others.length > 0 ? (
+          <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-accent">
+            Shared
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -56,6 +88,7 @@ function Item({ item, programCode }: { item: RequirementItemProgress; programCod
 
 function progressForOr(group: RequirementGroupProgress): string {
   if (group.kind !== "or_group") return progressLabel(group);
+  if (group.of > 1) return `${group.done} of ${group.of}`;
   if (group.of > 0) return `one of · ${group.done} of ${group.of}`;
   return "one of";
 }
@@ -96,10 +129,12 @@ export function RequirementGroup({
   group,
   depth = 0,
   programCode,
+  doubleCounts,
 }: {
   group: RequirementGroupProgress;
   depth?: number;
   programCode?: string;
+  doubleCounts?: Record<string, string[]>;
 }) {
   const items = visibleItems(group, programCode);
   const many = items.length > 8 || COLLAPSE_KINDS.has(group.kind);
@@ -140,10 +175,16 @@ export function RequirementGroup({
             {rows.map((row) =>
               row.kind === "item" && row.item ? (
                 <div key={row.key} className="border-b border-line px-1 last:border-b-0">
-                  <Item item={row.item} programCode={programCode} />
+                  <Item item={row.item} programCode={programCode} doubleCounts={doubleCounts} />
                 </div>
               ) : row.child ? (
-                <RequirementGroup key={row.key} group={row.child} depth={depth + 1} programCode={programCode} />
+                <RequirementGroup
+                  key={row.key}
+                  group={row.child}
+                  depth={depth + 1}
+                  programCode={programCode}
+                  doubleCounts={doubleCounts}
+                />
               ) : null,
             )}
           </div>
@@ -154,7 +195,12 @@ export function RequirementGroup({
                 {[...items]
                   .sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0))
                   .map((item, i) => (
-                    <Item key={`${item.course_code ?? item.note ?? i}-${i}`} item={item} programCode={programCode} />
+                    <Item
+                      key={`${item.course_code ?? item.note ?? i}-${i}`}
+                      item={item}
+                      programCode={programCode}
+                      doubleCounts={doubleCounts}
+                    />
                   ))}
               </div>
             ) : null}
@@ -163,7 +209,13 @@ export function RequirementGroup({
                 {[...group.children]
                   .sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0))
                   .map((child, i) => (
-                    <RequirementGroup key={`${child.name}-${i}`} group={child} depth={depth + 1} programCode={programCode} />
+                    <RequirementGroup
+                      key={`${child.name}-${i}`}
+                      group={child}
+                      depth={depth + 1}
+                      programCode={programCode}
+                      doubleCounts={doubleCounts}
+                    />
                   ))}
               </div>
             ) : null}

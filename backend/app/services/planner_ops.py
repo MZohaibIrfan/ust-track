@@ -33,6 +33,50 @@ _SECTION_OPTIONS = (
 
 _PLANNER_PK: dict[str, UUID] = {}
 _KEEP_COURSE_STATUSES = {"completed", "done", "exempt", "transferred"}
+_HOLD_STATUSES = _KEEP_COURSE_STATUSES | {"in_progress", "planned"}
+
+
+def _held_course_codes(db: Session, planner: Planner, ignore: set[str] | None = None) -> set[str]:
+    skipped = {code.replace(" ", "").upper() for code in (ignore or set())}
+    rows = db.execute(
+        select(Course.course_code)
+        .join(StudentCourse, StudentCourse.course_id == Course.id)
+        .where(StudentCourse.planner_id == planner.id, StudentCourse.status.in_(_HOLD_STATUSES))
+    ).scalars().all()
+    return {code for code in rows if code.replace(" ", "").upper() not in skipped}
+
+
+def _replace_ignore_codes(db: Session, planner: Planner, course_code: str | None) -> set[str]:
+    if not course_code:
+        return set()
+    course = find_course(db, course_code)
+    if course is None:
+        return set()
+    rows = db.scalars(
+        select(StudentCourse).where(
+            StudentCourse.planner_id == planner.id,
+            StudentCourse.course_id == course.id,
+        )
+    ).all()
+    if any(row.status in _KEEP_COURSE_STATUSES for row in rows):
+        return set()
+    return {course.course_code}
+
+
+def _exclusion_error(
+    db: Session,
+    planner: Planner,
+    course_code: str,
+    ignore: set[str] | None = None,
+) -> dict[str, Any] | None:
+    from app.services.catalog_queries import exclusion_blockers, pretty_course_code
+
+    blockers = exclusion_blockers(db, course_code, _held_course_codes(db, planner, ignore))
+    if not blockers:
+        return None
+    pretty = pretty_course_code(course_code)
+    listed = ", ".join(pretty_course_code(code) for code in blockers)
+    return {"error": f"{pretty} is excluded because you already took {listed}."}
 
 
 def get_or_create_planner(db: Session, planner_id: str) -> Planner:
@@ -239,19 +283,29 @@ def add_planned_course(
     if course is None:
         return {"error": f"No course with code {course_code}"}
 
-    existing = db.scalar(
-        select(StudentCourse).where(
-            StudentCourse.planner_id == planner.id,
-            StudentCourse.course_id == course.id,
-            StudentCourse.term_id.is_(None),
-        )
+    rows = list(
+        db.scalars(
+            select(StudentCourse).where(
+                StudentCourse.planner_id == planner.id,
+                StudentCourse.course_id == course.id,
+            )
+        ).all()
     )
-    if existing is None:
+    kept = next((row for row in rows if row.status in _KEEP_COURSE_STATUSES), None)
+    if kept is not None:
+        return {"ok": True, "course_code": course.course_code, "status": kept.status}
+    if not rows:
+        blocked = _exclusion_error(db, planner, course.course_code)
+        if blocked:
+            return blocked
         db.add(StudentCourse(planner_id=planner.id, course_id=course.id, status=status))
+        stored = status
     else:
+        existing = next((row for row in rows if row.term_id is None), rows[0])
         existing.status = status
+        stored = status
     db.commit()
-    return {"ok": True, "course_code": course.course_code, "status": status}
+    return {"ok": True, "course_code": course.course_code, "status": stored}
 
 
 def remove_planned_course(db: Session, planner_id: str, course_code: str) -> dict[str, Any]:
@@ -269,27 +323,111 @@ def remove_planned_course(db: Session, planner_id: str, course_code: str) -> dic
     return {"ok": True, "removed": removed > 0}
 
 
-def _selections_for_course(
+def _compact_code(code: str | None) -> str:
+    return (code or "").replace(" ", "").upper()
+
+
+def _selection_rows(
     db: Session,
     planner: Planner,
-    course_code: str,
-    section_code: str | None = None,
-) -> list[StudentClassSelection] | dict[str, Any]:
-    course = find_course(db, course_code)
-    if course is None:
-        return {"error": f"No course with code {course_code}"}
-    stmt = (
-        select(StudentClassSelection)
+    course: Course,
+) -> list[tuple[StudentClassSelection, ClassSection]]:
+    return list(
+        db.execute(
+            select(StudentClassSelection, ClassSection)
+            .join(ClassSection, StudentClassSelection.section_id == ClassSection.id)
+            .join(CourseOffering, ClassSection.offering_id == CourseOffering.id)
+            .where(
+                StudentClassSelection.planner_id == planner.id,
+                CourseOffering.course_id == course.id,
+            )
+        ).all()
+    )
+
+
+def _drop_idle_timetable_course(db: Session, planner: Planner, course: Course) -> None:
+    """Remove in-progress/planned degree rows once no section of the course remains."""
+    remaining = db.scalar(
+        select(StudentClassSelection.id)
         .join(ClassSection, StudentClassSelection.section_id == ClassSection.id)
         .join(CourseOffering, ClassSection.offering_id == CourseOffering.id)
         .where(
             StudentClassSelection.planner_id == planner.id,
             CourseOffering.course_id == course.id,
         )
+        .limit(1)
     )
-    if section_code:
-        stmt = stmt.where(ClassSection.section_code == section_code.strip().upper())
-    return list(db.scalars(stmt).all())
+    if remaining is not None:
+        return
+    rows = list(
+        db.scalars(
+            select(StudentCourse).where(
+                StudentCourse.planner_id == planner.id,
+                StudentCourse.course_id == course.id,
+            )
+        ).all()
+    )
+    for row in rows:
+        if row.status in _KEEP_COURSE_STATUSES:
+            continue
+        db.delete(row)
+
+
+def _outgoing_for_replace(
+    db: Session,
+    planner: Planner,
+    new_course: Course,
+    new_section: ClassSection,
+    replaces_course_code: str | None = None,
+    replaces_section_code: str | None = None,
+) -> tuple[list[StudentClassSelection], Course | None, str | None]:
+    """Sections that should leave the calendar when this add is a replacement.
+
+    A different course always comes off as a whole (lecture + tutorial + lab).
+    The same course drops the matching kind, and follow-on tutorials/labs when
+    the lecture changes — even if the model only named one section.
+    """
+    explicit = _compact_code(replaces_course_code)
+    old_course = find_course(db, explicit) if explicit else new_course
+    if old_course is None:
+        return [], None, None
+
+    pairs = _selection_rows(db, planner, old_course)
+    new_kind, _ = _section_kind(new_section.section_code)
+    different = old_course.id != new_course.id
+    if different:
+        return [row for row, _sec in pairs], old_course, None
+
+    want_section = (replaces_section_code or "").strip().upper() or None
+    drop: list[StudentClassSelection] = []
+    dropped_section: str | None = None
+    replacing_lecture = False
+    for row, section in pairs:
+        if section.id == new_section.id:
+            continue
+        kind, _ = _section_kind(section.section_code)
+        if want_section:
+            if section.section_code.upper() != want_section:
+                continue
+        elif kind != new_kind:
+            continue
+        drop.append(row)
+        dropped_section = dropped_section or section.section_code
+        replacing_lecture = replacing_lecture or kind == "lecture"
+
+    if not drop and not (explicit or want_section):
+        return [], None, None
+
+    if replacing_lecture:
+        for row, section in pairs:
+            kind, _ = _section_kind(section.section_code)
+            if kind in {"tutorial", "lab"} and row not in drop:
+                drop.append(row)
+
+    if not drop:
+        return [], old_course if explicit else None, None
+    echo_section = None if different or replacing_lecture else dropped_section
+    return drop, old_course, echo_section
 
 
 def _section_action_payload(
@@ -328,45 +466,16 @@ def add_class_selection(
     replaces_course_code: str | None = None,
     replaces_section_code: str | None = None,
 ) -> dict[str, Any]:
-    if replaces_course_code:
-        return replace_class_selection(
-            db,
-            planner_id,
-            course_code,
-            section_code,
-            replaces_course_code,
-            replaces_section_code,
-            term_code,
-        )
-
-    planner = get_or_create_planner(db, planner_id)
-    course = find_course(db, course_code)
-    if course is None:
-        return {"error": f"No course with code {course_code}"}
-
-    section = find_section(db, course, section_code, term_code)
-    if section is None:
-        where = f" in term {term_code}" if term_code else ""
-        return {"error": f"No section {section_code} found for {course.course_code}{where}"}
-
-    from app.services.conflicts import conflicts_with_candidate  # local import breaks the module cycle
-
-    conflicts = conflicts_with_candidate(db, planner_id, section)
-
-    existing = db.scalar(
-        select(StudentClassSelection).where(
-            StudentClassSelection.planner_id == planner.id,
-            StudentClassSelection.section_id == section.id,
-        )
+    return _write_class_selection(
+        db,
+        planner_id,
+        course_code,
+        section_code,
+        term_code,
+        replaces_course_code,
+        replaces_section_code,
+        proposed=False,
     )
-    if existing is None:
-        db.add(StudentClassSelection(planner_id=planner.id, section_id=section.id))
-    _upsert_timetable_course(db, planner, course, section.offering.term_id)
-    db.commit()
-
-    payload = _section_action_payload(course, section, conflicts)
-    payload["plan"] = resolve_plan(db, planner_id)
-    return payload
 
 
 def preview_class_selection(
@@ -379,30 +488,16 @@ def preview_class_selection(
     replaces_section_code: str | None = None,
 ) -> dict[str, Any]:
     """Same lookup and conflict-check as add_class_selection, but writes nothing."""
-    if replaces_course_code:
-        return preview_replace_class_selection(
-            db,
-            planner_id,
-            course_code,
-            section_code,
-            replaces_course_code,
-            replaces_section_code,
-            term_code,
-        )
-
-    course = find_course(db, course_code)
-    if course is None:
-        return {"error": f"No course with code {course_code}"}
-
-    section = find_section(db, course, section_code, term_code)
-    if section is None:
-        where = f" in term {term_code}" if term_code else ""
-        return {"error": f"No section {section_code} found for {course.course_code}{where}"}
-
-    from app.services.conflicts import conflicts_with_candidate  # local import breaks the module cycle
-
-    conflicts = conflicts_with_candidate(db, planner_id, section)
-    return _section_action_payload(course, section, conflicts, proposed=True)
+    return _write_class_selection(
+        db,
+        planner_id,
+        course_code,
+        section_code,
+        term_code,
+        replaces_course_code,
+        replaces_section_code,
+        proposed=True,
+    )
 
 
 def preview_replace_class_selection(
@@ -414,32 +509,8 @@ def preview_replace_class_selection(
     replaces_section_code: str | None = None,
     term_code: str | None = None,
 ) -> dict[str, Any]:
-    planner = get_or_create_planner(db, planner_id)
-    course = find_course(db, course_code)
-    if course is None:
-        return {"error": f"No course with code {course_code}"}
-
-    section = find_section(db, course, section_code, term_code)
-    if section is None:
-        where = f" in term {term_code}" if term_code else ""
-        return {"error": f"No section {section_code} found for {course.course_code}{where}"}
-
-    outgoing = _selections_for_course(db, planner, replaces_course_code, replaces_section_code)
-    if isinstance(outgoing, dict):
-        return outgoing
-
-    from app.services.conflicts import conflicts_with_candidate
-
-    conflicts = conflicts_with_candidate(
-        db, planner_id, section, exclude_section_ids={row.section_id for row in outgoing}
-    )
-    return _section_action_payload(
-        course,
-        section,
-        conflicts,
-        proposed=True,
-        replaces_course_code=replaces_course_code.strip().replace(" ", "").upper(),
-        replaces_section_code=replaces_section_code.strip().upper() if replaces_section_code else None,
+    return preview_class_selection(
+        db, planner_id, course_code, section_code, term_code, replaces_course_code, replaces_section_code
     )
 
 
@@ -453,23 +524,61 @@ def replace_class_selection(
     term_code: str | None = None,
 ) -> dict[str, Any]:
     """Drop the original course (or one section) and add the new section in one commit."""
-    planner = get_or_create_planner(db, planner_id)
-    preview = preview_replace_class_selection(
-        db, planner_id, course_code, section_code, replaces_course_code, replaces_section_code, term_code
+    return add_class_selection(
+        db, planner_id, course_code, section_code, term_code, replaces_course_code, replaces_section_code
     )
-    if "error" in preview:
-        return preview
 
+
+def _write_class_selection(
+    db: Session,
+    planner_id: str,
+    course_code: str,
+    section_code: str,
+    term_code: str | None,
+    replaces_course_code: str | None,
+    replaces_section_code: str | None,
+    *,
+    proposed: bool,
+) -> dict[str, Any]:
+    planner = get_or_create_planner(db, planner_id)
     course = find_course(db, course_code)
-    section = find_section(db, course, section_code, term_code) if course else None
-    if course is None or section is None:
-        return preview
+    if course is None:
+        return {"error": f"No course with code {course_code}"}
 
-    outgoing = _selections_for_course(db, planner, replaces_course_code, replaces_section_code)
-    if isinstance(outgoing, dict):
-        return outgoing
+    section = find_section(db, course, section_code, term_code)
+    if section is None:
+        where = f" in term {term_code}" if term_code else ""
+        return {"error": f"No section {section_code} found for {course.course_code}{where}"}
+
+    outgoing, old_course, echo_section = _outgoing_for_replace(
+        db, planner, course, section, replaces_course_code, replaces_section_code
+    )
+    ignore = _replace_ignore_codes(db, planner, old_course.course_code) if old_course else set()
+    blocked = _exclusion_error(db, planner, course.course_code, ignore=ignore)
+    if blocked:
+        return blocked
+
+    from app.services.conflicts import conflicts_with_candidate  # local import breaks the module cycle
+
+    conflicts = conflicts_with_candidate(
+        db, planner_id, section, exclude_section_ids={row.section_id for row in outgoing}
+    )
+    payload = _section_action_payload(
+        course,
+        section,
+        conflicts,
+        proposed=proposed,
+        replaces_course_code=old_course.course_code if old_course else None,
+        replaces_section_code=echo_section,
+    )
+    if proposed:
+        return payload
+
     for row in outgoing:
         db.delete(row)
+    db.flush()
+    if old_course is not None:
+        _drop_idle_timetable_course(db, planner, old_course)
 
     existing = db.scalar(
         select(StudentClassSelection).where(
@@ -480,15 +589,9 @@ def replace_class_selection(
     if existing is None:
         db.add(StudentClassSelection(planner_id=planner.id, section_id=section.id))
     _upsert_timetable_course(db, planner, course, section.offering.term_id)
-
     db.commit()
-    payload = _section_action_payload(
-        course,
-        section,
-        preview["conflicts"],
-        replaces_course_code=preview.get("replaces_course_code"),
-        replaces_section_code=preview.get("replaces_section_code"),
-    )
+
+    payload["ok"] = True
     payload["plan"] = resolve_plan(db, planner_id)
     return payload
 
@@ -519,6 +622,8 @@ def remove_class_selection(
     rows = db.scalars(stmt).all()
     for row in rows:
         db.delete(row)
+    db.flush()
+    _drop_idle_timetable_course(db, planner, course)
     db.commit()
     return {"ok": True, "removed": len(rows), "plan": resolve_plan(db, planner_id)}
 
@@ -538,6 +643,10 @@ def add_class_selections(
     codes = [c.strip().upper() for c in section_codes if c.strip()]
     if not codes:
         return {"error": "No sections to add"}
+
+    blocked = _exclusion_error(db, planner, course.course_code)
+    if blocked:
+        return blocked
 
     sections = _load_course_sections(db, course, term_code)
     by_code = {s.section_code.upper(): s for s in sections}

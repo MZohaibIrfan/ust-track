@@ -66,6 +66,8 @@ function previewFromAction(data: SectionActionPayload): PreviewSelection[] {
       course_code: data.course_code,
       section_code: data.section_code,
       meetings: data.meetings ?? [],
+      replaces_course_code: data.replaces_course_code,
+      replaces_section_code: data.replaces_section_code,
     },
   ];
 }
@@ -223,17 +225,31 @@ export function TimetablePage() {
     };
   }, [terms]);
 
+  function pruneAgainstPlan(next: Plan) {
+    setSelected((cur) => {
+      if (!cur) return cur;
+      const still = next.class_selections.some(
+        (row) => row.course_code === cur.course_code && row.section_code === cur.section_code,
+      );
+      return still ? cur : null;
+    });
+  }
+
   async function refreshPlan() {
     try {
-      setPlan(await apiGet<Plan>(`/api/plan?planner_id=${plannerId}`));
+      const next = await apiGet<Plan>(`/api/plan?planner_id=${plannerId}`);
+      setPlan(next);
+      pruneAgainstPlan(next);
     } catch {
       // backend may not be running yet — the grid just stays empty
     }
   }
 
   function applyPlanUpdate(next?: Plan) {
-    if (next) setPlan(next);
-    else void refreshPlan();
+    if (next) {
+      setPlan(next);
+      pruneAgainstPlan(next);
+    } else void refreshPlan();
   }
 
   useEffect(() => {
@@ -338,6 +354,12 @@ export function TimetablePage() {
         if (done) break;
         acc += decoder.decode(value, { stream: true });
         setMessages([...next, { role: "assistant", content: acc }]);
+        const latest = parseSegments(acc)
+          .reverse()
+          .find((seg) => (seg.kind === "applied" || seg.kind === "removed") && seg.data.plan);
+        if (latest && latest.kind !== "text" && latest.data.plan) {
+          applyPlanUpdate(latest.data.plan);
+        }
       }
       refreshPlan();
     } catch {
@@ -375,15 +397,12 @@ export function TimetablePage() {
           </button>
         </div>
         <p className="font-mono text-[12px] text-muted tabular-nums">{formatWeekRange(weekStart)}</p>
-        <div className="ml-auto flex items-center gap-2">
-          <ModeToggle mode={mode} onChange={setMode} />
-          <a
-            href={`/api/plan.ics?planner_id=${plannerId}`}
-            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill"
-          >
-            .ics
-          </a>
-        </div>
+        <a
+          href={`/api/plan.ics?planner_id=${plannerId}`}
+          className="ml-auto rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill"
+        >
+          .ics
+        </a>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -470,28 +489,33 @@ export function TimetablePage() {
           ) : null}
 
           {panelTab === "chat" ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send(input);
-              }}
-              className="flex gap-1.5 border-t border-line p-2"
-            >
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about classes…"
-                disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-              />
-              <button
-                type="submit"
-                disabled={busy || !input.trim()}
-                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            <div className="border-t border-line p-2">
+              <div className="mb-1.5">
+                <ModeToggle mode={mode} onChange={setMode} />
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  send(input);
+                }}
+                className="flex gap-1.5"
               >
-                Send
-              </button>
-            </form>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask about classes…"
+                  disabled={busy}
+                  className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !input.trim()}
+                  className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
           ) : (
             <ChatHistoryFooter
               label="Full conversation with the timetable agent"

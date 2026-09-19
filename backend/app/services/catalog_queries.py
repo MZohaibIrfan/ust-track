@@ -16,6 +16,7 @@ from app.models import (
     Course,
     CourseOffering,
     CourseRelationship,
+    CourseRule,
     CourseVersion,
     Program,
     ProgramVersion,
@@ -234,9 +235,10 @@ KIND_ORDER = {
     "elective_list": 5,
     "area_constraint": 6,
     "area": 7,
-    "remarks": 8,
-    "advisory_pathway": 9,
-    "placeholder": 10,
+    "option": 8,
+    "remarks": 9,
+    "advisory_pathway": 10,
+    "placeholder": 11,
 }
 
 # Catalog table order for COMP / COSC elective areas (not alphabetical).
@@ -282,6 +284,40 @@ COSC_4900_NOTE = (
     "Students are required to take COMP 4900 for every regular term in which they are "
     "in residency at HKUST with major in COSC"
 )
+# Official 2024-25 / 2025-26 ugadmin ELEC program sheets. Scraped names stop at a wrap.
+ELEC_3000_RULE = (
+    "ELEC 3000-level or above Electives (Courses of the subject and level as specified, "
+    "out of which at least 2 courses must be at 4000-level. ELEC 4940 cannot be used to "
+    "count towards this elective requirement)"
+)
+ELEC_MATH_RULE_6 = (
+    "(ELEC 2600 OR ELEC 2600H) OR MATH 2011 OR MATH 2111 OR MATH 2350 OR MATH 2351 "
+    "(3 courses out of 6)"
+)
+ELEC_MATH_RULE_5 = (
+    "ELEC 2600 OR MATH 2011 OR MATH 2111 OR MATH 2350 OR MATH 2351 (3 courses out of 5)"
+)
+ELEC_RESEARCH_NOTE = (
+    "Advanced Elective Courses approved by advisor (at least one UROP course taken prior "
+    "to the commencement of Final Year Thesis, and one PG-level course)"
+)
+ELEC_MATH_OR_CODES = {
+    "ELEC2600",
+    "ELEC2600H",
+    "MATH2011",
+    "MATH2111",
+    "MATH2350",
+    "MATH2351",
+}
+STATS_OR_CODES_COMP = {
+    "IEDA2520",
+    "IEDA2540",
+    "ISOM2500",
+    "MATH2411",
+    "MATH2421",
+    "MATH2431",
+}
+RESEARCH_OPTION_CODES = {"ELEC5900", "UROP1000", "UROP1100", "UROP2100", "UROP3100"}
 STATS_OR_CODES = {
     "ELEC2600",
     "ELEC2600H",
@@ -292,6 +328,111 @@ STATS_OR_CODES = {
     "MATH2421",
     "MATH2431",
 }
+# Catalog wrap: "ELEC 3-4 4810 OR LIFS 4320" — leftover LIFS 4320 / "OR LIFS" / false LIFS 4810.
+BIEN_MODELING_OR_CODES = {"BIEN2310", "BIEN3320", "BIEN3410", "ELEC4810", "LIFS4320"}
+SENG_INTRO_CODES = {
+    "BIEN1010",
+    "CENG1000",
+    "CENG1500",
+    "CENG1700",
+    "CIVL1100",
+    "CIVL1210",
+    "COMP1021",
+    "ELEC1100",
+    "ELEC1200",
+    "ENGG1100",
+    "IEDA2010",
+    "MECH1902",
+    "MECH1906",
+    "MECH1907",
+}
+SENG_INTRO_NOTE = (
+    "Engineering Introduction course (If the students take an introduction course "
+    "included in their major, this course can be counted towards their major requirement.)"
+)
+BIEN_ELECTIVES_RULE = (
+    "Bioengineering Electives (5 courses from the specified elective list, of which at least "
+    "9 credits should be taken from a single specialty area (Area 1 or Area 2). Out of the "
+    "15 credits taken, at least 9 credits should be at 4000-level or above. Courses taken as "
+    "Major Required Courses may not be counted towards this elective requirement.)"
+)
+BIEN_MINOR_ELECTIVES_RULE = (
+    "Bioengineering Electives (3 courses from the specified list, of which at least one course must be at 4000-level)"
+)
+BIEN_LIFS_EXEMPTION = "Students with level 3 or above in HKDSE 1x Biology are exempted from taking LIFS 1901"
+BIEN_AREA1_NAME = "Area 1: Biomedical Data Acquisition and Analytics"
+BIEN_AREA2_NAME = "Area 2: Bioprocesses, Biomaterials and Bioanalysis"
+BIEN_OTHER_NAME = "Other electives"
+BIEN_AREA1_CODES = {
+    "BIEN3310",
+    "BIEN4310",
+    "BIEN5040",
+    "BIEN5060",
+    "CENG5240",
+    "COMP2012",
+    "COMP2012H",
+    "COMP2211",
+    "COMP4211",
+    "COMP4331",
+    "COMP4421",
+    "COMP5423",
+    "ELEC2100",
+    "ELEC2100H",
+    "ELEC2420",
+    "ELEC4820",
+    "EMIA4110",
+    "LIFS3070",
+}
+BIEN_AREA2_CODES = {
+    "BIEN4110",
+    "BIEN5070",
+    "CENG3150",
+    "CENG4510",
+    "CENG4620",
+    "CENG4630",
+    "CENG4640",
+    "CENG4650",
+    "CENG4670",
+    "CENG5610",
+    "CHEM2111",
+    "CHEM2311",
+    "LIFS3060",
+    "LIFS4888",
+}
+BIEN_FALLBACK_TITLES = {
+    "BIEN2310": "Modeling for Chemical and Biological Engineering",
+    "BIEN3320": "Data Science for Biology and Medicine",
+    "BIEN3410": "Bioimaging and Image Analysis",
+    "ELEC4810": "Introduction to Biosensors and Bioinstrumentation",
+    "LIFS4320": "Data Science for Biology and Medicine",
+    "BIEN4110": "Regulatory Affairs in the Healthcare Industry",
+    "BIEN4310": "Statistical Signal Analysis and Applications in Neural Engineering",
+    "CENG1110": "Introduction to Chemical Engineering",
+    "CENG4640": "Biomolecular Engineering",
+    "CENG4650": "Biomaterials and Drug Delivery",
+    "ELEC4820": "Medical Imaging",
+    "ELEC4830": "Statistical Signal Analysis and Applications in Neural Engineering",
+    "UCOP3200": "Design for Global Health",
+}
+MINOR_BIEN_ELECTIVE_CODES = [
+    "BIEN4110",
+    "BIEN4310",
+    "CENG1110",
+    "CENG4620",
+    "CENG4640",
+    "CENG4650",
+    "CENG4670",
+    "COMP4211",
+    "COMP4331",
+    "COMP4421",
+    "ELEC4820",
+    "ELEC4830",
+    "ENGG1300",
+    "UCOP3200",
+    "LIFS4370",
+    "LIFS4760",
+]
+OR_FRAGMENT_RE = re.compile(r"^OR\s+([A-Z]{2,8})(?:\s+(\d{4}[A-Z]?))?\s*$", re.I)
 # "IEDA 3-4 2540" or "IEDA 3-4 ISOM/MATH 2540" after a catalog credit/header wrap.
 WRAPPED_COURSE_RE = re.compile(
     r"\b([A-Z]{2,8})(?:/[A-Z]{2,8})*\s+\d{1,2}(?:\s*-\s*\d{1,2})?"
@@ -334,6 +475,59 @@ def _codes_in(text: str | None) -> list[str]:
     cleaned = re.sub(r"\bOR(?=[A-Z])", " ", text or "", flags=re.I)
     cleaned = re.sub(r"\bOR\b", " ", cleaned, flags=re.I)
     return [f"{subject.upper()}{number.upper()}" for subject, number in LOOSE_CODE_RE.findall(cleaned)]
+
+
+def pretty_course_code(code: str) -> str:
+    compact = code.replace(" ", "").upper()
+    match = re.match(r"([A-Z]{2,8})(\d{4}[A-Z]?)$", compact)
+    return f"{match.group(1)} {match.group(2)}" if match else compact or code
+
+
+def load_exclusion_map(db: Session) -> dict[str, frozenset[str]]:
+    """course_code -> courses that block taking it (from that course's exclusion list)."""
+
+    def _load() -> dict[str, frozenset[str]]:
+        mapping: dict[str, set[str]] = {}
+
+        def add(course: str, blocker: str) -> None:
+            target = course.replace(" ", "").upper()
+            other = blocker.replace(" ", "").upper()
+            if not target or not other or target == other:
+                return
+            mapping.setdefault(target, set()).add(other)
+
+        rel_rows = db.execute(
+            text(
+                """
+                SELECT f.course_code, t.course_code
+                FROM catalog.course_relationship r
+                JOIN catalog.course f ON f.id = r.from_course_id
+                JOIN catalog.course t ON t.id = r.to_course_id
+                WHERE r.kind = 'exclusion'
+                """
+            )
+        ).all()
+        for course_code, other in rel_rows:
+            add(course_code, other)
+
+        rule_rows = db.execute(
+            select(Course.course_code, CourseRule.raw_text)
+            .join(CourseRule, CourseRule.course_id == Course.id)
+            .where(CourseRule.kind == "exclusion")
+        ).all()
+        for course_code, raw in rule_rows:
+            for other in _codes_in(raw):
+                add(course_code, other)
+
+        return {code: frozenset(blockers) for code, blockers in mapping.items()}
+
+    return cached("exclusion_map", _load)
+
+
+def exclusion_blockers(db: Session, course_code: str, held_codes: set[str]) -> list[str]:
+    target = course_code.replace(" ", "").upper()
+    held = {code.replace(" ", "").upper() for code in held_codes}
+    return sorted(load_exclusion_map(db).get(target, frozenset()) & held)
 
 
 def _subject(code: str) -> str:
@@ -379,6 +573,13 @@ def _is_garbage_or_item(item: dict[str, Any]) -> bool:
     return compact.startswith("OR") and bool(_codes_in(note))
 
 
+def _is_false_or_course(item: dict[str, Any]) -> bool:
+    """'ORLIFS' attached to LIFS4810 after a wrap — not a real catalog option."""
+    code = item.get("course_code")
+    note = re.sub(r"\s+", "", item.get("note") or "").upper()
+    return bool(code) and note.startswith("OR") and note == "OR" + _subject(code)
+
+
 BARE_OR_NUMBER_RE = re.compile(
     r"\b([A-Z]{2,8})\s+\d{4}[A-Z]?(?:\s+OR\s+[A-Z]{2,8}\s+\d{4}[A-Z]?)*\s+OR\s+(\d{4}[A-Z]?)\b",
     re.I,
@@ -412,8 +613,25 @@ def _group_codes(node: dict[str, Any]) -> set[str]:
     return codes
 
 
+def _looks_like_elec_math_or(child: dict[str, Any]) -> bool:
+    """ELEC fundamentals: 3 courses from ELEC 2600 / MATH 2011 / 2111 / 2350 / 2351."""
+    codes = _group_codes(child)
+    if codes & STATS_OR_CODES_COMP:
+        return False
+    if not (codes & {"ELEC2600", "ELEC2600H"}):
+        return False
+    expr = (_or_expression(child) or "").upper()
+    return bool(codes & {"MATH2011", "MATH2111", "MATH2350", "MATH2351"}) or "MATH 2011" in expr
+
+
 def _looks_like_stats_or(child: dict[str, Any]) -> bool:
+    if _looks_like_elec_math_or(child):
+        return False
     return bool(_group_codes(child) & {"ELEC2600", "ELEC2600H", "IEDA2520"})
+
+
+def _looks_like_bien_modeling_or(child: dict[str, Any]) -> bool:
+    return bool(_group_codes(child) & {"BIEN2310", "BIEN3320", "ELEC4810", "LIFS4320"})
 
 
 def _or_expression(child: dict[str, Any]) -> str:
@@ -447,8 +665,10 @@ def _repair_truncated_or_groups(group: dict[str, Any]) -> None:
             continue
         expr = _normalize_wrapped_or_text(_or_expression(child))
         subject = _truncated_or_subject(expr)
+        elec_math = _looks_like_elec_math_or(child)
         stats_or = _looks_like_stats_or(child)
-        if not subject and not stats_or:
+        bien_or = _looks_like_bien_modeling_or(child)
+        if not subject and not stats_or and not bien_or and not elec_math:
             continue
 
         extra_codes = []
@@ -456,7 +676,14 @@ def _repair_truncated_or_groups(group: dict[str, Any]) -> None:
             if _is_garbage_or_item(item):
                 extra_codes.extend(_codes_in(item.get("note")))
         absorb_subjects = ({subject} if subject else set()) | {_subject(code) for code in extra_codes}
-        absorb_codes = STATS_OR_CODES if stats_or else set()
+        absorb_codes: set[str] = set()
+        if elec_math:
+            absorb_codes |= ELEC_MATH_OR_CODES
+            absorb_subjects = set()
+        if stats_or:
+            absorb_codes |= STATS_OR_CODES
+        if bien_or:
+            absorb_codes |= BIEN_MODELING_OR_CODES
 
         absorbed: list[dict[str, Any]] = []
         kept: list[dict[str, Any]] = []
@@ -468,7 +695,11 @@ def _repair_truncated_or_groups(group: dict[str, Any]) -> None:
                 kept.append(item)
         items = kept
 
-        child["items"] = [item for item in child.get("items", []) if not _is_garbage_or_item(item)]
+        child["items"] = [
+            item
+            for item in child.get("items", [])
+            if not _is_garbage_or_item(item) and not _is_false_or_course(item)
+        ]
         existing = {item.get("course_code") for item in child["items"] if item.get("course_code")}
         for item in absorbed:
             code = item.get("course_code")
@@ -476,7 +707,25 @@ def _repair_truncated_or_groups(group: dict[str, Any]) -> None:
                 child["items"].append(item)
                 existing.add(code)
 
+        if bien_or:
+            existing = {item.get("course_code") for item in child["items"] if item.get("course_code")}
+            for code in ("BIEN2310", "BIEN3320", "BIEN3410", "ELEC4810", "LIFS4320"):
+                if code not in existing:
+                    child["items"].append({"course_code": code, "note": None})
+                    existing.add(code)
+
         codes = [item["course_code"] for item in child["items"] if item.get("course_code")]
+        if elec_math:
+            official = ELEC_MATH_RULE_6 if "ELEC2600H" in existing else ELEC_MATH_RULE_5
+            for item in child["items"]:
+                if _is_expr_item(item):
+                    item["note"] = official
+                    break
+            else:
+                child["items"].insert(0, {"course_code": None, "note": official})
+            child["name"] = official
+            child["items"] = _order_or_items(child["items"], official)
+            continue
         codes.sort(key=lambda code: (_subject(code), _course_num(code), code))
         rebuilt = " OR ".join(_spaced_code(code) for code in codes)
         if rebuilt:
@@ -490,6 +739,89 @@ def _repair_truncated_or_groups(group: dict[str, Any]) -> None:
         child["items"] = _order_or_items(child["items"], rebuilt or expr)
 
     group["items"] = items
+    _merge_or_fragments(group)
+    _extract_seng_intro(group)
+
+
+def _merge_or_fragments(group: dict[str, Any]) -> None:
+    """Join leftover 'OR LIFS' placeholder groups into the previous one-of."""
+    children = list(group.get("children") or [])
+    merged: list[dict[str, Any]] = []
+    for child in children:
+        _merge_or_fragments(child)
+        name = _clean_catalog_text(child.get("name"))
+        frag = OR_FRAGMENT_RE.match(name or "")
+        if frag and merged and merged[-1].get("kind") == "or_group":
+            target = merged[-1]
+            subject = frag.group(1).upper()
+            number = (frag.group(2) or "").upper()
+            want = {f"{subject}{number}"} if number else set()
+            existing = {item.get("course_code") for item in target.get("items") or [] if item.get("course_code")}
+            for item in child.get("items") or []:
+                code = item.get("course_code")
+                if code and code not in existing and (not want or code in want or _subject(code) == subject):
+                    target.setdefault("items", []).append(item)
+                    existing.add(code)
+            leftovers = []
+            for item in group.get("items") or []:
+                code = item.get("course_code")
+                if code and _subject(code) == subject and code not in existing:
+                    target.setdefault("items", []).append(item)
+                    existing.add(code)
+                else:
+                    leftovers.append(item)
+            group["items"] = leftovers
+            codes = [item["course_code"] for item in target.get("items") or [] if item.get("course_code")]
+            rebuilt = " OR ".join(_spaced_code(code) for code in codes)
+            if rebuilt:
+                target["name"] = rebuilt
+                for item in target.get("items") or []:
+                    if _is_expr_item(item):
+                        item["note"] = rebuilt
+                        break
+                else:
+                    target.setdefault("items", []).insert(0, {"course_code": None, "note": rebuilt})
+            continue
+        merged.append(child)
+    group["children"] = merged
+
+
+def _extract_seng_intro(group: dict[str, Any]) -> None:
+    """SENG intro list is one-of; scrapes dump it as AND leftovers and glue the note onto PHYS."""
+    for child in group.get("children") or []:
+        _extract_seng_intro(child)
+        for item in child.get("items") or []:
+            note = item.get("note") or ""
+            if "engineering introduction course" in note.lower():
+                item["note"] = _clean_catalog_text(re.split(r"\bSENG\b|Engineering Introduction", note, maxsplit=1)[0])
+        name = child.get("name") or ""
+        if "engineering introduction course" in name.lower():
+            cleaned = _clean_catalog_text(re.split(r"\bSENG\b|Engineering Introduction", name, maxsplit=1)[0])
+            child["name"] = cleaned or name
+
+    if group.get("kind") != "engineering_fundamentals":
+        return
+    intro: list[dict[str, Any]] = []
+    kept: list[dict[str, Any]] = []
+    for item in group.get("items") or []:
+        if item.get("course_code") in SENG_INTRO_CODES:
+            intro.append(item)
+        else:
+            kept.append(item)
+    if len(intro) < 3:
+        return
+    group["items"] = kept
+    codes = [item["course_code"] for item in intro if item.get("course_code")]
+    expr = " OR ".join(_spaced_code(code) for code in codes)
+    group.setdefault("children", []).append(
+        {
+            "name": SENG_INTRO_NOTE,
+            "kind": "or_group",
+            "min_credits": 3.0,
+            "items": [{"course_code": None, "note": expr}, *intro],
+            "children": [],
+        }
+    )
 
 
 def _assign_sort_index(group: dict[str, Any]) -> None:
@@ -548,6 +880,7 @@ def _clean_catalog_text(text: str | None) -> str:
     cleaned = STRAY_CREDITS_RE.sub("", cleaned)
     cleaned = TRAILING_CREDITS_RE.sub("", cleaned.strip())
     cleaned = re.sub(r"\bevery 0 regular\b", "every regular", cleaned)
+    cleaned = re.sub(r"\bare 0-3 exempted\b", "are exempted", cleaned, flags=re.I)
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
     if cleaned == "Courses Without Associated":
         return "Courses Without Associated Area"
@@ -565,22 +898,68 @@ def _is_cosc_2000(text: str, program_code: str | None = None) -> bool:
     )
 
 
-def _completed_rule(text: str | None, program_code: str | None = None) -> str | None:
+def _completed_rule(text: str | None, program_code: str | None = None, kind: str | None = None) -> str | None:
     raw = re.sub(r"\s+", " ", text or "").strip()
     if not raw:
         return None
     lower = raw.lower()
+    code = (program_code or "").upper()
     if _is_cosc_2000(raw, program_code):
         return COSC_2000_RULE
+    if code == "MINOR-BIEN" and (
+        kind == "electives" or "bioengineering electives" in lower or "3 courses from the specified" in lower
+    ):
+        return BIEN_MINOR_ELECTIVES_RULE
+    if code == "BIEN" and (
+        kind == "electives"
+        or "specialty area" in lower
+        or "bioengineering electives" in lower
+        or "5 courses from the specified" in lower
+        or lower == "electives"
+    ):
+        return BIEN_ELECTIVES_RULE
     if "specified elective list" in lower or lower.startswith("comp electives"):
         return COMP_ELECTIVES_RULE
+    if "3000-level or above" in lower and "elec" in lower:
+        return ELEC_3000_RULE
+    if "3 courses out of" in lower and "elec 2600" in lower:
+        return ELEC_MATH_RULE_6 if "2600h" in lower or "out of 6" in lower else ELEC_MATH_RULE_5
+    if "engineering introduction course" in lower and "included in their major" in lower:
+        return SENG_INTRO_NOTE
     if "2000-level or above" in lower:
         return COMP_2000_RULE
     if "take comp 4900" in lower:
-        if "cosc" in lower or (program_code or "").upper() == "COSC":
+        if "cosc" in lower or code == "COSC":
             return COSC_4900_NOTE
         return COMP_4900_NOTE
+    if "hkdse" in lower and "lifs 1901" in lower:
+        return BIEN_LIFS_EXEMPTION
     return None
+
+
+def _course_item_note(code: str, note: str | None) -> str | None:
+    cleaned = _clean_catalog_text(note)
+    if not cleaned:
+        return None
+    if cleaned.upper().startswith("OR "):
+        return None
+    if " OR " not in cleaned.upper():
+        return cleaned
+    compact = code.replace(" ", "").upper()
+    idx = cleaned.upper().find(compact)
+    if idx < 0:
+        spaced = _spaced_code(code)
+        idx = cleaned.upper().find(spaced.upper())
+        if idx < 0:
+            return None
+        rest = cleaned[idx + len(spaced) :].strip()
+    else:
+        rest = cleaned[idx + len(compact) :].strip()
+    rest = re.split(r"\s+\d{1,2}\s+[A-Z]{2,8}", rest, maxsplit=1)[0]
+    rest = TRAILING_CREDITS_RE.sub("", rest).strip()
+    if not rest or rest.upper().startswith("OR ") or " OR " in rest.upper():
+        return None
+    return rest if len(rest) > 4 else None
 
 
 def _sanitize_credits(group: dict[str, Any]) -> None:
@@ -591,10 +970,82 @@ def _sanitize_credits(group: dict[str, Any]) -> None:
         _sanitize_credits(child)
 
 
+def _partition_bien_electives(group: dict[str, Any], program_code: str | None = None) -> None:
+    if (program_code or "").upper() != "BIEN" or group.get("kind") != "electives":
+        for child in group.get("children") or []:
+            _partition_bien_electives(child, program_code)
+        return
+    if group.get("children"):
+        return
+    buckets = {
+        BIEN_AREA1_NAME: [],
+        BIEN_AREA2_NAME: [],
+        BIEN_OTHER_NAME: [],
+    }
+    leftover: list[dict[str, Any]] = []
+    for item in group.get("items") or []:
+        code = item.get("course_code")
+        if not code:
+            leftover.append(item)
+            continue
+        if code in BIEN_AREA1_CODES:
+            buckets[BIEN_AREA1_NAME].append(item)
+        elif code in BIEN_AREA2_CODES:
+            buckets[BIEN_AREA2_NAME].append(item)
+        else:
+            buckets[BIEN_OTHER_NAME].append(item)
+    children = []
+    for name, items in buckets.items():
+        if not items:
+            continue
+        children.append({"name": name, "kind": "area", "min_credits": None, "items": items, "children": []})
+    if not children:
+        return
+    group["items"] = leftover
+    group["children"] = children
+
+
+def _repair_research_option(group: dict[str, Any]) -> None:
+    """Research Option is opt-in; the scrape files it as a second Required block."""
+    codes = {item.get("course_code") for item in group.get("items") or []}
+    codes.discard(None)
+    if group.get("kind") == "required" and codes and codes <= RESEARCH_OPTION_CODES:
+        group["kind"] = "option"
+        group["name"] = "Research Option"
+        for item in group.get("items") or []:
+            if item.get("course_code") == "ELEC5900":
+                note = item.get("note") or ""
+                if "elective" in note.lower() or "urop" in note.lower():
+                    item["note"] = "Modern Engineering Research Methodologies"
+        notes = [item.get("note") or "" for item in group.get("items") or [] if not item.get("course_code")]
+        if not any("approved by advisor" in note.lower() for note in notes):
+            group.setdefault("items", []).insert(
+                1,
+                {"course_code": None, "note": ELEC_RESEARCH_NOTE},
+            )
+    for child in group.get("children") or []:
+        _repair_research_option(child)
+
+
+def _rebuild_or_expr_notes(group: dict[str, Any]) -> None:
+    if group.get("kind") == "or_group":
+        codes = [item["course_code"] for item in group.get("items") or [] if item.get("course_code")]
+        if len(codes) >= 2:
+            rebuilt = " OR ".join(_spaced_code(code) for code in codes)
+            for item in group.get("items") or []:
+                note = item.get("note") or ""
+                if _is_expr_item(item) and "exempt" not in note.lower() and (
+                    " OR " in note.upper() or _codes_in(note)
+                ):
+                    item["note"] = rebuilt
+    for child in group.get("children") or []:
+        _rebuild_or_expr_notes(child)
+
+
 def _repair_catalog_labels(group: dict[str, Any], program_code: str | None = None) -> None:
     """Restore official catalog wording and drop leftover duplicate notes."""
     original_name = group.get("name") or ""
-    official = _completed_rule(original_name, program_code)
+    official = _completed_rule(original_name, program_code, group.get("kind"))
     group["name"] = official or _clean_catalog_text(original_name)
 
     child_titles = set()
@@ -607,7 +1058,7 @@ def _repair_catalog_labels(group: dict[str, Any], program_code: str | None = Non
         if item.get("course_code"):
             note = item.get("note")
             official_note = _completed_rule(note, program_code)
-            item["note"] = official_note or _clean_catalog_text(note)
+            item["note"] = official_note or _course_item_note(item["course_code"], note)
             kept.append(item)
             continue
         raw_note = item.get("note") or ""
@@ -639,7 +1090,10 @@ def _build_tree(groups: list[RequirementGroup], program_code: str | None = None)
     roots = [node(group) for group in by_parent.get(None, [])]
     for root in roots:
         _repair_truncated_or_groups(root)
+        _repair_research_option(root)
+        _partition_bien_electives(root, program_code)
         _repair_catalog_labels(root, program_code)
+        _rebuild_or_expr_notes(root)
         _sanitize_credits(root)
         _assign_sort_index(root)
     roots.sort(key=lambda group: KIND_ORDER.get(group.get("kind"), 50))
@@ -943,6 +1397,66 @@ def search_programs(db: Session, query: str, intake_year: int | None = None) -> 
     return {"query": query, "matches": [], "error": error}
 
 
+def _course_titles(db: Session, codes: list[str]) -> dict[str, str]:
+    if not codes:
+        return {}
+    rows = db.execute(
+        select(Course.course_code, CourseVersion.title)
+        .join(CourseVersion, CourseVersion.course_id == Course.id)
+        .join(AcademicYear, CourseVersion.academic_year_id == AcademicYear.id)
+        .where(Course.course_code.in_(codes))
+        .order_by(AcademicYear.start_year.desc())
+    ).all()
+    titles: dict[str, str] = {}
+    for code, title in rows:
+        titles.setdefault(code, title)
+    return titles
+
+
+def _enrich_missing_titles(db: Session, tree: list[dict[str, Any]]) -> None:
+    missing: list[str] = []
+
+    def walk(group: dict[str, Any]) -> None:
+        for item in group.get("items") or []:
+            if item.get("course_code") and not item.get("note"):
+                missing.append(item["course_code"])
+        for child in group.get("children") or []:
+            walk(child)
+
+    for group in tree:
+        walk(group)
+    titles = _course_titles(db, list(dict.fromkeys(missing)))
+    for code in missing:
+        titles.setdefault(code, BIEN_FALLBACK_TITLES.get(code, ""))
+    titles = {code: title for code, title in titles.items() if title}
+    if not titles:
+        return
+
+    def apply(group: dict[str, Any]) -> None:
+        for item in group.get("items") or []:
+            code = item.get("course_code")
+            if code and not item.get("note") and titles.get(code):
+                item["note"] = titles[code]
+        for child in group.get("children") or []:
+            apply(child)
+
+    for group in tree:
+        apply(group)
+
+
+def _fill_empty_minor_bien_electives(db: Session, tree: list[dict[str, Any]], program_code: str | None) -> None:
+    if (program_code or "").upper() != "MINOR-BIEN":
+        return
+    electives = next((group for group in tree if group.get("kind") == "electives"), None)
+    if electives is None or electives.get("items") or electives.get("children"):
+        return
+    titles = _course_titles(db, MINOR_BIEN_ELECTIVE_CODES)
+    electives["items"] = [
+        {"course_code": code, "note": titles.get(code)} for code in MINOR_BIEN_ELECTIVE_CODES
+    ]
+    electives["name"] = BIEN_MINOR_ELECTIVES_RULE
+
+
 def load_requirement_tree(db: Session, version_id: Any, program_code: str | None = None) -> list[dict[str, Any]]:
     groups = (
         db.scalars(
@@ -953,7 +1467,10 @@ def load_requirement_tree(db: Session, version_id: Any, program_code: str | None
         .unique()
         .all()
     )
-    return _build_tree(list(groups), program_code)
+    tree = _build_tree(list(groups), program_code)
+    _fill_empty_minor_bien_electives(db, tree, program_code)
+    _enrich_missing_titles(db, tree)
+    return tree
 
 
 def list_academic_years(db: Session) -> list[dict[str, Any]]:

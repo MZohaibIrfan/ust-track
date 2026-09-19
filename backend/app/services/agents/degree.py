@@ -43,22 +43,32 @@ BASE_SYSTEM_PROMPT = (
     "and propose_pathway for that code. (3) If they want options / a minor / extended major without naming one, "
     "rank_add_on_pathways, then propose the top 2–3 with catalog data. (4) Talk in tool results: codes, "
     "already_counting, still_open, major_overlap. (5) list_pathways if they ask what they already opened. "
-    "(6) Exchange, leave, or rearranging the study plan: get_study_plan, then propose_term_status "
-    "(suggest) or apply_term_status (auto). Year 3 fall is year=3 season=fall. The tool moves courses "
-    "and sets deferral.needed when they no longer fit in years 1–4 — say that and suggest deferring. "
-    "Never invent a rearranged plan. Write like an advisor: short, specific. No filler."
+    "(6) Exchange, leave, extra semesters, or rearranging the study plan: get_study_plan, then "
+    "propose_term_status / propose_add_term / propose_remove_term / propose_move_course / "
+    "propose_add_courses (suggest) or the apply_* variants (auto). Year 3 fall is year=3 season=fall. "
+    "Adding a semester appends the next Fall or Spring after the last term on the board "
+    "(Year 5 Fall after Year 4 Spring). Years 1–4 cannot be removed. The tool moves courses and "
+    "sets deferral.needed when they no longer fit in years 1–4 — say that and suggest deferring. "
+    "Never invent a rearranged plan. "
+    "(7) Recommending courses or electives (including double-counting picks): get_study_plan, then "
+    "one propose_add_courses / apply_add_courses call with every code. The tool places them on the "
+    "next regular semester after the current one that has room, then the one after. Always emit "
+    "the plan card — never only list courses in prose. Do not invent a term. "
+    "Write like an advisor: short, specific. No filler."
 )
 
 SUGGEST_ADDENDUM = (
-    " SUGGEST mode: propose_pathway / propose_term_status / propose_move_course only — the student applies. "
-    "Never claim a pathway or study-plan change was written."
+    " SUGGEST mode: propose_pathway / propose_term_status / propose_add_term / propose_remove_term / "
+    "propose_move_course / propose_add_courses only — the student applies. Never claim a pathway "
+    "or study-plan change was written."
 )
 
 AUTO_ADDENDUM = (
     " AUTO mode: if they asked for options, still propose_pathway for 2–3 ranked add-ons. "
     "Use create_pathway only when they named a specific program. After create_pathway, say the label "
-    "and that they can switch to it in the pathway menu. For exchange, leave, or study-plan moves, "
-    "use apply_term_status / apply_move_course directly."
+    "and that they can switch to it in the pathway menu. For exchange, leave, study-plan moves, or "
+    "recommended courses, use apply_term_status / apply_add_term / apply_remove_term / "
+    "apply_move_course / apply_add_courses directly."
 )
 
 READ_TOOLS: list[dict[str, Any]] = [
@@ -209,7 +219,7 @@ READ_TOOLS: list[dict[str, Any]] = [
             "description": (
                 "Read the student's current study-plan draft: each term's status (regular / exchange / "
                 "leave), the courses on it, and anything still unplaced. Use this before proposing "
-                "exchange, leave, or a rearrangement."
+                "exchange, leave, a rearrangement, or adding recommended courses."
             ),
             "parameters": {"type": "object", "properties": {}},
         },
@@ -346,10 +356,119 @@ APPLY_MOVE_TOOL: dict[str, Any] = {
     },
 }
 
+_ADD_TERM_PARAMS = {
+    "type": "object",
+    "properties": {
+        "year": {"type": "integer", "description": "Optional programme year to add. Omit to append the next semester."},
+        "season": {"type": "string", "description": "fall or spring. Omit to append the next semester."},
+    },
+}
+
+_REMOVE_TERM_PARAMS = {
+    "type": "object",
+    "properties": {
+        "year": {"type": "integer", "description": "Extra programme year to remove, e.g. 5."},
+        "season": {"type": "string", "description": "fall or spring"},
+    },
+    "required": ["year", "season"],
+}
+
+PROPOSE_ADD_TERM_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "propose_add_term",
+        "description": (
+            "Dry-run: add an extra semester after the current board (Year 5 Fall after Year 4 Spring, "
+            "then Year 5 Spring, and so on, up to Year 8). Years 1–4 already exist. Does not write "
+            "until the student clicks Apply."
+        ),
+        "parameters": _ADD_TERM_PARAMS,
+    },
+}
+
+APPLY_ADD_TERM_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "apply_add_term",
+        "description": "Same as propose_add_term but applied immediately in auto mode.",
+        "parameters": _ADD_TERM_PARAMS,
+    },
+}
+
+PROPOSE_REMOVE_TERM_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "propose_remove_term",
+        "description": (
+            "Dry-run: remove an extra semester (Year 5+). Years 1–4 cannot be removed. "
+            "The term must be empty of real courses (COMP 4900 is ignored)."
+        ),
+        "parameters": _REMOVE_TERM_PARAMS,
+    },
+}
+
+APPLY_REMOVE_TERM_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "apply_remove_term",
+        "description": "Same as propose_remove_term but applied immediately in auto mode.",
+        "parameters": _REMOVE_TERM_PARAMS,
+    },
+}
+
+_ADD_COURSES_PARAMS = {
+    "type": "object",
+    "properties": {
+        "course_codes": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Catalog codes to place, e.g. [\"BIEN3610\", \"ELEC3600\"]. Pass every recommended course in one call.",
+        },
+        "year": {
+            "type": "integer",
+            "description": "Optional first programme year to fill. Omit to use the next regular semester after the current one.",
+        },
+        "season": {"type": "string", "description": "fall or spring. Required if year is set."},
+    },
+    "required": ["course_codes"],
+}
+
+PROPOSE_ADD_COURSES_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "propose_add_courses",
+        "description": (
+            "Dry-run: add recommended catalog courses to the study plan. Places each on the next "
+            "regular semester after the current term that has room (max 18 credits), then the one "
+            "after. Already-taken or already-planned courses are skipped. Does not write until Apply."
+        ),
+        "parameters": _ADD_COURSES_PARAMS,
+    },
+}
+
+APPLY_ADD_COURSES_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "apply_add_courses",
+        "description": "Same as propose_add_courses but applied immediately in auto mode.",
+        "parameters": _ADD_COURSES_PARAMS,
+    },
+}
+
 
 def _tools_for_mode(mode: Mode) -> list[dict[str, Any]]:
     if mode == "suggest":
-        return [*READ_TOOLS, REMOVE_TOOL, MARK_COURSE_TOOL, PROPOSE_TOOL, PROPOSE_TERM_TOOL, PROPOSE_MOVE_TOOL]
+        return [
+            *READ_TOOLS,
+            REMOVE_TOOL,
+            MARK_COURSE_TOOL,
+            PROPOSE_TOOL,
+            PROPOSE_TERM_TOOL,
+            PROPOSE_MOVE_TOOL,
+            PROPOSE_ADD_TERM_TOOL,
+            PROPOSE_REMOVE_TERM_TOOL,
+            PROPOSE_ADD_COURSES_TOOL,
+        ]
     return [
         *READ_TOOLS,
         REMOVE_TOOL,
@@ -360,6 +479,12 @@ def _tools_for_mode(mode: Mode) -> list[dict[str, Any]]:
         APPLY_TERM_TOOL,
         PROPOSE_MOVE_TOOL,
         APPLY_MOVE_TOOL,
+        PROPOSE_ADD_TERM_TOOL,
+        APPLY_ADD_TERM_TOOL,
+        PROPOSE_REMOVE_TERM_TOOL,
+        APPLY_REMOVE_TERM_TOOL,
+        PROPOSE_ADD_COURSES_TOOL,
+        APPLY_ADD_COURSES_TOOL,
     ]
 
 
@@ -447,6 +572,48 @@ def _execute_tool(
             ctx["study_plan"] = result["draft"]
         kind = "PLAN_APPLIED" if name == "apply_move_course" else "PLAN_SUGGEST"
         return result, _plan_marker(kind, result)
+    if name in ("propose_add_term", "apply_add_term"):
+        result = study_plan_ops.add_term(draft, args.get("year"), args.get("season"))
+        if result.get("ok") and result.get("draft"):
+            ctx["study_plan"] = result["draft"]
+        kind = "PLAN_APPLIED" if name == "apply_add_term" else "PLAN_SUGGEST"
+        return result, _plan_marker(kind, result)
+    if name in ("propose_remove_term", "apply_remove_term"):
+        result = study_plan_ops.remove_term(draft, args["year"], args["season"])
+        if result.get("ok") and result.get("draft"):
+            ctx["study_plan"] = result["draft"]
+        kind = "PLAN_APPLIED" if name == "apply_remove_term" else "PLAN_SUGGEST"
+        return result, _plan_marker(kind, result)
+    if name in ("propose_add_courses", "apply_add_courses", "propose_add_course", "apply_add_course"):
+        raw_codes = args.get("course_codes") or []
+        if isinstance(raw_codes, str):
+            raw_codes = [raw_codes]
+        single = args.get("course_code")
+        if single:
+            raw_codes = [single, *raw_codes]
+        specs: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for raw in raw_codes:
+            compact = str(raw or "").replace(" ", "").upper()
+            if not compact or compact in seen:
+                continue
+            seen.add(compact)
+            detail = get_course_detail(db, compact, intake_year, lite=True)
+            if detail.get("error"):
+                specs.append({"code": compact, "error": detail["error"]})
+                continue
+            specs.append(
+                {
+                    "code": detail.get("course_code") or compact,
+                    "title": detail.get("title") or compact,
+                    "credits": detail.get("credits") or 3,
+                }
+            )
+        result = study_plan_ops.add_courses(draft, specs, args.get("year"), args.get("season"))
+        if result.get("ok") and result.get("draft"):
+            ctx["study_plan"] = result["draft"]
+        kind = "PLAN_APPLIED" if name.startswith("apply_") else "PLAN_SUGGEST"
+        return result, _plan_marker(kind, result)
     if name == "mark_course":
         return planner_ops.add_planned_course(db, planner_id, args["course_code"], args.get("status", "planned")), None
     if name == "remove_declared_program":
@@ -486,7 +653,12 @@ def stream_advisor(
     if focus == "plan":
         prompt += " The student is on the Study plan page — prefer study-plan tools over declaring programs."
     elif focus == "requirements":
-        prompt += " The student is on the Requirements page — prefer check_requirement_progress."
+        prompt += (
+            " The student is on the Requirements page — check remaining requirements, then when you "
+            "recommend courses to take, get_study_plan and propose_add_courses / apply_add_courses "
+            "so they land on the next open regular semester. Always attach a plan card; never only "
+            "list electives in prose."
+        )
     ctx: dict[str, Any] = {"study_plan": study_plan}
     history: list[dict[str, Any]] = [{"role": "system", "content": prompt}, *messages]
 

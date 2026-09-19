@@ -44,7 +44,7 @@ function keepItem(item: RequirementItemProgress, group: RequirementGroupProgress
   if (view === "this_term") return item.status === "in_progress";
   if (view === "done") return item.status === "done";
   if (orGroupHasPath(group)) return item.status === "in_progress";
-  return item.status === "missing" || item.status === "in_progress";
+  return item.status === "missing" || item.status === "in_progress" || item.status === "excluded";
 }
 
 function filterGroup(

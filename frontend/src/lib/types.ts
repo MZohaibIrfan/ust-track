@@ -174,7 +174,9 @@ export type CatalogProgram = {
 export type RequirementItemProgress = {
   course_code: string | null;
   note: string | null;
-  status: "done" | "in_progress" | "missing" | "info";
+  status: "done" | "in_progress" | "missing" | "info" | "excluded";
+  excluded_by?: string[] | null;
+  double_counts?: string[] | null;
   sort_index?: number;
 };
 
@@ -250,6 +252,8 @@ export type StudyPlanActionPayload = {
     season: "fall" | "spring" | null;
   }[];
   term_statuses?: Record<string, "regular" | "exchange" | "leave">;
+  added?: StudyPlanMove[];
+  skipped?: { code: string; reason: string }[];
   error?: string;
 };
 
