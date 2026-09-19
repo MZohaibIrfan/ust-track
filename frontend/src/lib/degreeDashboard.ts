@@ -74,7 +74,7 @@ function walkMissing(group: RequirementGroupProgress, out: CourseSuggestion[]): 
     return;
   }
 
-  if ((group.kind === "elective_list" || group.kind === "area_constraint") && group.status !== "done") {
+  if (group.kind === "elective_list" || group.kind === "area_constraint") {
     const remaining = group.of > 0 ? Math.max(0, group.of - group.done) : 0;
     out.push({
       id: `elective-${group.name}`,
