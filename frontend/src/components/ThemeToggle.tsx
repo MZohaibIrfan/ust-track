@@ -40,7 +40,7 @@ export function ThemeToggle() {
       <SunIcon className="absolute left-[5px] h-3 w-3 text-muted" />
       <MoonIcon className="absolute right-[5px] h-3 w-3 text-muted" />
       <span
-        className={`relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-accent text-bg shadow-sm transition-transform ${
+        className={`relative z-[1] flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-ink shadow-sm transition-transform ${
           isDark ? "translate-x-6" : "translate-x-0"
         }`}
       >

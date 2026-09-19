@@ -104,7 +104,7 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-xl bg-ink px-5 py-2.5 text-[13px] font-medium text-bg shadow-soft transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-40"
+      className="rounded-xl bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-ink shadow-soft transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-40"
     >
       {children}
     </button>
@@ -354,7 +354,7 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
             type="button"
             onClick={addCourse}
             disabled={!courseCode || saving}
-            className="rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="rounded-xl bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
           >
             {saving ? "Adding…" : "Add"}
           </button>
@@ -515,7 +515,7 @@ function InterestsStep({
           type="button"
           onClick={findSuggestions}
           disabled={selected.size === 0 || loading}
-          className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+          className="self-start rounded-xl bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
         >
           {loading ? "Finding…" : "Suggest courses"}
         </button>
@@ -614,7 +614,7 @@ function ProgramStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
             type="button"
             onClick={declare}
             disabled={saving || declaredNow}
-            className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="self-start rounded-xl bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
           >
             {declaredNow ? "Declared" : saving ? "Declaring…" : `Declare ${roleFor(selectedProgram).replaceAll("_", " ")}`}
           </button>
@@ -723,7 +723,7 @@ function ExperienceStep({ plannerId, onNext, onSkip }: { plannerId: string; onNe
             type="button"
             onClick={addExperience}
             disabled={!title.trim() || saving}
-            className="rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="rounded-xl bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
           >
             {saving ? "Adding…" : "Add another"}
           </button>

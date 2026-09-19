@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiGet } from "../lib/api";
+import { OverviewIcon } from "../components/NavIcons";
+import { PageHeader } from "../components/PageHeader";
 import { usePlanner } from "../lib/PlannerContext";
 import { studentHeading } from "../lib/planner";
 import { countStatuses } from "../lib/pathway";
@@ -179,14 +181,12 @@ export function OverviewPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <header className="shrink-0 border-b border-line px-4 py-5">
-        <h1 className="text-[22px] font-semibold tracking-tight text-ink">
-          {termLabel ? `Hello — ${termLabel}` : "Hello"}
-        </h1>
-        <p className="mt-1 text-[13px] text-muted">
-          {identity ? `${identity.title}${identity.detail ? ` · ${identity.detail}` : ""}` : "No program declared yet."}
-        </p>
-      </header>
+      <PageHeader
+        icon={OverviewIcon}
+        badgeClassName="bg-accent-soft text-accent"
+        title={termLabel ? `Hello — ${termLabel}` : "Hello"}
+        subtitle={identity ? `${identity.title}${identity.detail ? ` · ${identity.detail}` : ""}` : "No program declared yet."}
+      />
 
       <div className="grid gap-3 p-4 md:grid-cols-3">
         <section className="flex flex-col gap-2 rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">

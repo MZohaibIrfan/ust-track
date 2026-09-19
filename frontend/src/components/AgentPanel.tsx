@@ -78,7 +78,7 @@ export function AgentPanel({ children }: { children: ReactNode }) {
 
   return (
     <section
-      className="relative flex min-h-0 shrink-0 flex-col overflow-hidden border-t border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out max-lg:h-[var(--agent-h)] lg:h-auto lg:w-[var(--agent-w)] lg:border-t-0"
+      className="relative flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft transition-[width,height] duration-200 ease-in-out max-lg:h-[var(--agent-h)] lg:h-auto lg:w-[var(--agent-w)]"
       style={{ "--agent-w": `${targetWidth}px`, "--agent-h": `${targetHeight}px` } as CSSProperties}
     >
       {collapsed ? null : (

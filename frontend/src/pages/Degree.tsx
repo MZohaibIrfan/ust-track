@@ -5,7 +5,9 @@ import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { DegreeDashboard } from "../components/DegreeDashboard";
+import { DegreeIcon } from "../components/NavIcons";
 import { DegreeRequirements } from "../components/DegreeRequirements";
+import { PageHeader } from "../components/PageHeader";
 import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
 import { StudyPlan } from "../components/StudyPlan";
 import { ThinkingDots } from "../components/ThinkingDots";
@@ -128,7 +130,7 @@ function ProgramCard({
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+            className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:bg-accent/90"
           >
             {data.fork ? "Open pathway" : "Apply"}
           </button>
@@ -174,7 +176,7 @@ function PlanCard({
           <button
             type="button"
             onClick={() => onApply(data)}
-            className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+            className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:bg-accent/90"
           >
             Apply
           </button>
@@ -199,7 +201,7 @@ function ChatBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg">
+      <div className="ml-auto max-w-[85%] rounded-xl bg-accent px-3 py-2 text-[13px] text-accent-ink">
         {message.content}
       </div>
     );
@@ -286,7 +288,6 @@ export function DegreePage() {
   const entryYear = profile?.entry_year ?? declared.find((d) => d.intake_year)?.intake_year ?? null;
   const studyPlanCode =
     selectedCode === "COMP" || declared.some((d) => d.code === "COMP") ? "COMP" : selectedCode;
-  const studyPlanAvailable = Boolean(studyPlan?.available);
 
   async function refreshProfile() {
     const gen = ++loadGen.current;
@@ -721,8 +722,7 @@ export function DegreePage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <h1 className="text-[15px] font-semibold tracking-tight">Degree</h1>
+      <PageHeader icon={DegreeIcon} badgeClassName="bg-page-degree/15 text-page-degree" title="Degree">
         {pathways.length > 0 ? (
           <select
             value={pathwayId}
@@ -739,8 +739,8 @@ export function DegreePage() {
         <button
           type="button"
           onClick={() => setBrowseOpen((open) => !open)}
-          className={`rounded-xl px-2.5 py-1 text-[12px] ${
-            browseOpen ? "bg-fill font-medium text-ink" : "border border-line text-muted hover:text-ink"
+          className={`rounded-xl px-2.5 py-1 text-[12px] font-medium ${
+            browseOpen ? "bg-accent text-accent-ink" : "border border-line text-muted hover:text-ink"
           }`}
         >
           Browse catalog
@@ -763,9 +763,10 @@ export function DegreePage() {
             ))}
           </select>
         </label>
-      </header>
+        <ModeToggle mode={mode} onChange={setMode} autoLabel={subpage === "plan" ? "Auto apply" : "Auto create"} />
+      </PageHeader>
 
-      <nav className="flex shrink-0 gap-1 border-b border-line px-3">
+      <nav className="flex shrink-0 gap-1 border-b border-line px-4">
         {SUBPAGES.map((page) => (
           <NavLink
             key={page.id}
@@ -773,7 +774,7 @@ export function DegreePage() {
             end={page.id === "overview"}
             className={({ isActive }) =>
               `-mb-px border-b-2 px-2.5 py-2 text-[13px] ${
-                isActive ? "border-ink font-medium text-ink" : "border-transparent text-muted hover:text-ink"
+                isActive ? "border-accent font-medium text-ink" : "border-transparent text-muted hover:text-ink"
               }`
             }
           >
@@ -782,13 +783,13 @@ export function DegreePage() {
         ))}
       </nav>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-b border-line lg:border-r lg:border-b-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
+        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft">
           {browseOpen ? (
             <>
               <button
                 type="button"
-                className="absolute inset-0 z-20 bg-ink/20"
+                className="absolute inset-0 z-20 bg-accent/20"
                 aria-label="Close catalog"
                 onClick={() => setBrowseOpen(false)}
               />
@@ -842,7 +843,7 @@ export function DegreePage() {
                     type="button"
                     onClick={declareSelected}
                     disabled={acting}
-                    className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg disabled:opacity-40"
+                    className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink disabled:opacity-40"
                   >
                     Declare {roleFor(selectedProgram).replaceAll("_", " ")}
                   </button>
@@ -983,37 +984,28 @@ export function DegreePage() {
           ) : null}
 
           {panelTab === "chat" ? (
-            <div className="border-t border-line p-2">
-              <div className="mb-1.5">
-                <ModeToggle
-                  mode={mode}
-                  onChange={setMode}
-                  autoLabel={subpage === "plan" ? "Auto apply" : "Auto create"}
-                />
-              </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  send(input);
-                }}
-                className="flex gap-1.5"
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(input);
+              }}
+              className="flex gap-1.5 border-t border-line p-2"
+            >
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={subpage === "plan" ? "Ask to change the study plan…" : "Ask about programs…"}
+                disabled={busy}
+                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                className="shrink-0 rounded-xl bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
               >
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={subpage === "plan" ? "Ask to change the study plan…" : "Ask about programs…"}
-                  disabled={busy}
-                  className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                />
-                <button
-                  type="submit"
-                  disabled={busy || !input.trim()}
-                  className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
-                >
-                  Send
-                </button>
-              </form>
-            </div>
+                Send
+              </button>
+            </form>
           ) : (
             <ChatHistoryFooter
               label="Full conversation with the degree agent"
