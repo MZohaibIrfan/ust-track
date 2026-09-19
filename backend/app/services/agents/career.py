@@ -44,6 +44,12 @@ BASE_SYSTEM_PROMPT = (
     "offer to log it with add_experience, and "
     "call it once they confirm the details (title, organization, kind, dates if given). (4) "
     "list_experiences if they ask what's already logged; remove_experience if they ask to delete one. "
+    "(5) If they say they're building/tailoring a CV or resume for a specific role and want help "
+    "picking which logged experiences to include, call select_relevant_experience with that job's "
+    "description. Tell them plainly which entries matched and why (matched_terms), and which logged "
+    "entries didn't match at all — don't silently drop the ones with no match, name them so the "
+    "student can decide for themselves whether to keep them anyway. Never rank relevance yourself; "
+    "only report what the tool returned. "
     "Write like a career advisor talking to one student: short, specific, no filler, no generic "
     "'strong communication skills' padding."
 )
@@ -147,6 +153,24 @@ TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "select_relevant_experience",
+            "description": (
+                "Deterministically score every logged experience against a job description by keyword "
+                "overlap, for a student tailoring a CV to a specific role. Returns selected (entries "
+                "with at least one matching term, with matched_terms and a score) and not_selected "
+                "(entries with zero overlap). Always use this instead of judging relevance yourself — "
+                "it also drives the checkboxes in the CV builder panel."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"job_description": {"type": "string"}},
+                "required": ["job_description"],
+            },
+        },
+    },
 ]
 
 
@@ -192,6 +216,9 @@ def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any])
     if name == "remove_experience":
         result = career_ops.remove_experience(db, planner_id, args["experience_id"])
         return result, _marker("EXPERIENCE_REMOVED", result) if result.get("ok") else None
+    if name == "select_relevant_experience":
+        result = career_ops.select_relevant_experience(db, planner_id, args.get("job_description", ""))
+        return result, _marker("CV_SELECTION", result) if not result.get("error") else None
     return {"error": f"Unknown tool {name}"}, None
 
 

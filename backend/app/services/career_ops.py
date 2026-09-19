@@ -248,9 +248,45 @@ def recommend_courses_for_job(
     }
 
 
+def select_relevant_experience(db: Session, planner_id: str, job_description: str) -> dict[str, Any]:
+    """Score logged experience entries against a job description by keyword
+    overlap, for the CV builder's 'pick what's relevant' step. A short,
+    personal list (a handful of entries, not a 700-course catalog) doesn't
+    need rarity weighting — plain overlap is enough signal here."""
+    keywords = _keywords(job_description)
+    if not keywords:
+        return {"matched_keywords": [], "selected": [], "not_selected": [], "error": "Paste a longer job description."}
+
+    experiences = list_experiences(db, planner_id)["experiences"]
+    scored: list[dict[str, Any]] = []
+    for exp in experiences:
+        haystack = f"{exp['title']} {exp['organization']} {exp['description']}"
+        hits = keywords & _keywords(haystack)
+        scored.append(
+            {
+                "id": exp["id"],
+                "title": exp["title"],
+                "kind": exp["kind"],
+                "matched_terms": sorted(hits),
+                "score": len(hits),
+            }
+        )
+
+    scored.sort(key=lambda r: -r["score"])
+    selected = [r for r in scored if r["score"] > 0]
+    not_selected = [r for r in scored if r["score"] == 0]
+
+    return {
+        "matched_keywords": sorted(keywords)[:30],
+        "selected": selected,
+        "not_selected": not_selected,
+    }
+
+
 __all__ = [
     "list_experiences",
     "add_experience",
     "remove_experience",
     "recommend_courses_for_job",
+    "select_relevant_experience",
 ]

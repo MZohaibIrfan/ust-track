@@ -283,6 +283,28 @@ export type JobMatchResult = {
   error?: string;
 };
 
+export type CvGenerationSummary = {
+  id: string;
+  full_name: string;
+  experience_count: number;
+  created_at: string;
+};
+
+export type ExperienceMatch = {
+  id: string;
+  title: string;
+  kind: string;
+  matched_terms: string[];
+  score: number;
+};
+
+export type ExperienceSelectionResult = {
+  matched_keywords: string[];
+  selected: ExperienceMatch[];
+  not_selected: ExperienceMatch[];
+  error?: string;
+};
+
 export type DegreePathway = {
   planner_id: string;
   label: string;

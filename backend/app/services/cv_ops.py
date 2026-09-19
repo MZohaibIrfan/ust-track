@@ -16,11 +16,15 @@ import tempfile
 from datetime import date
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models import CvGeneration
 from app.services.career_ops import list_experiences
 from app.services.degree_ops import get_student_profile
+from app.services.planner_ops import get_or_create_planner
 
 
 class PdfCompilerMissing(Exception):
@@ -235,9 +239,13 @@ def generate_cv_latex(
     github: str = "",
     website: str = "",
     skills_text: str = "",
+    include_ids: list[str] | None = None,
 ) -> str:
     profile = get_student_profile(db, planner_id)
     experiences = list_experiences(db, planner_id)["experiences"]
+    if include_ids is not None:
+        wanted = set(include_ids)
+        experiences = [e for e in experiences if e["id"] in wanted]
 
     by_kind: dict[str, list[dict[str, Any]]] = {"internship": [], "project": [], "extracurricular": [], "research": []}
     for exp in experiences:
@@ -303,4 +311,62 @@ def compile_pdf(latex: str) -> bytes:
         return pdf_path.read_bytes()
 
 
-__all__ = ["generate_cv_latex", "compile_pdf", "PdfCompilerMissing", "PdfCompileError"]
+def save_generation(db: Session, planner_id: str, full_name: str, latex: str, experience_count: int) -> dict[str, Any]:
+    planner = get_or_create_planner(db, planner_id)
+    row = CvGeneration(
+        planner_id=planner.id,
+        full_name=full_name.strip() or "Your Name",
+        latex=latex,
+        experience_count=experience_count,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"id": str(row.id), "full_name": row.full_name, "experience_count": row.experience_count, "created_at": row.created_at.isoformat()}
+
+
+def list_generations(db: Session, planner_id: str) -> list[dict[str, Any]]:
+    planner = get_or_create_planner(db, planner_id)
+    rows = db.scalars(
+        select(CvGeneration).where(CvGeneration.planner_id == planner.id).order_by(CvGeneration.created_at.desc())
+    ).all()
+    return [
+        {
+            "id": str(row.id),
+            "full_name": row.full_name,
+            "experience_count": row.experience_count,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in rows
+    ]
+
+
+def get_generation_latex(db: Session, planner_id: str, generation_id: str) -> str | None:
+    planner = get_or_create_planner(db, planner_id)
+    row = db.scalar(
+        select(CvGeneration).where(CvGeneration.planner_id == planner.id, CvGeneration.id == UUID(generation_id))
+    )
+    return row.latex if row else None
+
+
+def delete_generation(db: Session, planner_id: str, generation_id: str) -> dict[str, Any]:
+    planner = get_or_create_planner(db, planner_id)
+    removed = (
+        db.query(CvGeneration)
+        .filter(CvGeneration.planner_id == planner.id, CvGeneration.id == UUID(generation_id))
+        .delete()
+    )
+    db.commit()
+    return {"ok": True, "removed": removed > 0}
+
+
+__all__ = [
+    "generate_cv_latex",
+    "compile_pdf",
+    "PdfCompilerMissing",
+    "PdfCompileError",
+    "save_generation",
+    "list_generations",
+    "get_generation_latex",
+    "delete_generation",
+]
