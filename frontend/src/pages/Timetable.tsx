@@ -131,7 +131,7 @@ function SectionCard({
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+            className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:bg-accent/90"
           >
             {replacing ? "Replace" : "Apply"}
           </button>
@@ -163,7 +163,7 @@ function ChatBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg">
+      <div className="ml-auto max-w-[85%] rounded-xl bg-accent px-3 py-2 text-[13px] text-accent-ink">
         {message.content}
       </div>
     );
@@ -486,7 +486,7 @@ export function TimetablePage() {
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="shrink-0 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="shrink-0 rounded-xl bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
               >
                 Send
               </button>

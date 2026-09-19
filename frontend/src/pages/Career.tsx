@@ -241,7 +241,7 @@ function TypingDots() {
 function ChatBubble({ message, pending }: { message: ChatMessage; pending: boolean }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[90%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg whitespace-pre-wrap">
+      <div className="ml-auto max-w-[90%] rounded-xl bg-accent px-3 py-2 text-[13px] text-accent-ink whitespace-pre-wrap">
         {message.content}
       </div>
     );
@@ -472,7 +472,7 @@ export function CareerPage() {
             <button
               onClick={() => setShowForm((v) => !v)}
               className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-[12px] font-medium transition-colors ${
-                showForm ? "bg-fill text-ink hover:bg-line" : "bg-ink text-bg hover:bg-ink/90"
+                showForm ? "bg-fill text-ink hover:bg-line" : "bg-accent text-accent-ink hover:bg-accent/90"
               }`}
             >
               {showForm ? (
@@ -559,7 +559,7 @@ export function CareerPage() {
                 <button
                   type="submit"
                   disabled={saving || !title.trim()}
-                  className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                  className="self-start rounded-xl bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink transition-opacity disabled:opacity-40"
                 >
                   {saving ? "Saving…" : "Save experience"}
                 </button>
@@ -694,7 +694,7 @@ export function CareerPage() {
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink transition-opacity disabled:opacity-40"
               >
                 <SendIcon />
                 Send

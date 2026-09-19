@@ -96,7 +96,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="mt-1 rounded-xl bg-ink px-3 py-2.5 text-[13px] font-medium text-bg shadow-soft transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-40"
+            className="mt-1 rounded-xl bg-accent px-3 py-2.5 text-[13px] font-medium text-accent-ink shadow-soft transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-40"
           >
             {busy ? "Please wait…" : mode === "login" ? "Log in" : "Sign up"}
           </button>

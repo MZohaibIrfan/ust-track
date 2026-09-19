@@ -77,7 +77,7 @@ export function Sidebar() {
             className={({ isActive }) =>
               `flex shrink-0 items-center gap-2 rounded-xl px-2.5 py-1.5 transition-all ${
                 collapsed ? "sm:justify-center sm:gap-0 sm:px-1.5" : ""
-              } ${isActive ? "bg-ink font-medium text-bg shadow-soft" : "text-muted hover:bg-fill hover:text-ink"}`
+              } ${isActive ? "bg-accent font-medium text-accent-ink shadow-soft" : "text-muted hover:bg-fill hover:text-ink"}`
             }
           >
             <link.icon className="h-4 w-4 shrink-0" />

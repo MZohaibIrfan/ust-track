@@ -550,7 +550,7 @@ function CoursePicker({
             type="button"
             disabled={!canAdd || adding}
             onClick={onAdd}
-            className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="rounded-xl bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
           >
             {adding ? "Adding…" : "Add to timetable"}
           </button>
