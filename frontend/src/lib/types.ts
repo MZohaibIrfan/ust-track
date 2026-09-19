@@ -63,3 +63,49 @@ export type RemovedPayload = {
   removed: number;
   error?: string;
 };
+
+export type DeclaredProgram = { code: string | null; role: string; intake_year: number | null };
+export type CourseRecord = { course_code: string | null; status: string };
+
+export type DegreeProfile = {
+  planner_id: string;
+  declared_programs: DeclaredProgram[];
+  courses: CourseRecord[];
+};
+
+export type RequirementItemProgress = {
+  course_code: string | null;
+  note: string | null;
+  status: "done" | "in_progress" | "missing" | "info";
+};
+
+export type RequirementGroupProgress = {
+  name: string;
+  kind: string;
+  min_credits: number | null;
+  items: RequirementItemProgress[];
+  done: number;
+  of: number;
+  children: RequirementGroupProgress[];
+};
+
+export type RequirementProgress = {
+  code: string;
+  name: string;
+  school?: string;
+  requirements: RequirementGroupProgress[];
+  summary?: string;
+  error?: string;
+};
+
+export type ProgramOverlap = { course_code: string; programs: string[] };
+
+export type ProgramActionPayload = {
+  ok?: boolean;
+  proposed?: boolean;
+  code: string;
+  name: string;
+  role: string;
+  overlaps: ProgramOverlap[];
+  error?: string;
+};

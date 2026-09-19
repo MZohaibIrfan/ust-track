@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { WeekGrid } from "../components/WeekGrid";
 import { apiGet, apiPost, apiPostStream } from "../lib/api";
 import {
@@ -12,7 +13,7 @@ import {
 import { getPlannerId } from "../lib/planner";
 import type { Plan, SectionActionPayload, Term } from "../lib/types";
 
-type Mode = "suggest" | "auto";
+type Mode = AgentMode;
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Segment =
   | { kind: "text"; text: string }
@@ -152,29 +153,6 @@ function ChatBubble({
           />
         ),
       )}
-    </div>
-  );
-}
-
-function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
-  return (
-    <div className="inline-flex border border-line text-sm">
-      <button
-        onClick={() => onChange("suggest")}
-        className={`px-3 py-1.5 transition-colors ${
-          mode === "suggest" ? "bg-accent text-accent-ink" : "text-muted hover:bg-accent-soft"
-        }`}
-      >
-        Suggest
-      </button>
-      <button
-        onClick={() => onChange("auto")}
-        className={`px-3 py-1.5 transition-colors ${
-          mode === "auto" ? "bg-accent text-accent-ink" : "text-muted hover:bg-accent-soft"
-        }`}
-      >
-        Auto apply
-      </button>
     </div>
   );
 }

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import catalog, import_sis, ingest, plan, timetable
+from app.api import catalog, degree, import_sis, ingest, plan, timetable
 from app.config import get_settings
 
 settings = get_settings()
@@ -20,6 +20,7 @@ app.include_router(import_sis.router, prefix="/api")
 app.include_router(plan.router, prefix="/api")
 app.include_router(ingest.router, prefix="/api")
 app.include_router(timetable.router, prefix="/api")
+app.include_router(degree.router, prefix="/api")
 
 
 @app.get("/api/health")
