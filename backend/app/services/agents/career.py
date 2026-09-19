@@ -27,7 +27,8 @@ from app.services.search import search_courses
 
 BASE_SYSTEM_PROMPT = (
     "You are the UST Track career agent. You help students see how a job description maps onto "
-    "HKUST's actual catalog, and keep a record of internships/jobs they've already done. "
+    "HKUST's actual catalog, and keep a record of internships, projects, extracurricular activities, "
+    "and research they've already done. "
     "Every course fact you state — code, title, why it matches — must come from a tool result in "
     "this conversation. Never describe a course from general knowledge, even to fill a small gap. "
     "Playbook: (1) get_student_profile once at the start of a conversation so you know their major "
@@ -39,9 +40,16 @@ BASE_SYSTEM_PROMPT = (
     "prereq_gap true, say plainly that it likely needs a prerequisite they haven't completed yet — "
     "don't recommend it as freely available without that caveat. If already_relevant or "
     "recommended come back empty, say so plainly; don't pad it with generic advice. (3) If they "
-    "describe an internship, job, or project they've done, offer to log it with add_experience, and "
+    "describe an internship, project, extracurricular activity, or research experience they've done, "
+    "offer to log it with add_experience, and "
     "call it once they confirm the details (title, organization, kind, dates if given). (4) "
     "list_experiences if they ask what's already logged; remove_experience if they ask to delete one. "
+    "(5) If they say they're building/tailoring a CV or resume for a specific role and want help "
+    "picking which logged experiences to include, call select_relevant_experience with that job's "
+    "description. Tell them plainly which entries matched and why (matched_terms), and which logged "
+    "entries didn't match at all — don't silently drop the ones with no match, name them so the "
+    "student can decide for themselves whether to keep them anyway. Never rank relevance yourself; "
+    "only report what the tool returned. "
     "Write like a career advisor talking to one student: short, specific, no filler, no generic "
     "'strong communication skills' padding."
 )
@@ -111,16 +119,23 @@ TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "add_experience",
-            "description": "Log an internship, job, or project the student has already done.",
+            "description": "Log an internship, project, extracurricular activity, or research experience the student has already done.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string"},
-                    "organization": {"type": "string"},
-                    "kind": {"type": "string", "description": "internship, job, or project"},
+                    "organization": {
+                        "type": "string",
+                        "description": "Company/club/lab name — for a project, the tech stack instead (e.g. 'Python, PyTorch')",
+                    },
+                    "location": {"type": "string", "description": "e.g. 'Hong Kong, HK', optional"},
+                    "kind": {"type": "string", "description": "internship, project, extracurricular, or research"},
                     "start_date": {"type": "string", "description": "YYYY-MM-DD, optional"},
                     "end_date": {"type": "string", "description": "YYYY-MM-DD, optional"},
-                    "description": {"type": "string", "description": "What they actually did"},
+                    "description": {
+                        "type": "string",
+                        "description": "What they actually did, as one bullet point per line",
+                    },
                 },
                 "required": ["title"],
             },
@@ -135,6 +150,24 @@ TOOLS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {"experience_id": {"type": "string"}},
                 "required": ["experience_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "select_relevant_experience",
+            "description": (
+                "Deterministically score every logged experience against a job description by keyword "
+                "overlap, for a student tailoring a CV to a specific role. Returns selected (entries "
+                "with at least one matching term, with matched_terms and a score) and not_selected "
+                "(entries with zero overlap). Always use this instead of judging relevance yourself — "
+                "it also drives the checkboxes in the CV builder panel."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"job_description": {"type": "string"}},
+                "required": ["job_description"],
             },
         },
     },
@@ -177,11 +210,15 @@ def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any])
             args.get("start_date"),
             args.get("end_date"),
             args.get("description", ""),
+            args.get("location", ""),
         )
         return result, _marker("EXPERIENCE_ADDED", {**result, "title": args["title"]}) if result.get("ok") else None
     if name == "remove_experience":
         result = career_ops.remove_experience(db, planner_id, args["experience_id"])
         return result, _marker("EXPERIENCE_REMOVED", result) if result.get("ok") else None
+    if name == "select_relevant_experience":
+        result = career_ops.select_relevant_experience(db, planner_id, args.get("job_description", ""))
+        return result, _marker("CV_SELECTION", result) if not result.get("error") else None
     return {"error": f"Unknown tool {name}"}, None
 
 

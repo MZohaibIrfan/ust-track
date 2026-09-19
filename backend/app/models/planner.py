@@ -47,6 +47,10 @@ class Planner(Base):
         back_populates="planner",
         cascade="all, delete-orphan",
     )
+    cv_generations: Mapped[list[CvGeneration]] = relationship(
+        back_populates="planner",
+        cascade="all, delete-orphan",
+    )
 
 
 class StudentProgram(Base):
@@ -102,6 +106,7 @@ class StudentExperience(Base):
     planner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("planner.planner.id", ondelete="CASCADE"))
     title: Mapped[str] = mapped_column(String(255))
     organization: Mapped[str] = mapped_column(String(255), default="")
+    location: Mapped[str] = mapped_column(String(255), default="")
     kind: Mapped[str] = mapped_column(String(32), default="internship")
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
@@ -128,6 +133,23 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     planner: Mapped[Planner] = relationship(back_populates="chat_messages")
+
+
+class CvGeneration(Base):
+    """A past CV export — the rendered LaTeX is kept so it can be re-downloaded
+    or re-compiled to PDF without asking the student to fill the form again."""
+
+    __tablename__ = "cv_generation"
+    __table_args__ = {"schema": "planner"}
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    planner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("planner.planner.id", ondelete="CASCADE"))
+    full_name: Mapped[str] = mapped_column(String(255))
+    latex: Mapped[str] = mapped_column(Text)
+    experience_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    planner: Mapped[Planner] = relationship(back_populates="cv_generations")
 
 
 class RequirementCreditAllocation(Base):

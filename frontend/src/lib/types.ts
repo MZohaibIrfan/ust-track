@@ -261,6 +261,7 @@ export type Experience = {
   id: string;
   title: string;
   organization: string;
+  location: string;
   kind: string;
   start_date: string | null;
   end_date: string | null;
@@ -283,6 +284,28 @@ export type JobMatchResult = {
   major?: string | null;
   already_relevant: CourseMatch[];
   recommended: CourseMatch[];
+  error?: string;
+};
+
+export type CvGenerationSummary = {
+  id: string;
+  full_name: string;
+  experience_count: number;
+  created_at: string;
+};
+
+export type ExperienceMatch = {
+  id: string;
+  title: string;
+  kind: string;
+  matched_terms: string[];
+  score: number;
+};
+
+export type ExperienceSelectionResult = {
+  matched_keywords: string[];
+  selected: ExperienceMatch[];
+  not_selected: ExperienceMatch[];
   error?: string;
 };
 

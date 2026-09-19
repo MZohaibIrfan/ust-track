@@ -67,6 +67,7 @@ def list_experiences(db: Session, planner_id: str) -> dict[str, Any]:
                 "id": str(row.id),
                 "title": row.title,
                 "organization": row.organization,
+                "location": row.location,
                 "kind": row.kind,
                 "start_date": row.start_date.isoformat() if row.start_date else None,
                 "end_date": row.end_date.isoformat() if row.end_date else None,
@@ -86,12 +87,14 @@ def add_experience(
     start_date: str | None = None,
     end_date: str | None = None,
     description: str = "",
+    location: str = "",
 ) -> dict[str, Any]:
     planner = get_or_create_planner(db, planner_id)
     row = StudentExperience(
         planner_id=planner.id,
         title=title.strip(),
         organization=organization.strip(),
+        location=location.strip(),
         kind=kind,
         start_date=start_date or None,
         end_date=end_date or None,
@@ -245,9 +248,45 @@ def recommend_courses_for_job(
     }
 
 
+def select_relevant_experience(db: Session, planner_id: str, job_description: str) -> dict[str, Any]:
+    """Score logged experience entries against a job description by keyword
+    overlap, for the CV builder's 'pick what's relevant' step. A short,
+    personal list (a handful of entries, not a 700-course catalog) doesn't
+    need rarity weighting — plain overlap is enough signal here."""
+    keywords = _keywords(job_description)
+    if not keywords:
+        return {"matched_keywords": [], "selected": [], "not_selected": [], "error": "Paste a longer job description."}
+
+    experiences = list_experiences(db, planner_id)["experiences"]
+    scored: list[dict[str, Any]] = []
+    for exp in experiences:
+        haystack = f"{exp['title']} {exp['organization']} {exp['description']}"
+        hits = keywords & _keywords(haystack)
+        scored.append(
+            {
+                "id": exp["id"],
+                "title": exp["title"],
+                "kind": exp["kind"],
+                "matched_terms": sorted(hits),
+                "score": len(hits),
+            }
+        )
+
+    scored.sort(key=lambda r: -r["score"])
+    selected = [r for r in scored if r["score"] > 0]
+    not_selected = [r for r in scored if r["score"] == 0]
+
+    return {
+        "matched_keywords": sorted(keywords)[:30],
+        "selected": selected,
+        "not_selected": not_selected,
+    }
+
+
 __all__ = [
     "list_experiences",
     "add_experience",
     "remove_experience",
     "recommend_courses_for_job",
+    "select_relevant_experience",
 ]

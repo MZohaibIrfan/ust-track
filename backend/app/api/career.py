@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services import career_ops, chat_ops
+from app.services import career_ops, chat_ops, cv_ops
 from app.services.agents.career import stream_advisor
 
 router = APIRouter()
@@ -57,6 +57,7 @@ class ExperienceBody(BaseModel):
     planner_id: str
     title: str
     organization: str = ""
+    location: str = ""
     kind: str = "internship"
     start_date: str | None = None
     end_date: str | None = None
@@ -74,6 +75,7 @@ def add_experience(body: ExperienceBody, db: Session = Depends(get_db)) -> dict:
         body.start_date,
         body.end_date,
         body.description,
+        body.location,
     )
 
 
@@ -90,3 +92,105 @@ class JobMatchBody(BaseModel):
 @router.post("/career/match")
 def match_job(body: JobMatchBody, db: Session = Depends(get_db)) -> dict:
     return career_ops.recommend_courses_for_job(db, body.planner_id, body.job_description)
+
+
+class CvBody(BaseModel):
+    planner_id: str
+    full_name: str
+    email: str = ""
+    phone: str = ""
+    linkedin: str = ""
+    github: str = ""
+    website: str = ""
+    skills_text: str = ""
+    include_ids: list[str] | None = None
+
+
+@router.post("/career/cv")
+def generate_cv(body: CvBody, db: Session = Depends(get_db)) -> PlainTextResponse:
+    latex = cv_ops.generate_cv_latex(
+        db,
+        body.planner_id,
+        body.full_name,
+        body.email,
+        body.phone,
+        body.linkedin,
+        body.github,
+        body.website,
+        body.skills_text,
+        body.include_ids,
+    )
+    count = len(body.include_ids) if body.include_ids is not None else len(career_ops.list_experiences(db, body.planner_id)["experiences"])
+    cv_ops.save_generation(db, body.planner_id, body.full_name, latex, count)
+    return PlainTextResponse(
+        latex,
+        media_type="application/x-tex",
+        headers={"Content-Disposition": "attachment; filename=resume.tex"},
+    )
+
+
+@router.post("/career/cv/pdf")
+def generate_cv_pdf(body: CvBody, db: Session = Depends(get_db)) -> Response:
+    latex = cv_ops.generate_cv_latex(
+        db,
+        body.planner_id,
+        body.full_name,
+        body.email,
+        body.phone,
+        body.linkedin,
+        body.github,
+        body.website,
+        body.skills_text,
+        body.include_ids,
+    )
+    try:
+        pdf_bytes = cv_ops.compile_pdf(latex)
+    except cv_ops.PdfCompilerMissing as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except cv_ops.PdfCompileError as exc:
+        raise HTTPException(422, f"LaTeX failed to compile:\n{exc.log}") from exc
+    return Response(
+        pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=resume.pdf"},
+    )
+
+
+@router.get("/career/cv/history")
+def list_cv_history(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return {"generations": cv_ops.list_generations(db, planner_id)}
+
+
+@router.get("/career/cv/history/{generation_id}")
+def get_cv_history_tex(generation_id: str, planner_id: str, db: Session = Depends(get_db)) -> PlainTextResponse:
+    latex = cv_ops.get_generation_latex(db, planner_id, generation_id)
+    if latex is None:
+        raise HTTPException(404, "No CV generation with that id")
+    return PlainTextResponse(
+        latex,
+        media_type="application/x-tex",
+        headers={"Content-Disposition": "attachment; filename=resume.tex"},
+    )
+
+
+@router.get("/career/cv/history/{generation_id}/pdf")
+def get_cv_history_pdf(generation_id: str, planner_id: str, db: Session = Depends(get_db)) -> Response:
+    latex = cv_ops.get_generation_latex(db, planner_id, generation_id)
+    if latex is None:
+        raise HTTPException(404, "No CV generation with that id")
+    try:
+        pdf_bytes = cv_ops.compile_pdf(latex)
+    except cv_ops.PdfCompilerMissing as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except cv_ops.PdfCompileError as exc:
+        raise HTTPException(422, f"LaTeX failed to compile:\n{exc.log}") from exc
+    return Response(
+        pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=resume.pdf"},
+    )
+
+
+@router.delete("/career/cv/history/{generation_id}")
+def delete_cv_history(generation_id: str, planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return cv_ops.delete_generation(db, planner_id, generation_id)
