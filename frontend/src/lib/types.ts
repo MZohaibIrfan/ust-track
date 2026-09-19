@@ -224,6 +224,7 @@ export type Experience = {
   id: string;
   title: string;
   organization: string;
+  location: string;
   kind: string;
   start_date: string | null;
   end_date: string | null;

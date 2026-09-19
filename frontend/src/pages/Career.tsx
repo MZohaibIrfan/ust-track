@@ -3,7 +3,7 @@ import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { CareerIcon } from "../components/NavIcons";
-import { apiDelete, apiGet, apiPost, apiPostStream } from "../lib/api";
+import { API_BASE, apiDelete, apiGet, apiPost, apiPostStream } from "../lib/api";
 import { usePlanner } from "../lib/PlannerContext";
 import type { CourseMatch, Experience, JobMatchResult } from "../lib/types";
 
@@ -23,9 +23,10 @@ function Icon({ children, className }: { children: ReactNode; className?: string
   );
 }
 
-const KIND_META: Record<string, { label: string; icon: ReactNode }> = {
+const KIND_META: Record<string, { label: string; orgLabel: string; icon: ReactNode }> = {
   internship: {
     label: "Internship",
+    orgLabel: "Organization",
     icon: (
       <Icon>
         <rect x="2" y="7" width="20" height="14" rx="2" />
@@ -33,20 +34,33 @@ const KIND_META: Record<string, { label: string; icon: ReactNode }> = {
       </Icon>
     ),
   },
-  job: {
-    label: "Job",
-    icon: (
-      <Icon>
-        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1" />
-      </Icon>
-    ),
-  },
   project: {
     label: "Project",
+    orgLabel: "Tech stack (e.g. Python, React)",
     icon: (
       <Icon>
         <path d="m12 2 9 5-9 5-9-5 9-5Z" />
         <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
+      </Icon>
+    ),
+  },
+  extracurricular: {
+    label: "Extracurricular",
+    orgLabel: "Club / organization",
+    icon: (
+      <Icon>
+        <circle cx="12" cy="8" r="5" />
+        <path d="M8.5 13.5 6 22l6-3 6 3-2.5-8.5" />
+      </Icon>
+    ),
+  },
+  research: {
+    label: "Research",
+    orgLabel: "Lab / supervisor",
+    icon: (
+      <Icon>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m21 21-4.3-4.3" />
       </Icon>
     ),
   },
@@ -289,12 +303,26 @@ export function CareerPage() {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [organization, setOrganization] = useState("");
+  const [location, setLocation] = useState("");
   const [kind, setKind] = useState("internship");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const [showCvForm, setShowCvForm] = useState(false);
+  const [cvFullName, setCvFullName] = useState("");
+  const [cvEmail, setCvEmail] = useState("");
+  const [cvPhone, setCvPhone] = useState("");
+  const [cvLinkedin, setCvLinkedin] = useState("");
+  const [cvGithub, setCvGithub] = useState("");
+  const [cvWebsite, setCvWebsite] = useState("");
+  const [cvSkills, setCvSkills] = useState("");
+  const [cvGenerating, setCvGenerating] = useState(false);
+  const [cvError, setCvError] = useState<string | null>(null);
+  const [cvTexUrl, setCvTexUrl] = useState<string | null>(null);
+  const [cvPdfUrl, setCvPdfUrl] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoaded, setChatLoaded] = useState(false);
@@ -379,6 +407,7 @@ export function CareerPage() {
         planner_id: plannerId,
         title,
         organization,
+        location,
         kind,
         start_date: startDate || null,
         end_date: endDate || null,
@@ -386,6 +415,7 @@ export function CareerPage() {
       });
       setTitle("");
       setOrganization("");
+      setLocation("");
       setKind("internship");
       setStartDate("");
       setEndDate("");
@@ -409,6 +439,66 @@ export function CareerPage() {
       refreshExperiences();
     } finally {
       setRemovingId(null);
+    }
+  }
+
+  function closeCvModal() {
+    if (cvTexUrl) URL.revokeObjectURL(cvTexUrl);
+    if (cvPdfUrl) URL.revokeObjectURL(cvPdfUrl);
+    setCvTexUrl(null);
+    setCvPdfUrl(null);
+    setCvError(null);
+    setShowCvForm(false);
+  }
+
+  async function generateCv(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cvFullName.trim() || cvGenerating) return;
+    setCvGenerating(true);
+    setCvError(null);
+    if (cvTexUrl) URL.revokeObjectURL(cvTexUrl);
+    if (cvPdfUrl) URL.revokeObjectURL(cvPdfUrl);
+    setCvTexUrl(null);
+    setCvPdfUrl(null);
+    const payload = JSON.stringify({
+      planner_id: plannerId,
+      full_name: cvFullName,
+      email: cvEmail,
+      phone: cvPhone,
+      linkedin: cvLinkedin,
+      github: cvGithub,
+      website: cvWebsite,
+      skills_text: cvSkills,
+    });
+    try {
+      const [texRes, pdfRes] = await Promise.all([
+        fetch(`${API_BASE}/api/career/cv`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        }),
+        fetch(`${API_BASE}/api/career/cv/pdf`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        }),
+      ]);
+      if (!texRes.ok) {
+        setCvError(await texRes.text());
+        return;
+      }
+      setCvTexUrl(URL.createObjectURL(await texRes.blob()));
+
+      if (!pdfRes.ok) {
+        // .tex still succeeded — surface the PDF-specific problem without blocking that download.
+        setCvError(await pdfRes.text());
+        return;
+      }
+      setCvPdfUrl(URL.createObjectURL(await pdfRes.blob()));
+    } catch {
+      setCvError("Couldn't reach the server.");
+    } finally {
+      setCvGenerating(false);
     }
   }
 
@@ -456,8 +546,18 @@ export function CareerPage() {
         </span>
         <div className="min-w-0">
           <h1 className="text-[15px] font-semibold tracking-tight">Career</h1>
-          <p className="text-[11px] text-muted">Internships, jobs, and what to take next</p>
+          <p className="text-[11px] text-muted">Internships, projects, activities, research — and what to take next</p>
         </div>
+        <button
+          onClick={() => setShowCvForm(true)}
+          className="ml-auto flex items-center gap-1.5 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:border-page-career/50 hover:text-page-career"
+        >
+          <Icon className="size-3.5">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
+            <path d="M13 2v7h7" />
+          </Icon>
+          Generate CV
+        </button>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -507,7 +607,13 @@ export function CareerPage() {
                 <input
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
-                  placeholder="Organization"
+                  placeholder={KIND_META[kind]?.orgLabel ?? "Organization"}
+                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                />
+                <input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Location (e.g. Hong Kong, HK)"
                   className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
               </div>
@@ -553,7 +659,7 @@ export function CareerPage() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What did you actually do? (used to line up with future job descriptions)"
+                placeholder="What did you actually do? One point per line — each becomes its own bullet on your CV."
                 rows={3}
                 className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
@@ -581,8 +687,9 @@ export function CareerPage() {
                 <CareerIcon className="size-5" />
               </span>
               <p className="max-w-xs text-[13px] text-muted">
-                No internships or jobs added yet. Add one, or just tell the agent about it, so we can match
-                your background against real job descriptions.
+                No internships, projects, activities, or research logged yet. Add one, or just tell the
+                agent about it, so we can match your background against real job descriptions and build
+                your CV.
               </p>
             </div>
           ) : (
@@ -616,10 +723,11 @@ export function CareerPage() {
                       </div>
                       <p className="text-[11px] text-muted">
                         {meta.label}
+                        {exp.location ? ` · ${exp.location}` : ""}
                         {formatRange(exp.start_date, exp.end_date) ? ` · ${formatRange(exp.start_date, exp.end_date)}` : ""}
                       </p>
                       {exp.description ? (
-                        <p className="mt-1 text-[12px] leading-5 text-ink">{exp.description}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-ink">{exp.description}</p>
                       ) : null}
                     </div>
                   </li>
@@ -711,6 +819,121 @@ export function CareerPage() {
           )}
         </AgentPanel>
       </div>
+
+      {showCvForm ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-4">
+          <div
+            className={`flex max-h-[92vh] w-full overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft-lg ${
+              cvPdfUrl ? "max-w-5xl" : "max-w-md"
+            }`}
+          >
+            <div className="flex max-h-[92vh] w-full max-w-md shrink-0 flex-col overflow-y-auto p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-[14px] font-semibold">Generate CV</h2>
+                <button
+                  onClick={closeCvModal}
+                  className="rounded p-1 text-muted hover:bg-fill hover:text-ink"
+                  aria-label="Close"
+                >
+                  <Icon className="size-4">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </Icon>
+                </button>
+              </div>
+              <p className="mb-3 text-[12px] text-muted">
+                Pulls your declared major and every logged internship/project/activity/research entry
+                into a one-page LaTeX CV (Jake's Resume template). Contact info below isn't saved — just
+                used for this generation.
+              </p>
+              <form onSubmit={generateCv} className="flex flex-col gap-2.5">
+                <input
+                  value={cvFullName}
+                  onChange={(e) => setCvFullName(e.target.value)}
+                  placeholder="Full name"
+                  required
+                  className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={cvEmail}
+                    onChange={(e) => setCvEmail(e.target.value)}
+                    placeholder="Email"
+                    className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  />
+                  <input
+                    value={cvPhone}
+                    onChange={(e) => setCvPhone(e.target.value)}
+                    placeholder="Phone"
+                    className="min-w-[8rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={cvLinkedin}
+                    onChange={(e) => setCvLinkedin(e.target.value)}
+                    placeholder="LinkedIn URL"
+                    className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  />
+                  <input
+                    value={cvGithub}
+                    onChange={(e) => setCvGithub(e.target.value)}
+                    placeholder="GitHub URL"
+                    className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  />
+                </div>
+                <input
+                  value={cvWebsite}
+                  onChange={(e) => setCvWebsite(e.target.value)}
+                  placeholder="Website (optional)"
+                  className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                />
+                <textarea
+                  value={cvSkills}
+                  onChange={(e) => setCvSkills(e.target.value)}
+                  placeholder={"Skills, one category per line, e.g.\nLanguages: Python, C++, SQL\nFrameworks: React, FastAPI, PyTorch"}
+                  rows={4}
+                  className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                />
+                {cvError ? <p className="whitespace-pre-wrap text-[12px] text-accent">{cvError}</p> : null}
+                <button
+                  type="submit"
+                  disabled={cvGenerating || !cvFullName.trim()}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-[13px] font-medium text-bg transition-opacity disabled:opacity-40"
+                >
+                  {cvGenerating ? "Generating…" : cvPdfUrl ? "Regenerate" : "Generate CV"}
+                </button>
+                {cvTexUrl || cvPdfUrl ? (
+                  <div className="flex gap-2">
+                    {cvTexUrl ? (
+                      <a
+                        href={cvTexUrl}
+                        download="resume.tex"
+                        className="flex-1 rounded-xl border border-line px-3 py-1.5 text-center text-[12px] font-medium hover:bg-fill"
+                      >
+                        Download .tex
+                      </a>
+                    ) : null}
+                    {cvPdfUrl ? (
+                      <a
+                        href={cvPdfUrl}
+                        download="resume.pdf"
+                        className="flex-1 rounded-xl border border-line px-3 py-1.5 text-center text-[12px] font-medium hover:bg-fill"
+                      >
+                        Download PDF
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+              </form>
+            </div>
+            {cvPdfUrl ? (
+              <div className="hidden min-w-0 flex-1 border-l border-line bg-fill/40 md:block">
+                <iframe title="CV preview" src={cvPdfUrl} className="h-full w-full" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

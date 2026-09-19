@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services import career_ops, chat_ops
+from app.services import career_ops, chat_ops, cv_ops
 from app.services.agents.career import stream_advisor
 
 router = APIRouter()
@@ -57,6 +57,7 @@ class ExperienceBody(BaseModel):
     planner_id: str
     title: str
     organization: str = ""
+    location: str = ""
     kind: str = "internship"
     start_date: str | None = None
     end_date: str | None = None
@@ -74,6 +75,7 @@ def add_experience(body: ExperienceBody, db: Session = Depends(get_db)) -> dict:
         body.start_date,
         body.end_date,
         body.description,
+        body.location,
     )
 
 
@@ -90,3 +92,60 @@ class JobMatchBody(BaseModel):
 @router.post("/career/match")
 def match_job(body: JobMatchBody, db: Session = Depends(get_db)) -> dict:
     return career_ops.recommend_courses_for_job(db, body.planner_id, body.job_description)
+
+
+class CvBody(BaseModel):
+    planner_id: str
+    full_name: str
+    email: str = ""
+    phone: str = ""
+    linkedin: str = ""
+    github: str = ""
+    website: str = ""
+    skills_text: str = ""
+
+
+@router.post("/career/cv")
+def generate_cv(body: CvBody, db: Session = Depends(get_db)) -> PlainTextResponse:
+    latex = cv_ops.generate_cv_latex(
+        db,
+        body.planner_id,
+        body.full_name,
+        body.email,
+        body.phone,
+        body.linkedin,
+        body.github,
+        body.website,
+        body.skills_text,
+    )
+    return PlainTextResponse(
+        latex,
+        media_type="application/x-tex",
+        headers={"Content-Disposition": "attachment; filename=resume.tex"},
+    )
+
+
+@router.post("/career/cv/pdf")
+def generate_cv_pdf(body: CvBody, db: Session = Depends(get_db)) -> Response:
+    latex = cv_ops.generate_cv_latex(
+        db,
+        body.planner_id,
+        body.full_name,
+        body.email,
+        body.phone,
+        body.linkedin,
+        body.github,
+        body.website,
+        body.skills_text,
+    )
+    try:
+        pdf_bytes = cv_ops.compile_pdf(latex)
+    except cv_ops.PdfCompilerMissing as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except cv_ops.PdfCompileError as exc:
+        raise HTTPException(422, f"LaTeX failed to compile:\n{exc.log}") from exc
+    return Response(
+        pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=resume.pdf"},
+    )

@@ -102,6 +102,7 @@ class StudentExperience(Base):
     planner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("planner.planner.id", ondelete="CASCADE"))
     title: Mapped[str] = mapped_column(String(255))
     organization: Mapped[str] = mapped_column(String(255), default="")
+    location: Mapped[str] = mapped_column(String(255), default="")
     kind: Mapped[str] = mapped_column(String(32), default="internship")
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)

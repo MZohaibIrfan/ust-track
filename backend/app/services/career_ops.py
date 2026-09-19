@@ -67,6 +67,7 @@ def list_experiences(db: Session, planner_id: str) -> dict[str, Any]:
                 "id": str(row.id),
                 "title": row.title,
                 "organization": row.organization,
+                "location": row.location,
                 "kind": row.kind,
                 "start_date": row.start_date.isoformat() if row.start_date else None,
                 "end_date": row.end_date.isoformat() if row.end_date else None,
@@ -86,12 +87,14 @@ def add_experience(
     start_date: str | None = None,
     end_date: str | None = None,
     description: str = "",
+    location: str = "",
 ) -> dict[str, Any]:
     planner = get_or_create_planner(db, planner_id)
     row = StudentExperience(
         planner_id=planner.id,
         title=title.strip(),
         organization=organization.strip(),
+        location=location.strip(),
         kind=kind,
         start_date=start_date or None,
         end_date=end_date or None,
