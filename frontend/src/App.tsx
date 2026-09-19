@@ -24,6 +24,11 @@ const pages = [
   { path: "/profile", element: <ProfilePage /> },
 ];
 
+function pageVisible(path: string, pathname: string) {
+  if (path === "/degree") return pathname === "/degree" || pathname.startsWith("/degree/");
+  return pathname === path;
+}
+
 export function App() {
   const location = useLocation();
   const { user, loading } = useAuth();
@@ -52,7 +57,7 @@ export function App() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  if (!pages.some((page) => page.path === location.pathname)) {
+  if (!pages.some((page) => pageVisible(page.path, location.pathname))) {
     return <Navigate to="/" replace />;
   }
 
@@ -63,7 +68,7 @@ export function App() {
         {pages.map((page) => (
           <div
             key={page.path}
-            className={location.pathname === page.path ? "flex min-h-0 flex-1 flex-col" : "hidden"}
+            className={pageVisible(page.path, location.pathname) ? "flex min-h-0 flex-1 flex-col" : "hidden"}
           >
             {page.element}
           </div>

@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   PLAN_SEASONS,
-  emptyYears,
-  loadDraft,
+  TERM_STATUSES,
+  getTermStatus,
+  planYears,
   moveCourse,
-  reconcileDraft,
-  saveDraft,
-  seedFromPathway,
   setCourseCode,
-  suggestedVariant,
+  setTermStatus,
   termCredits,
   termCourses,
+  termLabel,
   trayCourses,
   type PlanCourse,
   type PlanSeason,
+  type TermStatus,
 } from "../lib/studyPlanMaker";
-import type { RequirementProgress, StudyPathway } from "../lib/types";
+import type { StudyPathway } from "../lib/types";
 
 const MARK: Record<PlanCourse["status"], string> = {
   done: "✓",
@@ -91,124 +91,145 @@ function TermBoard({
   season,
   label,
   courses,
+  status,
   selectedId,
   dropActive,
   onSelect,
   onDrop,
   onPick,
+  onStatus,
 }: {
   year: number;
   season: PlanSeason;
   label: string;
   courses: PlanCourse[];
+  status: TermStatus;
   selectedId: string | null;
   dropActive: boolean;
   onSelect: (id: string) => void;
   onDrop: (year: number, season: PlanSeason, id?: string) => void;
   onPick: (id: string, code: string) => void;
+  onStatus: (status: TermStatus) => void;
 }) {
   const credits = termCredits(courses, year, season);
   const heavy = credits > 18;
+  const away = status !== "regular";
   return (
     <div
       onDragOver={(event) => {
+        if (away) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
       }}
       onDrop={(event) => {
+        if (away) return;
         event.preventDefault();
         onDrop(year, season, event.dataTransfer.getData("text/plain") || undefined);
       }}
       onClick={() => {
-        if (selectedId) onDrop(year, season, selectedId);
+        if (!away && selectedId) onDrop(year, season, selectedId);
       }}
       className={`min-h-36 rounded-md border p-2 ${
-        dropActive ? "border-accent bg-accent-soft" : "border-line bg-surface-raised"
+        away ? "border-page-degree/40 bg-page-degree/5" : dropActive ? "border-accent bg-accent-soft" : "border-line bg-surface-raised"
       }`}
     >
-      <p className="mb-2 flex items-baseline justify-between text-[11px] font-medium tracking-wide text-muted uppercase">
+      <p className="mb-2 flex items-baseline justify-between gap-2 text-[11px] font-medium tracking-wide text-muted uppercase">
         <span>{label}</span>
-        <span className={`font-mono font-normal tabular-nums ${heavy ? "text-accent" : ""}`}>{credits} cr</span>
+        <span className="flex items-center gap-2">
+          <select
+            value={status}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onStatus(event.target.value as TermStatus)}
+            className="rounded-md border border-line bg-bg px-1 py-0.5 font-sans text-[11px] font-medium normal-case tracking-normal text-ink outline-none"
+          >
+            {TERM_STATUSES.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <span className={`font-mono font-normal tabular-nums ${heavy ? "text-accent" : ""}`}>
+            {away ? status : `${credits} cr`}
+          </span>
+        </span>
       </p>
-      <div className="flex flex-col gap-1.5">
-        {termCourses(courses, year, season).map((course) => (
-          <CourseCard
-            key={course.id}
-            course={course}
-            selected={selectedId === course.id}
-            onSelect={() => onSelect(course.id)}
-            onPick={(code) => onPick(course.id, code)}
-          />
-        ))}
-        {termCourses(courses, year, season).length === 0 ? (
-          <p className="px-1 py-4 text-center text-[12px] text-muted">Drop a course here, or select one and click this term.</p>
-        ) : null}
-      </div>
+      {away ? (
+        <p className="px-1 py-4 text-center text-[12px] text-muted">
+          {status === "exchange"
+            ? "Exchange term — HKUST courses were moved off this semester."
+            : "Leave — courses were moved off this semester."}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {termCourses(courses, year, season).map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              selected={selectedId === course.id}
+              onSelect={() => onSelect(course.id)}
+              onPick={(code) => onPick(course.id, code)}
+            />
+          ))}
+          {termCourses(courses, year, season).length === 0 ? (
+            <p className="px-1 py-4 text-center text-[12px] text-muted">Drop a course here, or select one and click this term.</p>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
 
 export function StudyPlan({
   data,
-  progress,
-  plannerId,
+  courses,
+  termStatuses,
+  variantId,
+  onVariantId,
+  onCourses,
+  onTermStatuses,
+  onReset,
+  note,
 }: {
   data: StudyPathway | null;
-  progress: RequirementProgress | null;
-  plannerId: string;
+  courses: PlanCourse[];
+  termStatuses: Record<string, TermStatus>;
+  variantId: string;
+  onVariantId: (id: string) => void;
+  onCourses: (courses: PlanCourse[]) => void;
+  onTermStatuses: (statuses: Record<string, TermStatus>) => void;
+  onReset: () => void;
+  note?: string | null;
 }) {
   const variants = data?.variants ?? [];
-  const programCode = data?.program_code ?? progress?.code ?? "PLAN";
-  const [variantId, setVariantId] = useState(suggestedVariant(data));
-  const [courses, setCourses] = useState<PlanCourse[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const skipSave = useRef(true);
-
+  const [localNote, setLocalNote] = useState<string | null>(null);
   const variant = variants.find((item) => item.id === variantId) ?? variants[0];
-
-  useEffect(() => {
-    setVariantId(suggestedVariant(data));
-  }, [data?.suggested_variant, data?.program_code]);
-
-  useEffect(() => {
-    const saved = loadDraft(plannerId, programCode, variantId);
-    const seeded = saved?.courses ?? seedFromPathway(variant, progress);
-    skipSave.current = true;
-    setCourses(reconcileDraft(seeded, progress));
-    setSelectedId(null);
-    // seed once per planner / program / variant
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plannerId, programCode, variantId, data?.program_code]);
-
-  useEffect(() => {
-    if (!progress) return;
-    setCourses((current) => (current.length ? reconcileDraft(current, progress) : current));
-  }, [progress]);
-
-  useEffect(() => {
-    if (skipSave.current) {
-      skipSave.current = false;
-      return;
-    }
-    if (courses.length === 0) return;
-    saveDraft(plannerId, programCode, variantId, courses);
-  }, [courses, plannerId, programCode, variantId]);
-
   const tray = useMemo(() => trayCourses(courses), [courses]);
-  const years = variant?.years.map((year) => ({ year: year.year, label: year.label, current: year.current })) ?? emptyYears().map((year) => ({ ...year, current: false }));
+  const years = planYears(courses, termStatuses).map((item) => ({
+    ...item,
+    current: Boolean(variant?.years.find((year) => year.year === item.year)?.current),
+  }));
+  const banner = note ?? localNote;
 
   function place(year: number | null, season: PlanSeason | null, id?: string | null) {
     const target = id || selectedId;
     if (!target) return;
-    setCourses((current) => moveCourse(current, target, year, season));
+    if (year != null && season && getTermStatus(termStatuses, year, season) !== "regular") return;
+    onCourses(moveCourse(courses, target, year, season));
     setSelectedId(null);
     setDragging(false);
   }
 
-  function resetOfficial() {
-    setCourses(seedFromPathway(variant, progress));
-    setSelectedId(null);
+  function changeStatus(year: number, season: PlanSeason, status: TermStatus) {
+    const result = setTermStatus(courses, termStatuses, year, season, status);
+    if (result.error) {
+      setLocalNote(result.error);
+      return;
+    }
+    onCourses(result.courses);
+    onTermStatuses(result.termStatuses);
+    setLocalNote(result.deferral?.reason ?? (result.moved.length ? `Moved ${result.moved.length} course${result.moved.length === 1 ? "" : "s"} off ${termLabel(year, season)}.` : null));
   }
 
   return (
@@ -218,7 +239,7 @@ export function StudyPlan({
           <button
             key={item.id}
             type="button"
-            onClick={() => setVariantId(item.id)}
+            onClick={() => onVariantId(item.id)}
             className={`-mb-px border-b-2 py-2 text-[13px] ${
               variantId === item.id ? "border-ink font-medium text-ink" : "border-transparent text-muted hover:text-ink"
             }`}
@@ -226,15 +247,16 @@ export function StudyPlan({
             {item.label}
           </button>
         ))}
-        <button type="button" onClick={resetOfficial} className="ml-auto py-2 text-[12px] text-muted hover:text-ink">
+        <button type="button" onClick={onReset} className="ml-auto py-2 text-[12px] text-muted hover:text-ink">
           Reset to official
         </button>
       </div>
 
-      {data?.year_note || data?.suggest_reason ? (
+      {data?.year_note || data?.suggest_reason || banner ? (
         <div className="border-b border-line px-4 py-2 text-[12px] text-muted">
-          {data.suggest_reason ? <p>{data.suggest_reason}</p> : null}
-          {data.year_note ? <p className={data.suggest_reason ? "mt-0.5" : ""}>{data.year_note}</p> : null}
+          {data?.suggest_reason ? <p>{data.suggest_reason}</p> : null}
+          {data?.year_note ? <p className={data.suggest_reason ? "mt-0.5" : ""}>{data.year_note}</p> : null}
+          {banner ? <p className={data?.suggest_reason || data?.year_note ? "mt-0.5 text-page-degree" : "text-page-degree"}>{banner}</p> : null}
         </div>
       ) : null}
 
@@ -259,7 +281,7 @@ export function StudyPlan({
                 course={course}
                 selected={selectedId === course.id}
                 onSelect={() => setSelectedId((current) => (current === course.id ? null : course.id))}
-                onPick={(code) => setCourses((current) => setCourseCode(current, course.id, code))}
+                onPick={(code) => onCourses(setCourseCode(courses, course.id, code))}
               />
             ))}
           </div>
@@ -267,7 +289,7 @@ export function StudyPlan({
           <p className="text-[12px] text-muted">Every open course is on a term. Drag one back here to unplace it.</p>
         )}
         <p className="mt-2 text-[11px] text-muted">
-          {selectedId ? "Click a term to place the selected course, or drag it." : "Select or drag a course onto a term."}
+          {selectedId ? "Click a regular term to place the selected course, or drag it." : "Select or drag a course onto a term. Mark a semester Exchange or Leave to clear it."}
         </p>
       </div>
 
@@ -290,11 +312,13 @@ export function StudyPlan({
                   season={season.id}
                   label={season.label}
                   courses={courses}
+                  status={getTermStatus(termStatuses, year.year, season.id)}
                   selectedId={selectedId}
                   dropActive={dragging || Boolean(selectedId)}
                   onSelect={(id) => setSelectedId((current) => (current === id ? null : id))}
                   onDrop={(nextYear, nextSeason, id) => place(nextYear, nextSeason, id)}
-                  onPick={(id, code) => setCourses((current) => setCourseCode(current, id, code))}
+                  onPick={(id, code) => onCourses(setCourseCode(courses, id, code))}
+                  onStatus={(status) => changeStatus(year.year, season.id, status)}
                 />
               ))}
             </div>
@@ -303,11 +327,11 @@ export function StudyPlan({
       </div>
 
       <div className="border-t border-line px-4 py-2.5 text-[11px] leading-4 text-muted">
-        {(variant?.notes ?? []).map((note) => (
-          <p key={note}>{note}</p>
+        {(variant?.notes ?? []).map((noteText) => (
+          <p key={noteText}>{noteText}</p>
         ))}
-        {(data?.notes ?? []).map((note) => (
-          <p key={note}>{note}</p>
+        {(data?.notes ?? []).map((noteText) => (
+          <p key={noteText}>{noteText}</p>
         ))}
         {data?.source_url ? (
           <p className="mt-1">
@@ -316,7 +340,7 @@ export function StudyPlan({
             </a>
           </p>
         ) : (
-          <p>Draft stays on this device. Taken and in-progress courses stay locked to the term they already occupy.</p>
+          <p>Draft stays on this device. Taken and in-progress courses stay locked. Exchange and leave terms cannot take HKUST courses.</p>
         )}
       </div>
     </div>
