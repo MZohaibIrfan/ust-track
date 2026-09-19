@@ -24,6 +24,23 @@
   --page-history: #0369a1;
   --page-career: #b45309;
 
+  /* Program-category palette — soft pastel coding, tuned per theme */
+  --cat-major: #5e6ad2;
+  --cat-major-soft: #eef0fb;
+  --cat-minor: #0f766e;
+  --cat-minor-soft: #e6f5f2;
+  --cat-extended-major: #b45309;
+  --cat-extended-major-soft: #fbf0e2;
+  --cat-dual: #7c3aed;
+  --cat-dual-soft: #f2ecfd;
+  --cat-framework: #0369a1;
+  --cat-framework-soft: #e5f2fa;
+  --cat-common-core: #be185d;
+  --cat-common-core-soft: #fbe6ee;
+
+  --shadow-soft: 0 1px 2px rgba(16, 18, 27, 0.04), 0 10px 24px -14px rgba(16, 18, 27, 0.16);
+  --shadow-soft-lg: 0 2px 4px rgba(16, 18, 27, 0.05), 0 20px 40px -18px rgba(16, 18, 27, 0.22);
+
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -50,6 +67,22 @@ html[data-theme="dark"] {
   --page-degree: #2dd4bf;
   --page-history: #38bdf8;
   --page-career: #f0a14a;
+
+  --cat-major: #8891e8;
+  --cat-major-soft: #23253c;
+  --cat-minor: #2dd4bf;
+  --cat-minor-soft: #16302c;
+  --cat-extended-major: #f0a14a;
+  --cat-extended-major-soft: #362713;
+  --cat-dual: #a78bfa;
+  --cat-dual-soft: #2a2340;
+  --cat-framework: #38bdf8;
+  --cat-framework-soft: #16293a;
+  --cat-common-core: #f472b6;
+  --cat-common-core-soft: #351f2b;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.24), 0 10px 24px -14px rgba(0, 0, 0, 0.5);
+  --shadow-soft-lg: 0 2px 4px rgba(0, 0, 0, 0.28), 0 20px 40px -18px rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
@@ -70,6 +103,23 @@ html[data-theme="dark"] {
   --color-page-degree: var(--page-degree);
   --color-page-history: var(--page-history);
   --color-page-career: var(--page-career);
+
+  --color-cat-major: var(--cat-major);
+  --color-cat-major-soft: var(--cat-major-soft);
+  --color-cat-minor: var(--cat-minor);
+  --color-cat-minor-soft: var(--cat-minor-soft);
+  --color-cat-extended-major: var(--cat-extended-major);
+  --color-cat-extended-major-soft: var(--cat-extended-major-soft);
+  --color-cat-dual: var(--cat-dual);
+  --color-cat-dual-soft: var(--cat-dual-soft);
+  --color-cat-framework: var(--cat-framework);
+  --color-cat-framework-soft: var(--cat-framework-soft);
+  --color-cat-common-core: var(--cat-common-core);
+  --color-cat-common-core-soft: var(--cat-common-core-soft);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-soft-lg: var(--shadow-soft-lg);
+
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }

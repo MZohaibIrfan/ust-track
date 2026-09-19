@@ -19,7 +19,7 @@ function initials(name: string): string {
 
 function ProgramCard({ program }: { program: DeclaredProgram }) {
   return (
-    <div className="rounded-md border border-line bg-surface-raised p-3">
+    <div className="rounded-xl border border-line bg-surface-raised p-3">
       <p className="text-[13px] font-medium text-ink">{program.name ?? program.code ?? "Unnamed program"}</p>
       <p className="mt-0.5 font-mono text-[12px] text-muted">{program.code}</p>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted">
@@ -74,7 +74,7 @@ export function ProfilePage() {
       </header>
 
       <div className="flex flex-col gap-4 p-4">
-        <section className="flex items-center gap-3 rounded-md border border-line bg-surface-raised p-4">
+        <section className="flex items-center gap-3 rounded-xl border border-line bg-surface-raised p-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[18px] font-medium text-accent">
             {initials(displayName)}
           </span>
@@ -91,7 +91,7 @@ export function ProfilePage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium hover:bg-fill"
+            className="shrink-0 rounded-xl border border-line px-2.5 py-1.5 text-[12px] font-medium hover:bg-fill"
           >
             Log out
           </button>
@@ -102,13 +102,13 @@ export function ProfilePage() {
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md border border-line bg-surface-raised p-3">
+              <div className="rounded-xl border border-line bg-surface-raised p-3">
                 <p className="text-[11px] font-medium tracking-wide text-muted uppercase">School</p>
                 <p className="mt-1 text-[13px] text-ink">
                   {schools.length > 0 ? schools.join(", ") : (demo?.school ?? "HKUST")}
                 </p>
               </div>
-              <div className="rounded-md border border-line bg-surface-raised p-3">
+              <div className="rounded-xl border border-line bg-surface-raised p-3">
                 <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Year</p>
                 <p className="mt-1 text-[13px] text-ink">
                   {profile?.standing_year ? `Year ${profile.standing_year}` : "Not set"}
@@ -117,7 +117,7 @@ export function ProfilePage() {
                   <p className="mt-0.5 text-[12px] text-muted">Intake {profile.intake_year}</p>
                 ) : null}
               </div>
-              <div className="rounded-md border border-line bg-surface-raised p-3">
+              <div className="rounded-xl border border-line bg-surface-raised p-3">
                 <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Catalog</p>
                 <p className="mt-1 text-[13px] text-ink">{profile?.catalog_year ?? "Not set"}</p>
               </div>

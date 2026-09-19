@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services import planner_ops
+from app.services import chat_ops, planner_ops
 from app.services.agents.timetable import Mode, stream_advisor
 
 router = APIRouter()
@@ -23,13 +23,30 @@ class AdvisorRequest(BaseModel):
     mode: Mode = "suggest"
 
 
+@router.get("/timetable/chat")
+def get_timetable_chat(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return {"messages": chat_ops.list_messages(db, planner_id, "timetable")}
+
+
+@router.delete("/timetable/chat")
+def clear_timetable_chat(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return chat_ops.clear_messages(db, planner_id, "timetable")
+
+
 @router.post("/timetable/advisor")
 def timetable_advisor(body: AdvisorRequest, db: Session = Depends(get_db)) -> StreamingResponse:
     history = [{"role": m.role, "content": m.content} for m in body.messages]
-    return StreamingResponse(
-        stream_advisor(db, history, body.planner_id, body.mode),
-        media_type="text/plain",
-    )
+    if history and history[-1]["role"] == "user":
+        chat_ops.append_message(db, body.planner_id, "timetable", "user", history[-1]["content"])
+
+    def run():
+        acc = ""
+        for chunk in stream_advisor(db, history, body.planner_id, body.mode):
+            acc += chunk
+            yield chunk
+        chat_ops.append_message(db, body.planner_id, "timetable", "assistant", acc)
+
+    return StreamingResponse(run(), media_type="text/plain")
 
 
 class ApplyBody(BaseModel):

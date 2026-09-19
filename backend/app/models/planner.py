@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, uuid_pk
@@ -40,6 +40,10 @@ class Planner(Base):
         cascade="all, delete-orphan",
     )
     experiences: Mapped[list[StudentExperience]] = relationship(
+        back_populates="planner",
+        cascade="all, delete-orphan",
+    )
+    chat_messages: Mapped[list[ChatMessage]] = relationship(
         back_populates="planner",
         cascade="all, delete-orphan",
     )
@@ -105,6 +109,25 @@ class StudentExperience(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     planner: Mapped[Planner] = relationship(back_populates="experiences")
+
+
+class ChatMessage(Base):
+    """One turn of an agent conversation, so a page's chat survives a refresh."""
+
+    __tablename__ = "chat_message"
+    __table_args__ = (
+        Index("ix_chat_message_planner_agent", "planner_id", "agent", "created_at"),
+        {"schema": "planner"},
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    planner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("planner.planner.id", ondelete="CASCADE"))
+    agent: Mapped[str] = mapped_column(String(16))
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    planner: Mapped[Planner] = relationship(back_populates="chat_messages")
 
 
 class RequirementCreditAllocation(Base):

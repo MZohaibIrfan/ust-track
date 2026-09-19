@@ -238,6 +238,7 @@ export type CourseMatch = {
   score: number;
   in_major: boolean;
   status: string | null;
+  prereq_gap: boolean;
 };
 
 export type JobMatchResult = {

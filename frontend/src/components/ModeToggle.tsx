@@ -11,7 +11,7 @@ export function ModeToggle({
   accent?: string;
 }) {
   return (
-    <div className="inline-flex rounded-md border border-line bg-bg p-0.5 text-[13px]">
+    <div className="inline-flex rounded-xl border border-line bg-bg p-0.5 text-[13px]">
       <button
         onClick={() => onChange("suggest")}
         className={`rounded-[5px] px-2.5 py-1 transition-colors ${

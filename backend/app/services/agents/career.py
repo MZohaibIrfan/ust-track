@@ -35,7 +35,9 @@ BASE_SYSTEM_PROMPT = (
     "describe a job posting, call match_job_description with the full text verbatim. Then explain the "
     "result in plain language: which of their completed courses already cover parts of it (say why, "
     "using matched_terms), and which recommended courses would fill the gaps — mention in_major when "
-    "true, since that means it's already free real estate in their degree. If already_relevant or "
+    "true, since that means it's already free real estate in their degree. If a recommended course has "
+    "prereq_gap true, say plainly that it likely needs a prerequisite they haven't completed yet — "
+    "don't recommend it as freely available without that caveat. If already_relevant or "
     "recommended come back empty, say so plainly; don't pad it with generic advice. (3) If they "
     "describe an internship, job, or project they've done, offer to log it with add_experience, and "
     "call it once they confirm the details (title, organization, kind, dates if given). (4) "
@@ -59,10 +61,12 @@ TOOLS: list[dict[str, Any]] = [
             "name": "match_job_description",
             "description": (
                 "Deterministically match a job description against every course description in the "
-                "catalog. Returns matched_keywords, already_relevant (courses the student has taken "
+                "catalog, weighted by term rarity and by relevance to the student's declared major/"
+                "department. Returns matched_keywords, already_relevant (courses the student has taken "
                 "that already cover parts of the posting), and recommended (courses not yet taken, "
-                "ranked, flagged in_major when they're already part of the student's degree). Always "
-                "use this instead of judging fit yourself."
+                "ranked, flagged in_major when they're already part of the student's degree, and "
+                "prereq_gap true when the course likely needs a prerequisite the student hasn't "
+                "completed yet). Always use this instead of judging fit yourself."
             ),
             "parameters": {
                 "type": "object",

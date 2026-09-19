@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services import degree_ops
+from app.services import chat_ops, degree_ops
 from app.services.agents.degree import Mode, stream_advisor
 from app.services.study_pathway import get_study_pathway
 
@@ -24,13 +24,30 @@ class AdvisorRequest(BaseModel):
     mode: Mode = "suggest"
 
 
+@router.get("/degree/chat")
+def get_degree_chat(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return {"messages": chat_ops.list_messages(db, planner_id, "degree")}
+
+
+@router.delete("/degree/chat")
+def clear_degree_chat(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return chat_ops.clear_messages(db, planner_id, "degree")
+
+
 @router.post("/degree/advisor")
 def degree_advisor(body: AdvisorRequest, db: Session = Depends(get_db)) -> StreamingResponse:
     history = [{"role": m.role, "content": m.content} for m in body.messages]
-    return StreamingResponse(
-        stream_advisor(db, history, body.planner_id, body.mode),
-        media_type="text/plain",
-    )
+    if history and history[-1]["role"] == "user":
+        chat_ops.append_message(db, body.planner_id, "degree", "user", history[-1]["content"])
+
+    def run():
+        acc = ""
+        for chunk in stream_advisor(db, history, body.planner_id, body.mode):
+            acc += chunk
+            yield chunk
+        chat_ops.append_message(db, body.planner_id, "degree", "assistant", acc)
+
+    return StreamingResponse(run(), media_type="text/plain")
 
 
 class DeclareBody(BaseModel):

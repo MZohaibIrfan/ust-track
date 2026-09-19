@@ -1,14 +1,88 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
+import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
+import { CareerIcon } from "../components/NavIcons";
 import { apiDelete, apiGet, apiPost, apiPostStream } from "../lib/api";
 import { usePlanner } from "../lib/PlannerContext";
 import type { CourseMatch, Experience, JobMatchResult } from "../lib/types";
 
-const KIND_OPTIONS = [
-  { value: "internship", label: "Internship" },
-  { value: "job", label: "Job" },
-  { value: "project", label: "Project" },
-];
+function Icon({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className ?? "size-4"}
+    >
+      {children}
+    </svg>
+  );
+}
+
+const KIND_META: Record<string, { label: string; icon: ReactNode }> = {
+  internship: {
+    label: "Internship",
+    icon: (
+      <Icon>
+        <rect x="2" y="7" width="20" height="14" rx="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      </Icon>
+    ),
+  },
+  job: {
+    label: "Job",
+    icon: (
+      <Icon>
+        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1" />
+      </Icon>
+    ),
+  },
+  project: {
+    label: "Project",
+    icon: (
+      <Icon>
+        <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
+      </Icon>
+    ),
+  },
+};
+
+const TrashIcon = () => (
+  <Icon className="size-3.5">
+    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0-1 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 6h12Z" />
+  </Icon>
+);
+
+const SendIcon = () => (
+  <Icon className="size-3.5">
+    <path d="m22 2-7 20-4-9-9-4Z" />
+    <path d="M22 2 11 13" />
+  </Icon>
+);
+
+const SparkleIcon = () => (
+  <Icon className="size-3.5">
+    <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
+  </Icon>
+);
+
+const CheckIcon = () => (
+  <Icon className="size-3.5">
+    <path d="M20 6 9 17l-5-5" />
+  </Icon>
+);
+
+const WarningIcon = () => (
+  <Icon className="size-3.5">
+    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+    <path d="M12 9v4M12 17h.01" />
+  </Icon>
+);
 
 const STARTERS = [
   "Here's a job posting — what should I take?",
@@ -21,20 +95,36 @@ function formatRange(start: string | null, end: string | null): string {
   return `${start ?? "?"} – ${end ?? "present"}`;
 }
 
-function CourseMatchCard({ course }: { course: CourseMatch }) {
+function ScoreBar({ score, max }: { score: number; max: number }) {
+  const pct = Math.max(6, Math.min(100, (score / max) * 100));
   return (
-    <div className="rounded-md border border-line bg-bg px-3 py-2.5 text-[13px]">
+    <div className="h-1 w-full overflow-hidden rounded-full bg-fill">
+      <div className="h-full rounded-full bg-page-career transition-all" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function CourseMatchCard({ course, maxScore }: { course: CourseMatch; maxScore: number }) {
+  return (
+    <div className="group rounded-xl border border-line bg-bg px-3 py-2.5 text-[13px] shadow-soft transition-colors hover:border-page-career/50">
       <div className="flex items-center justify-between gap-3">
         <p className="font-mono font-medium">
           {course.course_code} <span className="font-sans font-normal text-muted">· {course.credits} cr</span>
         </p>
         {course.in_major ? (
-          <span className="shrink-0 text-[11px] font-medium text-accent">In your major</span>
+          <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-accent">
+            <SparkleIcon /> In your major
+          </span>
         ) : course.status === "completed" ? (
-          <span className="shrink-0 text-[11px] text-muted">Completed</span>
+          <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted">
+            <CheckIcon /> Completed
+          </span>
         ) : null}
       </div>
       <p className="mt-0.5 text-[12px] text-muted">{course.title}</p>
+      <div className="mt-2">
+        <ScoreBar score={course.score} max={maxScore} />
+      </div>
       {course.matched_terms.length > 0 ? (
         <p className="mt-1.5 flex flex-wrap gap-1">
           {course.matched_terms.map((term) => (
@@ -44,22 +134,45 @@ function CourseMatchCard({ course }: { course: CourseMatch }) {
           ))}
         </p>
       ) : null}
+      {course.prereq_gap ? (
+        <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+          <WarningIcon /> May need a prerequisite you haven't completed yet
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function JobMatchCard({ data }: { data: JobMatchResult }) {
   if (data.error) {
-    return <p className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
+    return <p className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
   }
+  const allCourses = [...data.already_relevant, ...data.recommended];
+  const maxScore = Math.max(1, ...allCourses.map((c) => c.score));
+
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised px-3 py-2.5">
+    <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface-raised px-3.5 py-3.5 shadow-soft">
+      {data.matched_keywords.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1 border-b border-line pb-2.5">
+          <span className="text-[11px] font-medium text-muted">Picked up on:</span>
+          {data.matched_keywords.slice(0, 10).map((k) => (
+            <span
+              key={k}
+              className="rounded-full border border-page-career/30 bg-page-career/10 px-2 py-0.5 text-[11px] text-page-career"
+            >
+              {k}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {data.already_relevant.length > 0 ? (
         <div>
-          <p className="mb-1.5 text-[11px] font-medium text-muted">Already covered by courses you've taken</p>
+          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-muted">
+            <CheckIcon /> Already covered by courses you've taken
+          </p>
           <div className="flex flex-col gap-1.5">
             {data.already_relevant.map((c) => (
-              <CourseMatchCard key={c.course_code} course={c} />
+              <CourseMatchCard key={c.course_code} course={c} maxScore={maxScore} />
             ))}
           </div>
         </div>
@@ -71,7 +184,7 @@ function JobMatchCard({ data }: { data: JobMatchResult }) {
         ) : (
           <div className="flex flex-col gap-1.5">
             {data.recommended.map((c) => (
-              <CourseMatchCard key={c.course_code} course={c} />
+              <CourseMatchCard key={c.course_code} course={c} maxScore={maxScore} />
             ))}
           </div>
         )}
@@ -114,10 +227,20 @@ function parseSegments(content: string): Segment[] {
   return segments.filter((s) => s.kind !== "text" || s.text.trim() !== "");
 }
 
+function TypingDots() {
+  return (
+    <div className="mr-auto flex max-w-[90%] items-center gap-1 rounded-xl bg-bg px-3 py-2.5">
+      <span className="size-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.3s]" />
+      <span className="size-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.15s]" />
+      <span className="size-1.5 animate-bounce rounded-full bg-muted" />
+    </div>
+  );
+}
+
 function ChatBubble({ message, pending }: { message: ChatMessage; pending: boolean }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[90%] rounded-md bg-ink px-3 py-2 text-[13px] text-bg whitespace-pre-wrap">
+      <div className="ml-auto max-w-[90%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg whitespace-pre-wrap">
         {message.content}
       </div>
     );
@@ -125,34 +248,31 @@ function ChatBubble({ message, pending }: { message: ChatMessage; pending: boole
 
   const segments = parseSegments(message.content);
   if (segments.length === 0) {
-    return pending ? (
-      <div className="mr-auto max-w-[90%] rounded-md bg-bg px-3 py-2 text-[13px] text-muted">…</div>
-    ) : null;
+    return pending ? <TypingDots /> : null;
   }
 
   return (
     <div className="mr-auto flex max-w-[90%] flex-col gap-2">
       {segments.map((seg, i) => {
         if (seg.kind === "text") {
-          return (
-            <p key={i} className="rounded-md bg-bg px-3 py-2 text-[13px] leading-5 whitespace-pre-wrap">
-              {seg.text.trim()}
-            </p>
-          );
+          return <AgentMarkdown key={i}>{seg.text}</AgentMarkdown>;
         }
         if (seg.kind === "job_match") {
           return <JobMatchCard key={i} data={seg.data} />;
         }
         if (seg.kind === "experience_added") {
           return (
-            <p key={i} className="rounded-md border border-line bg-bg px-3 py-2 text-[12px] text-accent">
-              Logged: {seg.data.title}
+            <p
+              key={i}
+              className="flex items-center gap-1.5 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2 text-[12px] text-accent"
+            >
+              <CheckIcon /> Logged: {seg.data.title}
             </p>
           );
         }
         return (
-          <p key={i} className="rounded-md border border-line bg-bg px-3 py-2 text-[12px] text-muted">
-            Removed
+          <p key={i} className="flex items-center gap-1.5 rounded-xl border border-line bg-bg px-3 py-2 text-[12px] text-muted">
+            <TrashIcon /> Removed
           </p>
         );
       })}
@@ -174,12 +294,16 @@ export function CareerPage() {
   const [endDate, setEndDate] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatLoaded, setChatLoaded] = useState(false);
+  const [panelTab, setPanelTab] = useState<"chat" | "history">("chat");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function refreshExperiences() {
     try {
@@ -203,6 +327,7 @@ export function CareerPage() {
     setChatError(null);
     setLoading(true);
     setExperiences([]);
+    setChatLoaded(false);
     apiGet<{ experiences: Experience[] }>(`/api/career/experiences?planner_id=${plannerId}`)
       .then((result) => {
         if (!cancelled) setExperiences(result.experiences);
@@ -213,14 +338,37 @@ export function CareerPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    apiGet<{ messages: ChatMessage[] }>(`/api/career/chat?planner_id=${plannerId}`)
+      .then((res) => {
+        if (!cancelled) setMessages(res.messages);
+      })
+      .catch(() => {
+        // backend may not be running yet — chat just starts empty
+      })
+      .finally(() => {
+        if (!cancelled) setChatLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [plannerId]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages]);
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, panelTab]);
+
+  async function clearChat() {
+    setMessages([]);
+    try {
+      await apiDelete(`/api/career/chat?planner_id=${plannerId}`);
+    } catch {
+      // best-effort — local state is already cleared
+    }
+  }
+
+  useEffect(() => {
+    if (showForm) formRef.current?.querySelector("input")?.focus();
+  }, [showForm]);
 
   async function addExperience(e: React.FormEvent) {
     e.preventDefault();
@@ -252,12 +400,15 @@ export function CareerPage() {
   }
 
   async function removeExperience(id: string) {
-    setExperiences((prev) => prev.filter((exp) => exp.id !== id));
+    setRemovingId(id);
     try {
       await apiDelete(`/api/career/experiences/${id}?planner_id=${plannerId}`);
+      setExperiences((prev) => prev.filter((exp) => exp.id !== id));
     } catch {
       setError("Couldn't remove that — refreshing.");
       refreshExperiences();
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -299,116 +450,181 @@ export function CareerPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <h1 className="text-[15px] font-semibold tracking-tight">Career</h1>
-        <span className="text-[12px] text-muted">Internships, jobs, and what to take next</span>
+      <header className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-line px-3 py-2.5">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-page-career/15 text-page-career">
+          <CareerIcon className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <h1 className="text-[15px] font-semibold tracking-tight">Career</h1>
+          <p className="text-[11px] text-muted">Internships, jobs, and what to take next</p>
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <section className="min-h-0 min-w-0 flex-1 overflow-auto border-b border-line lg:border-r lg:border-b-0">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
-            <h2 className="text-[13px] font-medium">Experience</h2>
+            <h2 className="flex items-center gap-2 text-[13px] font-medium">
+              Experience
+              {experiences.length > 0 ? (
+                <span className="rounded-full bg-fill px-1.5 py-0.5 text-[11px] font-normal text-muted">
+                  {experiences.length}
+                </span>
+              ) : null}
+            </h2>
             <button
               onClick={() => setShowForm((v) => !v)}
-              className="rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+              className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                showForm ? "bg-fill text-ink hover:bg-line" : "bg-ink text-bg hover:bg-ink/90"
+              }`}
             >
-              {showForm ? "Cancel" : "Add experience"}
+              {showForm ? (
+                "Cancel"
+              ) : (
+                <>
+                  <Icon className="size-3.5">
+                    <path d="M12 5v14M5 12h14" />
+                  </Icon>
+                  Add experience
+                </>
+              )}
             </button>
           </div>
 
           {showForm ? (
-            <form onSubmit={addExperience} className="flex flex-col gap-2 border-b border-line px-3 py-3">
+            <form
+              ref={formRef}
+              onSubmit={addExperience}
+              className="flex flex-col gap-2.5 border-b border-line bg-surface-raised px-3 py-3"
+            >
               <div className="flex flex-wrap gap-2">
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Title (e.g. Software Engineering Intern)"
                   required
-                  className="min-w-[14rem] flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[14rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
                 <input
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   placeholder="Organization"
-                  className="min-w-[10rem] flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
-                <select
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value)}
-                  className="rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px]"
-                >
-                  {KIND_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                />
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                />
+
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(KIND_META).map(([value, meta]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setKind(value)}
+                    className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors ${
+                      kind === value
+                        ? "border-page-career bg-page-career/15 text-page-career"
+                        : "border-line text-muted hover:text-ink"
+                    }`}
+                  >
+                    {meta.icon}
+                    {meta.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 text-[12px] text-muted">
+                  From
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                  />
+                </label>
+                <label className="flex items-center gap-1.5 text-[12px] text-muted">
+                  To
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                  />
+                </label>
               </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What did you actually do? (used to line up with future job descriptions)"
                 rows={3}
-                className="rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
-              <button
-                type="submit"
-                disabled={saving || !title.trim()}
-                className="self-start rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
-              >
-                {saving ? "Saving…" : "Save"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={saving || !title.trim()}
+                  className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                >
+                  {saving ? "Saving…" : "Save experience"}
+                </button>
+              </div>
             </form>
           ) : null}
 
           {loading ? (
-            <p className="px-3 py-6 text-[13px] text-muted">Loading…</p>
+            <div className="flex flex-col gap-2 px-3 py-3">
+              {[0, 1].map((i) => (
+                <div key={i} className="h-14 animate-pulse rounded-xl bg-fill" />
+              ))}
+            </div>
           ) : experiences.length === 0 ? (
-            <p className="px-3 py-6 text-[13px] text-muted">
-              No internships or jobs added yet. Add one, or just tell the agent about it, so we can match
-              your background against real job descriptions.
-            </p>
+            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <span className="flex size-10 items-center justify-center rounded-full bg-fill text-muted">
+                <CareerIcon className="size-5" />
+              </span>
+              <p className="max-w-xs text-[13px] text-muted">
+                No internships or jobs added yet. Add one, or just tell the agent about it, so we can match
+                your background against real job descriptions.
+              </p>
+            </div>
           ) : (
-            <ul>
-              {experiences.map((exp) => (
-                <li key={exp.id} className="border-t border-line px-3 py-2.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-medium">
-                        {exp.title}
-                        {exp.organization ? <span className="font-normal text-muted"> · {exp.organization}</span> : null}
-                      </p>
+            <ul className="flex flex-col gap-2 p-2.5">
+              {experiences.map((exp) => {
+                const meta = KIND_META[exp.kind] ?? KIND_META.internship;
+                return (
+                  <li
+                    key={exp.id}
+                    className="group flex items-start gap-2.5 rounded-2xl border border-line bg-surface-raised px-3.5 py-3 shadow-soft transition-all hover:-translate-y-0.5 hover:border-page-career/40 hover:shadow-soft-lg"
+                  >
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-page-career/15 text-page-career">
+                      {meta.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[13px] font-medium">
+                          {exp.title}
+                          {exp.organization ? (
+                            <span className="font-normal text-muted"> · {exp.organization}</span>
+                          ) : null}
+                        </p>
+                        <button
+                          onClick={() => removeExperience(exp.id)}
+                          disabled={removingId === exp.id}
+                          className="shrink-0 rounded p-1 text-muted opacity-0 transition-opacity hover:bg-fill hover:text-accent group-hover:opacity-100 disabled:opacity-40"
+                          aria-label="Remove experience"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
                       <p className="text-[11px] text-muted">
-                        {exp.kind}
+                        {meta.label}
                         {formatRange(exp.start_date, exp.end_date) ? ` · ${formatRange(exp.start_date, exp.end_date)}` : ""}
                       </p>
                       {exp.description ? (
                         <p className="mt-1 text-[12px] leading-5 text-ink">{exp.description}</p>
                       ) : null}
                     </div>
-                    <button
-                      onClick={() => removeExperience(exp.id)}
-                      className="shrink-0 text-[12px] text-muted hover:text-accent"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -416,25 +632,44 @@ export function CareerPage() {
         </section>
 
         <AgentPanel>
+          <ChatTabs
+            tab={panelTab}
+            onChange={setPanelTab}
+            historyCount={messages.length}
+            icon={
+              <span className="text-page-career">
+                <SparkleIcon />
+              </span>
+            }
+          />
+
           <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-            {messages.length === 0 ? (
-              <div className="flex flex-col gap-2">
-                <p className="text-[12px] text-muted">
-                  Paste a job description, or tell it about past experience
-                </p>
-                {STARTERS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => send(s)}
-                    className="text-left text-[13px] leading-5 text-ink hover:underline"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+            {!chatLoaded ? (
+              <p className="text-[12px] text-muted">Loading chat…</p>
+            ) : messages.length === 0 ? (
+              panelTab === "history" ? (
+                <p className="text-[12px] text-muted">No conversation yet with the career agent.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[12px] text-muted">
+                    Paste a job description, or tell it about past experience
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {STARTERS.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => send(s)}
+                        className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[13px] leading-5 text-ink transition-colors hover:border-page-career/50 hover:bg-page-career/5"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
             ) : (
               messages.map((m, i) => (
-                <ChatBubble key={i} message={m} pending={busy && i === messages.length - 1} />
+                <ChatBubble key={i} message={m} pending={busy && panelTab === "chat" && i === messages.length - 1} />
               ))
             )}
           </div>
@@ -443,28 +678,37 @@ export function CareerPage() {
             <p className="border-t border-line bg-bg px-2.5 py-1.5 text-[12px] text-accent">{chatError}</p>
           ) : null}
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="flex gap-1.5 border-t border-line p-2"
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Paste a job description or ask something…"
-              disabled={busy}
-              className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+          {panelTab === "chat" ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(input);
+              }}
+              className="flex gap-1.5 border-t border-line p-2"
             >
-              Send
-            </button>
-          </form>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Paste a job description or ask something…"
+                disabled={busy}
+                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                className="flex items-center gap-1.5 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+              >
+                <SendIcon />
+                Send
+              </button>
+            </form>
+          ) : (
+            <ChatHistoryFooter
+              label="Full conversation with the career agent"
+              onClear={clearChat}
+              disabled={messages.length === 0}
+            />
+          )}
         </AgentPanel>
       </div>
     </main>

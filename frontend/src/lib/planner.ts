@@ -101,23 +101,24 @@ export function setDegreePathwayId(id: string) {
 export function studentHeading(profile: DegreeProfile | null): { title: string; detail: string } | null {
   if (!profile) return null;
   const demo = getDemoProfile(profile.planner_id);
-  const declared = profile.declared_programs.filter((d) => d.code);
+  const declared = profile.declared_programs.filter((d): d is typeof d & { code: string } => !!d.code);
+  const major = declared.find((d) => d.role === "major") ?? declared[0] ?? null;
+  const extras = declared.filter((d) => d !== major).map((d) => d.code);
+  const year = profile.standing_year ? `Year ${profile.standing_year}` : null;
+  const programPart = major ? [major.code, ...extras].join(" + ") : null;
+  const intakeYear = major?.intake_year ?? profile.intake_year;
+  const intake = intakeYear != null ? `intake ${intakeYear}` : null;
+  const catalog = profile.catalog_year ? `catalog ${profile.catalog_year}` : null;
+
   if (declared.length === 0) {
-    const year = profile.standing_year ? `Year ${profile.standing_year}` : null;
     return {
       title: demo?.label ?? ([year, "Undeclared"].filter(Boolean).join(" · ") || "Undeclared"),
-      detail: demo?.name ?? (profile.catalog_year ? `catalog ${profile.catalog_year}` : ""),
+      detail: [demo?.name, intake, catalog].filter(Boolean).join(" · "),
     };
   }
-  const major = declared.find((d) => d.role === "major") ?? declared[0];
-  if (!major.code) return null;
-  const extras = declared.filter((d) => d.role !== "major" && d.code).map((d) => d.code);
-  const year = profile.standing_year ? `Year ${profile.standing_year}` : null;
-  const title = [year, [major.code, ...extras].join(" + ")].filter(Boolean).join(" · ");
-  const bits = [
-    major.name,
-    major.intake_year != null ? `intake ${major.intake_year}` : null,
-    profile.catalog_year ? `catalog ${profile.catalog_year}` : null,
-  ].filter(Boolean);
+
+  if (!year && !programPart) return null;
+  const title = [year, programPart].filter(Boolean).join(" · ");
+  const bits = [major?.name, intake, catalog].filter(Boolean);
   return { title, detail: bits.join(" · ") };
 }
