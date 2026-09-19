@@ -3,9 +3,8 @@ import { NavLink } from "react-router-dom";
 const links = [
   { href: "/", label: "Overview" },
   { href: "/timetable", label: "Timetable" },
-  { href: "/courses", label: "Courses" },
-  { href: "/programs", label: "Pathways" },
-  { href: "/advisor", label: "Advisor" },
+  { href: "/degree", label: "Degree" },
+  { href: "/career", label: "Career" },
 ];
 
 export function Sidebar() {

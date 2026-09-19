@@ -1,9 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
-import { AdvisorPage } from "./pages/Advisor";
-import { CoursesPage } from "./pages/Courses";
-import { HomePage } from "./pages/Home";
-import { ProgramsPage } from "./pages/Programs";
+import { CareerPage } from "./pages/Career";
+import { DegreePage } from "./pages/Degree";
+import { OverviewPage } from "./pages/Overview";
 import { TimetablePage } from "./pages/Timetable";
 
 export function App() {
@@ -12,11 +11,10 @@ export function App() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<OverviewPage />} />
           <Route path="/timetable" element={<TimetablePage />} />
-          <Route path="/courses" element={<CoursesPage />} />
-          <Route path="/programs" element={<ProgramsPage />} />
-          <Route path="/advisor" element={<AdvisorPage />} />
+          <Route path="/degree" element={<DegreePage />} />
+          <Route path="/career" element={<CareerPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
