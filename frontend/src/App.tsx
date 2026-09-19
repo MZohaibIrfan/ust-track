@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { CareerPage } from "./pages/Career";
 import { DegreePage } from "./pages/Degree";
 import { OverviewPage } from "./pages/Overview";
+import { ProfilePage } from "./pages/Profile";
 import { TimetablePage } from "./pages/Timetable";
 
 // Every page is kept mounted and just shown/hidden by path, instead of being
@@ -15,6 +16,7 @@ const pages = [
   { path: "/timetable", element: <TimetablePage /> },
   { path: "/degree", element: <DegreePage /> },
   { path: "/career", element: <CareerPage /> },
+  { path: "/profile", element: <ProfilePage /> },
 ];
 
 export function App() {

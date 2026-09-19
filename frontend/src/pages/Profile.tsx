@@ -1,0 +1,127 @@
+import { useEffect, useState } from "react";
+import { apiGet } from "../lib/api";
+import { getPlannerId } from "../lib/planner";
+import type { DeclaredProgram, DegreeProfile } from "../lib/types";
+
+const DEMO_NAME = "Demo Student";
+
+const MINOR_ROLES = new Set(["minor"]);
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("");
+}
+
+function ProgramCard({ program }: { program: DeclaredProgram }) {
+  return (
+    <div className="rounded-md border border-line bg-surface-raised p-3">
+      <p className="text-[13px] font-medium text-ink">{program.name ?? program.code ?? "Unnamed program"}</p>
+      <p className="mt-0.5 font-mono text-[12px] text-muted">{program.code}</p>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted">
+        {program.school ? <span>{program.school}</span> : null}
+        {program.intake_year ? <span>Intake {program.intake_year}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+export function ProfilePage() {
+  const plannerId = getPlannerId();
+  const [profile, setProfile] = useState<DegreeProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
+      .then(setProfile)
+      .catch(() => {
+        // backend may not be running yet
+      })
+      .finally(() => setLoading(false));
+  }, [plannerId]);
+
+  const declared = profile?.declared_programs.filter((d) => d.code) ?? [];
+  const majors = declared.filter((d) => !MINOR_ROLES.has(d.role));
+  const minors = declared.filter((d) => MINOR_ROLES.has(d.role));
+  const schools = [...new Set(declared.map((d) => d.school).filter((s): s is string => !!s))];
+
+  return (
+    <main className="flex h-full min-h-0 flex-col overflow-y-auto">
+      <header className="shrink-0 border-b border-line px-4 py-3">
+        <h1 className="text-[15px] font-semibold tracking-tight">Profile</h1>
+      </header>
+
+      <div className="flex flex-col gap-4 p-4">
+        <section className="flex items-center gap-3 rounded-md border border-line bg-surface-raised p-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[18px] font-medium text-accent">
+            {initials(DEMO_NAME)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[16px] font-semibold text-ink">{DEMO_NAME}</p>
+            <p className="text-[12px] text-muted">Demo profile · no account system yet</p>
+            <p className="mt-1 font-mono text-[11px] text-muted">Planner ID: {plannerId}</p>
+          </div>
+        </section>
+
+        {loading ? (
+          <p className="text-[13px] text-muted">Loading profile…</p>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md border border-line bg-surface-raised p-3">
+                <p className="text-[11px] font-medium tracking-wide text-muted uppercase">School</p>
+                <p className="mt-1 text-[13px] text-ink">
+                  {schools.length > 0 ? schools.join(", ") : "HKUST"}
+                </p>
+              </div>
+              <div className="rounded-md border border-line bg-surface-raised p-3">
+                <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Year</p>
+                <p className="mt-1 text-[13px] text-ink">
+                  {profile?.standing_year ? `Year ${profile.standing_year}` : "Not set"}
+                </p>
+                {profile?.intake_year ? (
+                  <p className="mt-0.5 text-[12px] text-muted">Intake {profile.intake_year}</p>
+                ) : null}
+              </div>
+              <div className="rounded-md border border-line bg-surface-raised p-3">
+                <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Catalog</p>
+                <p className="mt-1 text-[13px] text-ink">{profile?.catalog_year ?? "Not set"}</p>
+              </div>
+            </div>
+
+            <section className="flex flex-col gap-2">
+              <p className="text-[11px] font-medium tracking-wide text-muted uppercase">
+                {majors.length === 1 ? "Major" : "Majors"}
+              </p>
+              {majors.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {majors.map((m) => (
+                    <ProgramCard key={`${m.code}-${m.role}`} program={m} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[13px] text-muted">No major declared yet.</p>
+              )}
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <p className="text-[11px] font-medium tracking-wide text-muted uppercase">
+                {minors.length === 1 ? "Minor" : "Minors"}
+              </p>
+              {minors.length > 0 ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {minors.map((m) => (
+                    <ProgramCard key={`${m.code}-${m.role}`} program={m} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[13px] text-muted">No minor declared.</p>
+              )}
+            </section>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
