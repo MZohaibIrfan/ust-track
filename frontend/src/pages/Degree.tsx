@@ -469,11 +469,9 @@ export function DegreePage() {
 
   const programCode = studyPlan?.program_code ?? progress?.code ?? studyPlanCode ?? "PLAN";
   const variant = studyPlan?.variants?.find((item) => item.id === variantId) ?? studyPlan?.variants?.[0];
-  const planProgramCodes = [
-    programCode,
-    selectedCode,
-    ...declared.map((item) => item.code).filter((code): code is string => Boolean(code)),
-  ];
+  const planProgramCodes = [programCode, selectedCode, ...declared.map((item) => item.code)].filter(
+    (code): code is string => Boolean(code),
+  );
 
   useEffect(() => {
     setVariantId(suggestedVariant(studyPlan));
