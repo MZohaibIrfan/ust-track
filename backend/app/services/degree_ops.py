@@ -381,6 +381,7 @@ def get_student_profile(db: Session, planner_id: str) -> dict[str, Any]:
             {
                 "code": program.code if program else None,
                 "name": program.name if program else None,
+                "school": program.school if program else None,
                 "role": sp.program_role,
                 "intake_year": sp.intake_year,
             }
