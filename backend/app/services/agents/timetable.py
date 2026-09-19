@@ -44,7 +44,11 @@ BASE_SYSTEM_PROMPT = (
     "course, section, or term isn't returned by a tool, say plainly that it's not in the "
     "catalog yet — do not describe it from memory or general expectation of what a course "
     "like that 'usually' involves. Prefer sections with no time conflict; if every option "
-    "conflicts, say so plainly and name what it clashes with. Keep answers short and "
+    "conflicts, say so plainly and name what it clashes with. When the student wants to "
+    "replace a course or section already on the plan, do it as one action: pass "
+    "replaces_course_code (and replaces_section_code if only one section should come off). "
+    "Never emit a separate remove plus a separate add for a replacement — Apply / auto-add "
+    "must drop the original and add the new section together. Keep answers short and "
     "concrete: course code, section, meeting time — not generic advice."
 )
 
@@ -120,6 +124,14 @@ _SECTION_PARAMS = {
             "type": "string",
             "description": "Optional exact term code if the course is offered in more than one term",
         },
+        "replaces_course_code": {
+            "type": "string",
+            "description": "Course already on the plan that this action replaces. All of its sections drop when applied, unless replaces_section_code is set.",
+        },
+        "replaces_section_code": {
+            "type": "string",
+            "description": "Optional single section to drop instead of every section of replaces_course_code.",
+        },
     },
     "required": ["course_code", "section_code"],
 }
@@ -128,7 +140,7 @@ PROPOSE_TOOL: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": "propose_class_selection",
-        "description": "Propose one class section for the calendar without writing anything yet. Returns any conflicts it would have.",
+        "description": "Propose one class section without writing yet. For a replacement, set replaces_course_code so Apply drops the original and adds this section together. Conflicts ignore the course being replaced.",
         "parameters": _SECTION_PARAMS,
     },
 }
@@ -137,7 +149,7 @@ ADD_TOOL: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": "add_class_selection",
-        "description": "Put one class section directly onto the calendar. Returns any conflicts with what's already there.",
+        "description": "Put one class section on the calendar. For a replacement, set replaces_course_code so the original is dropped in the same write.",
         "parameters": _SECTION_PARAMS,
     },
 }
@@ -179,12 +191,24 @@ def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any])
         return result, _marker("REMOVED", result) if result.get("ok") else None
     if name == "propose_class_selection":
         result = planner_ops.preview_class_selection(
-            db, planner_id, args["course_code"], args["section_code"], args.get("term_code")
+            db,
+            planner_id,
+            args["course_code"],
+            args["section_code"],
+            args.get("term_code"),
+            args.get("replaces_course_code"),
+            args.get("replaces_section_code"),
         )
         return result, _marker("SUGGEST", result) if result.get("proposed") else None
     if name == "add_class_selection":
         result = planner_ops.add_class_selection(
-            db, planner_id, args["course_code"], args["section_code"], args.get("term_code")
+            db,
+            planner_id,
+            args["course_code"],
+            args["section_code"],
+            args.get("term_code"),
+            args.get("replaces_course_code"),
+            args.get("replaces_section_code"),
         )
         return result, _marker("APPLIED", result) if result.get("ok") else None
     return {"error": f"Unknown tool {name}"}, None

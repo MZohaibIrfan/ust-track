@@ -1,47 +1,42 @@
 import { useState } from "react";
 import type { RequirementGroupProgress, RequirementItemProgress } from "../lib/types";
 
-const STATUS: Record<RequirementItemProgress["status"], string> = {
-  done: "Done",
-  in_progress: "This term",
-  missing: "Open",
-  info: "",
+const MARK: Record<NonNullable<RequirementGroupProgress["status"]>, string> = {
+  done: "✓",
+  in_progress: "·",
+  missing: "○",
+  info: "–",
 };
 
-function CourseRow({
-  item,
-  depth,
-}: {
-  item: RequirementItemProgress;
-  depth: number;
-}) {
-  if (item.status === "info") {
-    return (
-      <p className="border-b border-line py-1.5 pr-3 text-[12px] leading-5 text-muted" style={{ paddingLeft: 12 + depth * 16 }}>
-        {item.note}
-      </p>
-    );
-  }
+const MARK_COLOR: Record<NonNullable<RequirementGroupProgress["status"]>, string> = {
+  done: "text-accent",
+  in_progress: "text-ink",
+  missing: "text-muted",
+  info: "text-muted",
+};
 
+function progressLabel(group: RequirementGroupProgress): string {
+  if (group.of > 0) return `${group.done} of ${group.of}`;
+  if (group.done > 0) return `${group.done} taken`;
+  if (group.min_credits) return `${group.min_credits} cr min`;
+  return "";
+}
+
+function Item({ item }: { item: RequirementItemProgress }) {
   return (
-    <div
-      className="grid grid-cols-[6.75rem_minmax(0,1fr)_4.75rem] items-baseline gap-3 border-b border-line py-[7px] pr-3 text-[13px]"
-      style={{ paddingLeft: 12 + depth * 16 }}
-    >
-      <span className="font-mono">{item.course_code}</span>
-      <span className="min-w-0 truncate text-muted" title={item.note ?? undefined}>
-        {item.note}
+    <div className="flex items-baseline gap-2 border-t border-line py-1.5 first:border-t-0">
+      <span className={`w-4 shrink-0 font-mono text-xs ${MARK_COLOR[item.status]}`}>{MARK[item.status]}</span>
+      <span className="min-w-0 flex-1 text-[13px]">
+        {item.course_code ? <span className="font-mono">{item.course_code}</span> : item.note}
+        {item.course_code && item.note ? (
+          <span className="mt-0.5 block text-[12px] text-muted">{item.note}</span>
+        ) : null}
       </span>
-      <span className="text-right text-[12px] text-muted">{STATUS[item.status]}</span>
     </div>
   );
 }
 
-function groupCaption(group: RequirementGroupProgress): string | null {
-  const note = group.items.find((item) => item.status === "info" && item.note)?.note;
-  if (group.kind === "or_group") return note ?? group.name;
-  return null;
-}
+const COLLAPSE_KINDS = new Set(["area", "elective_list", "remarks", "advisory_pathway", "placeholder"]);
 
 export function RequirementGroup({
   group,
@@ -50,57 +45,46 @@ export function RequirementGroup({
   group: RequirementGroupProgress;
   depth?: number;
 }) {
-  const courses = group.items.filter((item) => item.course_code);
-  const isArea = group.kind === "area" || group.kind === "elective_list";
-  const longList = isArea && courses.length > 6;
-  const [open, setOpen] = useState(!longList);
-  const caption = groupCaption(group);
-  const courseItems = group.items.filter((item) => item.status !== "info");
-
-  if (depth === 0) {
-    return (
-      <section>
-        <div className="sticky top-0 z-[1] flex items-baseline justify-between gap-3 border-b border-line bg-bg px-3 py-1.5">
-          <h3 className="text-[11px] font-medium tracking-wide text-muted uppercase">{group.name}</h3>
-          <span className="font-mono text-[11px] text-muted tabular-nums">
-            {group.of > 0 ? `${group.done}/${group.of}` : longList ? `${courses.length}` : null}
-          </span>
-        </div>
-        {group.items
-          .filter((item) => item.status === "info" && !caption)
-          .map((item, i) => (
-            <CourseRow key={`info-${i}`} item={item} depth={0} />
-          ))}
-        {courseItems.map((item, i) => (
-          <CourseRow key={i} item={item} depth={0} />
-        ))}
-        {group.children.map((child, i) => (
-          <RequirementGroup key={i} group={child} depth={1} />
-        ))}
-      </section>
-    );
-  }
+  const many = group.items.length > 8 || COLLAPSE_KINDS.has(group.kind);
+  const [open, setOpen] = useState(!many && group.kind !== "remarks" && group.kind !== "advisory_pathway");
+  const status = group.status ?? (group.of > 0 && group.done >= group.of ? "done" : group.done > 0 ? "in_progress" : "missing");
+  const label = progressLabel(group);
+  const hasBody = group.items.length > 0 || group.children.length > 0;
 
   return (
-    <div>
+    <div className={`overflow-hidden rounded-lg border border-line ${depth > 0 ? "bg-bg" : "bg-surface-raised"}`}>
       <button
         type="button"
-        disabled={!longList}
-        onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-baseline justify-between gap-3 border-b border-line py-1.5 pr-3 text-left"
-        style={{ paddingLeft: 12 + depth * 16 }}
+        onClick={() => hasBody && setOpen((value) => !value)}
+        className="flex w-full items-start justify-between gap-3 bg-bg px-3 py-1.5 text-left"
       >
-        <span className="min-w-0 text-[12px] text-muted">{caption ?? group.name}</span>
+        <span className="flex min-w-0 items-start gap-2">
+          <span className={`mt-0.5 w-4 shrink-0 font-mono text-xs ${MARK_COLOR[status]}`}>{MARK[status]}</span>
+          <span className="min-w-0 text-[13px] font-medium leading-5">{group.name}</span>
+        </span>
         <span className="shrink-0 font-mono text-[11px] text-muted tabular-nums">
-          {longList ? (open ? "Hide" : `${courses.length} courses`) : group.of > 0 ? `${group.done}/${group.of}` : null}
+          {label}
+          {hasBody ? <span className="ml-2 text-muted">{open ? "▾" : "▸"}</span> : null}
         </span>
       </button>
-      {open
-        ? courseItems.map((item, i) => <CourseRow key={i} item={item} depth={depth + 1} />)
-        : null}
-      {open
-        ? group.children.map((child, i) => <RequirementGroup key={i} group={child} depth={depth + 1} />)
-        : null}
+      {open && hasBody ? (
+        <>
+          {group.items.length > 0 ? (
+            <div className="px-3 py-0.5">
+              {group.items.map((item, i) => (
+                <Item key={`${item.course_code ?? item.note ?? i}-${i}`} item={item} />
+              ))}
+            </div>
+          ) : null}
+          {group.children.length > 0 ? (
+            <div className="flex flex-col gap-2 border-t border-line p-2">
+              {group.children.map((child, i) => (
+                <RequirementGroup key={`${child.name}-${i}`} group={child} depth={depth + 1} />
+              ))}
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

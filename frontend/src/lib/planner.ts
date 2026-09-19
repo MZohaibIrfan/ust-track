@@ -1,8 +1,8 @@
 import type { DegreeProfile } from "./types";
 
+/** Shared demo planner that already has course history and sections in Supabase. */
 export const DEMO_PLANNER_ID = "demo-student";
 
-/** Shared year-2 COMP student so Overview, Timetable, and Degree stay in sync. */
 export function getPlannerId(): string {
   return DEMO_PLANNER_ID;
 }

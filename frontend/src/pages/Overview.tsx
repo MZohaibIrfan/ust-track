@@ -27,6 +27,12 @@ const tools = [
     body: "See what's done and what's still missing.",
   },
   {
+    href: "/history",
+    color: "var(--page-history)",
+    label: "History",
+    body: "Completed, in-progress, and planned courses.",
+  },
+  {
     href: "/career",
     color: "var(--page-career)",
     label: "Career",

@@ -7,10 +7,12 @@ the agent does bypasses the app's own rules.
 
 from __future__ import annotations
 
+import json
 from typing import Any
+from uuid import UUID
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models import (
     ClassSection,
@@ -21,21 +23,38 @@ from app.models import (
     StudentCourse,
     Term,
 )
+from app.services.catalog_queries import _section_kind
+
+_SECTION_OPTIONS = (
+    selectinload(ClassSection.meetings),
+    joinedload(ClassSection.offering).joinedload(CourseOffering.course),
+    joinedload(ClassSection.offering).joinedload(CourseOffering.term),
+)
+
+_PLANNER_PK: dict[str, UUID] = {}
+_KEEP_COURSE_STATUSES = {"completed", "done", "exempt", "transferred"}
 
 
 def get_or_create_planner(db: Session, planner_id: str) -> Planner:
+    cached = _PLANNER_PK.get(planner_id)
+    if cached is not None:
+        planner = db.get(Planner, cached)
+        if planner is not None and planner.planner_id == planner_id:
+            return planner
+        _PLANNER_PK.pop(planner_id, None)
     planner = db.scalar(select(Planner).where(Planner.planner_id == planner_id))
     if planner is None:
         planner = Planner(planner_id=planner_id)
         db.add(planner)
         db.commit()
         db.refresh(planner)
+    _PLANNER_PK[planner_id] = planner.id
     return planner
 
 
 def find_course(db: Session, course_code: str) -> Course | None:
-    code = course_code.strip().replace(" ", "")
-    return db.scalar(select(Course).where(func.upper(Course.course_code) == code.upper()))
+    code = course_code.strip().replace(" ", "").upper()
+    return db.scalar(select(Course).where(Course.course_code == code))
 
 
 def find_section(
@@ -47,14 +66,37 @@ def find_section(
     stmt = (
         select(ClassSection)
         .join(CourseOffering, ClassSection.offering_id == CourseOffering.id)
+        .options(*_SECTION_OPTIONS)
         .where(
             CourseOffering.course_id == course.id,
-            func.upper(ClassSection.section_code) == section_code.strip().upper(),
+            ClassSection.section_code == section_code.strip().upper(),
         )
     )
     if term_code:
         stmt = stmt.join(Term, CourseOffering.term_id == Term.id).where(Term.code == term_code)
-    return db.scalars(stmt).first()
+    return db.scalars(stmt).unique().first()
+
+
+def _load_course_sections(
+    db: Session,
+    course: Course,
+    term_code: str | None = None,
+) -> list[ClassSection]:
+    stmt = (
+        select(ClassSection)
+        .join(CourseOffering, ClassSection.offering_id == CourseOffering.id)
+        .options(*_SECTION_OPTIONS)
+        .where(CourseOffering.course_id == course.id)
+    )
+    if term_code:
+        stmt = stmt.join(Term, CourseOffering.term_id == Term.id).where(Term.code == term_code)
+    return list(db.scalars(stmt).unique())
+
+
+def _selected_section_ids(db: Session, planner: Planner) -> set:
+    return set(
+        db.scalars(select(StudentClassSelection.section_id).where(StudentClassSelection.planner_id == planner.id)).all()
+    )
 
 
 def _meeting_dict(meeting: Any) -> dict[str, Any]:
@@ -81,38 +123,108 @@ def _section_dict(section: ClassSection) -> dict[str, Any]:
     }
 
 
-def resolve_plan(db: Session, planner_id: str) -> dict[str, Any]:
-    planner = get_or_create_planner(db, planner_id)
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        loaded = json.loads(value)
+        return loaded if isinstance(loaded, list) else []
+    return list(value)
 
-    # Query directly rather than through planner.courses / planner.class_selections:
-    # those relationship collections can be cached stale in this same session if a
-    # caller (e.g. replace_plan) read them before writing more rows to the DB.
-    student_courses = db.scalars(select(StudentCourse).where(StudentCourse.planner_id == planner.id)).all()
-    planned_courses = []
-    for student_course in student_courses:
-        course = db.get(Course, student_course.course_id)
-        term = db.get(Term, student_course.term_id) if student_course.term_id else None
-        planned_courses.append(
-            {
-                "course_code": course.course_code if course else None,
-                "term_label": term.label if term else None,
-                "status": student_course.status,
-            }
+
+def _upsert_timetable_course(
+    db: Session,
+    planner: Planner,
+    course: Course,
+    term_id: UUID | None,
+) -> None:
+    """Keep degree-plan rows in sync when a section is saved on the timetable."""
+    rows = list(
+        db.scalars(
+            select(StudentCourse).where(
+                StudentCourse.planner_id == planner.id,
+                StudentCourse.course_id == course.id,
+            )
+        ).all()
+    )
+    if any(row.status in _KEEP_COURSE_STATUSES for row in rows):
+        return
+    match = next((row for row in rows if row.term_id == term_id), None) or (rows[0] if rows else None)
+    if match is None:
+        db.add(
+            StudentCourse(
+                planner_id=planner.id,
+                course_id=course.id,
+                term_id=term_id,
+                status="in_progress",
+            )
         )
+        return
+    match.status = "in_progress"
+    if term_id is not None and match.term_id is None:
+        match.term_id = term_id
 
-    selections = db.scalars(
-        select(StudentClassSelection).where(StudentClassSelection.planner_id == planner.id)
-    ).all()
-    class_selections = []
-    for selection in selections:
-        section = db.get(ClassSection, selection.section_id)
-        if section is not None:
-            class_selections.append(_section_dict(section))
 
+def resolve_plan(db: Session, planner_id: str) -> dict[str, Any]:
+    pk = get_or_create_planner(db, planner_id).id
+    # One round-trip: planned courses + selected sections with meetings.
+    row = db.execute(
+        text(
+            """
+            SELECT
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'course_code', c.course_code,
+                  'term_label', t.label,
+                  'status', sc.status
+                ))
+                FROM planner.student_course sc
+                LEFT JOIN catalog.course c ON c.id = sc.course_id
+                LEFT JOIN catalog.term t ON t.id = sc.term_id
+                WHERE sc.planner_id = :pid
+              ), '[]'::json) AS planned_courses,
+              COALESCE((
+                SELECT json_agg(section)
+                FROM (
+                  SELECT json_build_object(
+                    'section_id', cs.id::text,
+                    'course_code', c.course_code,
+                    'section_code', cs.section_code,
+                    'term_code', t.code,
+                    'term_label', t.label,
+                    'instructor', cs.instructor,
+                    'meetings', COALESCE(
+                      json_agg(
+                        json_build_object(
+                          'weekday', m.weekday,
+                          'start_time', to_char(m.start_time, 'HH24:MI:SS'),
+                          'end_time', to_char(m.end_time, 'HH24:MI:SS'),
+                          'start_date', m.start_date,
+                          'end_date', m.end_date,
+                          'venue', COALESCE(m.venue, '')
+                        )
+                      ) FILTER (WHERE m.id IS NOT NULL),
+                      '[]'::json
+                    )
+                  ) AS section
+                  FROM planner.student_class_selection sel
+                  JOIN catalog.class_section cs ON cs.id = sel.section_id
+                  JOIN catalog.course_offering o ON o.id = cs.offering_id
+                  JOIN catalog.course c ON c.id = o.course_id
+                  JOIN catalog.term t ON t.id = o.term_id
+                  LEFT JOIN catalog.meeting m ON m.section_id = cs.id
+                  WHERE sel.planner_id = :pid
+                  GROUP BY cs.id, c.course_code, cs.section_code, t.code, t.label, cs.instructor
+                ) sections
+              ), '[]'::json) AS class_selections
+            """
+        ),
+        {"pid": pk},
+    ).mappings().one()
     return {
-        "planner_id": planner.planner_id,
-        "planned_courses": planned_courses,
-        "class_selections": class_selections,
+        "planner_id": planner_id,
+        "planned_courses": _as_list(row["planned_courses"]),
+        "class_selections": _as_list(row["class_selections"]),
     }
 
 
@@ -157,13 +269,76 @@ def remove_planned_course(db: Session, planner_id: str, course_code: str) -> dic
     return {"ok": True, "removed": removed > 0}
 
 
+def _selections_for_course(
+    db: Session,
+    planner: Planner,
+    course_code: str,
+    section_code: str | None = None,
+) -> list[StudentClassSelection] | dict[str, Any]:
+    course = find_course(db, course_code)
+    if course is None:
+        return {"error": f"No course with code {course_code}"}
+    stmt = (
+        select(StudentClassSelection)
+        .join(ClassSection, StudentClassSelection.section_id == ClassSection.id)
+        .join(CourseOffering, ClassSection.offering_id == CourseOffering.id)
+        .where(
+            StudentClassSelection.planner_id == planner.id,
+            CourseOffering.course_id == course.id,
+        )
+    )
+    if section_code:
+        stmt = stmt.where(ClassSection.section_code == section_code.strip().upper())
+    return list(db.scalars(stmt).all())
+
+
+def _section_action_payload(
+    course: Course,
+    section: ClassSection,
+    conflicts: list[dict[str, Any]],
+    *,
+    proposed: bool = False,
+    replaces_course_code: str | None = None,
+    replaces_section_code: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": True,
+        "course_code": course.course_code,
+        "section_code": section.section_code,
+        "term_code": section.offering.term.code,
+        "meetings": [_meeting_dict(m) for m in section.meetings],
+        "conflicts": conflicts,
+    }
+    if proposed:
+        payload.pop("ok", None)
+        payload["proposed"] = True
+    if replaces_course_code:
+        payload["replaces_course_code"] = replaces_course_code
+        if replaces_section_code:
+            payload["replaces_section_code"] = replaces_section_code
+    return payload
+
+
 def add_class_selection(
     db: Session,
     planner_id: str,
     course_code: str,
     section_code: str,
     term_code: str | None = None,
+    replaces_course_code: str | None = None,
+    replaces_section_code: str | None = None,
 ) -> dict[str, Any]:
+    if replaces_course_code:
+        return replace_class_selection(
+            db,
+            planner_id,
+            course_code,
+            section_code,
+            replaces_course_code,
+            replaces_section_code,
+            term_code,
+        )
+
     planner = get_or_create_planner(db, planner_id)
     course = find_course(db, course_code)
     if course is None:
@@ -186,16 +361,12 @@ def add_class_selection(
     )
     if existing is None:
         db.add(StudentClassSelection(planner_id=planner.id, section_id=section.id))
-        db.commit()
+    _upsert_timetable_course(db, planner, course, section.offering.term_id)
+    db.commit()
 
-    return {
-        "ok": True,
-        "course_code": course.course_code,
-        "section_code": section.section_code,
-        "term_code": section.offering.term.code,
-        "meetings": [_meeting_dict(m) for m in section.meetings],
-        "conflicts": conflicts,
-    }
+    payload = _section_action_payload(course, section, conflicts)
+    payload["plan"] = resolve_plan(db, planner_id)
+    return payload
 
 
 def preview_class_selection(
@@ -204,8 +375,21 @@ def preview_class_selection(
     course_code: str,
     section_code: str,
     term_code: str | None = None,
+    replaces_course_code: str | None = None,
+    replaces_section_code: str | None = None,
 ) -> dict[str, Any]:
     """Same lookup and conflict-check as add_class_selection, but writes nothing."""
+    if replaces_course_code:
+        return preview_replace_class_selection(
+            db,
+            planner_id,
+            course_code,
+            section_code,
+            replaces_course_code,
+            replaces_section_code,
+            term_code,
+        )
+
     course = find_course(db, course_code)
     if course is None:
         return {"error": f"No course with code {course_code}"}
@@ -218,15 +402,95 @@ def preview_class_selection(
     from app.services.conflicts import conflicts_with_candidate  # local import breaks the module cycle
 
     conflicts = conflicts_with_candidate(db, planner_id, section)
+    return _section_action_payload(course, section, conflicts, proposed=True)
 
-    return {
-        "proposed": True,
-        "course_code": course.course_code,
-        "section_code": section.section_code,
-        "term_code": section.offering.term.code,
-        "meetings": [_meeting_dict(m) for m in section.meetings],
-        "conflicts": conflicts,
-    }
+
+def preview_replace_class_selection(
+    db: Session,
+    planner_id: str,
+    course_code: str,
+    section_code: str,
+    replaces_course_code: str,
+    replaces_section_code: str | None = None,
+    term_code: str | None = None,
+) -> dict[str, Any]:
+    planner = get_or_create_planner(db, planner_id)
+    course = find_course(db, course_code)
+    if course is None:
+        return {"error": f"No course with code {course_code}"}
+
+    section = find_section(db, course, section_code, term_code)
+    if section is None:
+        where = f" in term {term_code}" if term_code else ""
+        return {"error": f"No section {section_code} found for {course.course_code}{where}"}
+
+    outgoing = _selections_for_course(db, planner, replaces_course_code, replaces_section_code)
+    if isinstance(outgoing, dict):
+        return outgoing
+
+    from app.services.conflicts import conflicts_with_candidate
+
+    conflicts = conflicts_with_candidate(
+        db, planner_id, section, exclude_section_ids={row.section_id for row in outgoing}
+    )
+    return _section_action_payload(
+        course,
+        section,
+        conflicts,
+        proposed=True,
+        replaces_course_code=replaces_course_code.strip().replace(" ", "").upper(),
+        replaces_section_code=replaces_section_code.strip().upper() if replaces_section_code else None,
+    )
+
+
+def replace_class_selection(
+    db: Session,
+    planner_id: str,
+    course_code: str,
+    section_code: str,
+    replaces_course_code: str,
+    replaces_section_code: str | None = None,
+    term_code: str | None = None,
+) -> dict[str, Any]:
+    """Drop the original course (or one section) and add the new section in one commit."""
+    planner = get_or_create_planner(db, planner_id)
+    preview = preview_replace_class_selection(
+        db, planner_id, course_code, section_code, replaces_course_code, replaces_section_code, term_code
+    )
+    if "error" in preview:
+        return preview
+
+    course = find_course(db, course_code)
+    section = find_section(db, course, section_code, term_code) if course else None
+    if course is None or section is None:
+        return preview
+
+    outgoing = _selections_for_course(db, planner, replaces_course_code, replaces_section_code)
+    if isinstance(outgoing, dict):
+        return outgoing
+    for row in outgoing:
+        db.delete(row)
+
+    existing = db.scalar(
+        select(StudentClassSelection).where(
+            StudentClassSelection.planner_id == planner.id,
+            StudentClassSelection.section_id == section.id,
+        )
+    )
+    if existing is None:
+        db.add(StudentClassSelection(planner_id=planner.id, section_id=section.id))
+    _upsert_timetable_course(db, planner, course, section.offering.term_id)
+
+    db.commit()
+    payload = _section_action_payload(
+        course,
+        section,
+        preview["conflicts"],
+        replaces_course_code=preview.get("replaces_course_code"),
+        replaces_section_code=preview.get("replaces_section_code"),
+    )
+    payload["plan"] = resolve_plan(db, planner_id)
+    return payload
 
 
 def remove_class_selection(
@@ -250,13 +514,137 @@ def remove_class_selection(
         )
     )
     if section_code:
-        stmt = stmt.where(func.upper(ClassSection.section_code) == section_code.strip().upper())
+        stmt = stmt.where(ClassSection.section_code == section_code.strip().upper())
 
     rows = db.scalars(stmt).all()
     for row in rows:
         db.delete(row)
     db.commit()
-    return {"ok": True, "removed": len(rows)}
+    return {"ok": True, "removed": len(rows), "plan": resolve_plan(db, planner_id)}
+
+
+def add_class_selections(
+    db: Session,
+    planner_id: str,
+    course_code: str,
+    section_codes: list[str],
+    term_code: str | None = None,
+) -> dict[str, Any]:
+    planner = get_or_create_planner(db, planner_id)
+    course = find_course(db, course_code)
+    if course is None:
+        return {"error": f"No course with code {course_code}"}
+
+    codes = [c.strip().upper() for c in section_codes if c.strip()]
+    if not codes:
+        return {"error": "No sections to add"}
+
+    sections = _load_course_sections(db, course, term_code)
+    by_code = {s.section_code.upper(): s for s in sections}
+    existing_ids = _selected_section_ids(db, planner)
+
+    from app.services.conflicts import selected_sections, sections_conflict
+
+    current = selected_sections(db, planner_id, planner=planner)
+    added: list[ClassSection] = []
+    conflicts: list[dict[str, Any]] = []
+    for code in codes:
+        section = by_code.get(code)
+        if section is None:
+            where = f" in term {term_code}" if term_code else ""
+            return {"error": f"No section {code} found for {course.course_code}{where}"}
+        if section.id in existing_ids:
+            continue
+        for other in current + added:
+            conflicts += sections_conflict(other, section)
+        added.append(section)
+        existing_ids.add(section.id)
+
+    first = by_code[codes[0]]
+    for section in added:
+        db.add(StudentClassSelection(planner_id=planner.id, section_id=section.id))
+    _upsert_timetable_course(db, planner, course, first.offering.term_id)
+    db.commit()
+
+    return {
+        "ok": True,
+        "course_code": course.course_code,
+        "section_code": first.section_code,
+        "term_code": first.offering.term.code,
+        "meetings": [_meeting_dict(m) for m in first.meetings],
+        "conflicts": conflicts,
+        "plan": resolve_plan(db, planner_id),
+    }
+
+
+def swap_class_selection(
+    db: Session,
+    planner_id: str,
+    course_code: str,
+    from_section: str,
+    to_section: str,
+    term_code: str | None = None,
+    also_sections: list[str] | None = None,
+) -> dict[str, Any]:
+    planner = get_or_create_planner(db, planner_id)
+    course = find_course(db, course_code)
+    if course is None:
+        return {"error": f"No course with code {course_code}"}
+
+    sections = _load_course_sections(db, course, term_code)
+    by_code = {s.section_code.upper(): s for s in sections}
+    src = by_code.get(from_section.strip().upper())
+    dst = by_code.get(to_section.strip().upper())
+    if dst is None:
+        where = f" in term {term_code}" if term_code else ""
+        return {"error": f"No section {to_section} found for {course.course_code}{where}"}
+
+    extras: list[ClassSection] = []
+    for code in also_sections or []:
+        extra = by_code.get(code.strip().upper())
+        if extra is None:
+            where = f" in term {term_code}" if term_code else ""
+            return {"error": f"No section {code} found for {course.course_code}{where}"}
+        extras.append(extra)
+
+    drop_ids = {src.id} if src is not None else set()
+    add_ids = {dst.id, *(extra.id for extra in extras)}
+    selected_ids = _selected_section_ids(db, planner)
+
+    if src is not None:
+        src_kind, _src_num = _section_kind(src.section_code)
+        dst_kind, _dst_num = _section_kind(dst.section_code)
+        if src_kind == "lecture" and dst_kind == "lecture":
+            for section in sections:
+                kind_s, _number = _section_kind(section.section_code)
+                if kind_s in {"tutorial", "lab"} and section.id in selected_ids:
+                    drop_ids.add(section.id)
+
+    on_plan = selected_ids
+    if drop_ids:
+        rows = db.scalars(
+            select(StudentClassSelection).where(
+                StudentClassSelection.planner_id == planner.id,
+                StudentClassSelection.section_id.in_(drop_ids),
+            )
+        ).all()
+        for row in rows:
+            db.delete(row)
+
+    for section_id in add_ids - (on_plan - drop_ids):
+        db.add(StudentClassSelection(planner_id=planner.id, section_id=section_id))
+    _upsert_timetable_course(db, planner, course, dst.offering.term_id)
+
+    db.commit()
+    return {
+        "ok": True,
+        "course_code": course.course_code,
+        "section_code": dst.section_code,
+        "term_code": dst.offering.term.code,
+        "meetings": [_meeting_dict(m) for m in dst.meetings],
+        "conflicts": [],
+        "plan": resolve_plan(db, planner_id),
+    }
 
 
 def replace_plan(

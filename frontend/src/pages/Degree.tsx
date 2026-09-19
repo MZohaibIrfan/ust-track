@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
+import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
 import { RequirementGroup } from "../components/RequirementTree";
-import { apiGet, apiPost, apiPostStream } from "../lib/api";
+import { ThinkingDots } from "../components/ThinkingDots";
+import { apiGet, apiGetCached, apiPost, apiPostStream, apiPut } from "../lib/api";
 import {
   DEFAULT_SCOPE,
   PATHWAY_SCOPES,
@@ -12,30 +15,15 @@ import {
   type PathwayScope,
   type PathwayView,
 } from "../lib/pathway";
-import { getDegreePathwayId, getPlannerId, setDegreePathwayId, studentHeading } from "../lib/planner";
+import { getDegreePathwayId, getPlannerId, setDegreePathwayId } from "../lib/planner";
 import type {
-  CourseRecord,
+  AcademicYear,
+  CatalogProgram,
   DegreePathway,
   DegreeProfile,
   ProgramActionPayload,
   RequirementProgress,
 } from "../lib/types";
-
-const STATUS_ORDER: Record<string, number> = { completed: 0, in_progress: 1, planned: 2 };
-
-function sortHistory(courses: CourseRecord[]): CourseRecord[] {
-  return [...courses].sort((a, b) => {
-    const byStatus = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
-    if (byStatus !== 0) return byStatus;
-    return (a.course_code ?? "").localeCompare(b.course_code ?? "");
-  });
-}
-
-function historySummary(courses: CourseRecord[]): string | null {
-  if (courses.length === 0) return null;
-  const n = (status: string) => courses.filter((c) => c.status === status).length;
-  return `${n("completed")} completed · ${n("in_progress")} this term · ${n("planned")} planned`;
-}
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Segment =
@@ -43,9 +31,9 @@ type Segment =
   | { kind: "suggest" | "applied" | "removed"; data: ProgramActionPayload };
 
 const STARTERS = [
-  "Generate pathways I could add onto COMP",
-  "Which minor actually uses courses I already have?",
-  "Create a pathway with the AI extended major",
+  "What does my course history already count toward?",
+  "Should I add the Mathematics minor?",
+  "Compare my program options",
 ];
 
 const MARKER_RE = /<<PROGRAM_(SUGGEST|APPLIED|REMOVED):([A-Za-z0-9+/=]+)>>/g;
@@ -113,7 +101,7 @@ function ProgramCard({
             onClick={() => onApply(data)}
             className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
           >
-            {data.fork ? "Open pathway" : "Set as major"}
+            {data.fork ? "Open pathway" : "Apply"}
           </button>
         )}
       </div>
@@ -147,21 +135,14 @@ function ChatBubble({
 
   const segments = parseSegments(message.content);
   if (segments.length === 0) {
-    return pending ? (
-      <div className="mr-auto max-w-[85%] rounded-md bg-bg px-3 py-2 text-[13px] text-muted">…</div>
-    ) : null;
+    return pending ? <ThinkingDots /> : null;
   }
 
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-2">
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
-          <p
-            key={i}
-            className="rounded-md bg-bg px-3 py-2 text-[13px] leading-5 whitespace-pre-wrap"
-          >
-            {seg.text.trim()}
-          </p>
+          <AgentMarkdown key={i}>{seg.text}</AgentMarkdown>
         ) : (
           <ProgramCard
             key={i}
@@ -172,6 +153,7 @@ function ChatBubble({
           />
         ),
       )}
+      {pending ? <ThinkingDots boxed={false} /> : null}
     </div>
   );
 }
@@ -181,20 +163,27 @@ export function DegreePage() {
 
   const [pathwayId, setPathwayId] = useState(getDegreePathwayId);
   const [pathways, setPathways] = useState<DegreePathway[]>([]);
-
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
-  const [progressByCode, setProgressByCode] = useState<Record<string, RequirementProgress>>({});
-  const [loading, setLoading] = useState(true);
-  const [progressLoading, setProgressLoading] = useState(false);
+  const [years, setYears] = useState<AcademicYear[]>([]);
+  const [programs, setPrograms] = useState<CatalogProgram[]>([]);
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [progress, setProgress] = useState<RequirementProgress | null>(null);
+  const [loadingTree, setLoadingTree] = useState(false);
   const [mode, setMode] = useState<AgentMode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
   const [view, setView] = useState<PathwayView>("remaining");
   const [scope, setScope] = useState<PathwayScope>(DEFAULT_SCOPE);
   const [query, setQuery] = useState("");
+
+  const declared = profile?.declared_programs ?? [];
+  const selectedProgram = programs.find((p) => p.code === selectedCode) ?? null;
+  const declaredEntry = declared.find((d) => d.code === selectedCode);
+  const entryYear = profile?.entry_year ?? declared.find((d) => d.intake_year)?.intake_year ?? null;
 
   async function refreshProfile() {
     try {
@@ -204,31 +193,75 @@ export function DegreePage() {
       ]);
       setPathways(listed.pathways);
       setProfile(p);
-      setLoading(false);
-      const declared = p.declared_programs.filter(
-        (d): d is { code: string; role: string; intake_year: number | null } => !!d.code,
-      );
-      if (declared.length === 0) {
-        setProgressByCode({});
-        return;
-      }
-      setProgressLoading(true);
-      const entries = await Promise.all(
-        declared.map(async (d) => {
-          const progress = await apiGet<RequirementProgress>(
-            `/api/degree/progress?planner_id=${pathwayId}&program_code=${d.code}`,
-          );
-          return [d.code, progress] as const;
-        }),
-      );
-      setProgressByCode(Object.fromEntries(entries));
+      setAppliedKeys((prev) => {
+        const next = new Set(prev);
+        for (const d of p.declared_programs) {
+          if (d.code) next.add(d.code);
+        }
+        return next;
+      });
+      setSelectedCode((current) => {
+        if (current) return current;
+        return p.declared_programs.find((d) => d.code)?.code ?? null;
+      });
     } catch {
-      // backend may not be running yet
-    } finally {
-      setLoading(false);
-      setProgressLoading(false);
+      setError("Couldn't load the student profile.");
     }
   }
+
+  async function loadPrograms(year: number | null, preferredCode?: string | null) {
+    const yearQuery = year ? `?intake_year=${year}` : "";
+    try {
+      const list = await apiGetCached<CatalogProgram[]>(`/api/programs${yearQuery}`);
+      setPrograms(list);
+      setSelectedCode((current) => {
+        if (preferredCode && list.some((program) => program.code === preferredCode)) return preferredCode;
+        if (current && list.some((program) => program.code === current)) return current;
+        const declaredCode = declared.find((d) => d.code)?.code;
+        if (declaredCode && list.some((program) => program.code === declaredCode)) return declaredCode;
+        return list.find((p) => p.code === "COMP")?.code ?? list.find((p) => p.has_requirements)?.code ?? null;
+      });
+    } catch {
+      setError("Couldn't load the program catalog.");
+    }
+  }
+
+  async function loadProgress(code: string, year: number | null) {
+    setLoadingTree(true);
+    try {
+      const yearQuery = year ? `&intake_year=${year}` : "";
+      const next = await apiGet<RequirementProgress>(
+        `/api/degree/progress?planner_id=${pathwayId}&program_code=${encodeURIComponent(code)}${yearQuery}`,
+      );
+      setProgress(next);
+    } catch {
+      setError("Couldn't load that program's requirements.");
+      setProgress(null);
+    } finally {
+      setLoadingTree(false);
+    }
+  }
+
+  async function saveEntryYear(year: number) {
+    setError(null);
+    try {
+      const next = await apiPut<DegreeProfile>("/api/degree/entry-year", {
+        planner_id: pathwayId,
+        entry_year: year,
+      });
+      setProfile(next);
+    } catch {
+      setError("Couldn't save the entry year.");
+    }
+  }
+
+  useEffect(() => {
+    apiGetCached<AcademicYear[]>("/api/academic-years").then(setYears).catch(() => {
+      // year picker stays empty until the catalog years load
+    });
+    refreshProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathwayId]);
 
   function selectPathway(id: string) {
     setPathwayId(id);
@@ -236,9 +269,17 @@ export function DegreePage() {
   }
 
   useEffect(() => {
-    refreshProfile();
+    if (!profile) return;
+    void loadPrograms(entryYear, selectedCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathwayId]);
+  }, [profile?.entry_year]);
+
+  useEffect(() => {
+    if (!selectedCode || !profile) return;
+    setProgress(null);
+    loadProgress(selectedCode, entryYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCode, entryYear, profile]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -250,8 +291,10 @@ export function DegreePage() {
         planner_id: pathwayId,
         program_code: data.code,
         role: data.role,
+        intake_year: entryYear,
       });
       setAppliedKeys((prev) => new Set(prev).add(data.code));
+      setSelectedCode(data.code);
       if (result.planner_id && result.planner_id !== pathwayId) {
         selectPathway(result.planner_id);
       } else {
@@ -259,6 +302,48 @@ export function DegreePage() {
       }
     } catch {
       setError("Couldn't apply that — check the server is running.");
+    }
+  }
+
+  async function declareSelected() {
+    if (!selectedProgram || acting) return;
+    setActing(true);
+    setError(null);
+    try {
+      await apiPost("/api/degree/apply", {
+        planner_id: pathwayId,
+        program_code: selectedProgram.code,
+        role: roleFor(selectedProgram),
+        intake_year: entryYear,
+      });
+      setAppliedKeys((prev) => new Set(prev).add(selectedProgram.code));
+      await refreshProfile();
+    } catch {
+      setError("Couldn't declare that program.");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function removeSelected() {
+    if (!selectedCode || acting) return;
+    setActing(true);
+    setError(null);
+    try {
+      await apiPost("/api/degree/remove", {
+        planner_id: pathwayId,
+        program_code: selectedCode,
+      });
+      setAppliedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedCode);
+        return next;
+      });
+      await refreshProfile();
+    } catch {
+      setError("Couldn't remove that program.");
+    } finally {
+      setActing(false);
     }
   }
 
@@ -313,20 +398,12 @@ export function DegreePage() {
     }
   }
 
-  const identity = studentHeading(profile);
   const scopeBuckets = PATHWAY_SCOPES.find((option) => option.id === scope)?.buckets ?? PATHWAY_SCOPES[0].buckets;
-  const totals = useMemo(
-    () =>
-      countStatuses(
-        filterRequirements(
-          Object.values(progressByCode).flatMap((progress) => progress.requirements),
-          "all",
-          scopeBuckets,
-          "",
-        ),
-      ),
-    [progressByCode, scopeBuckets],
+  const visibleGroups = useMemo(
+    () => (progress ? filterRequirements(progress.requirements, view, scopeBuckets, query) : []),
+    [progress, view, scopeBuckets, query],
   );
+  const totals = useMemo(() => countStatuses(visibleGroups), [visibleGroups]);
 
   return (
     <main className="flex h-full min-h-0 flex-col">
@@ -336,7 +413,7 @@ export function DegreePage() {
           <select
             value={pathwayId}
             onChange={(e) => selectPathway(e.target.value)}
-            className="max-w-[16rem] bg-bg py-0.5 text-[13px] text-ink"
+            className="max-w-[16rem] rounded-md border border-line bg-bg px-1.5 py-1 text-[13px] text-ink"
           >
             {pathways.map((option) => (
               <option key={option.planner_id} value={option.planner_id}>
@@ -344,122 +421,156 @@ export function DegreePage() {
               </option>
             ))}
           </select>
-        ) : identity ? (
-          <span className="min-w-0 text-[12px] text-muted">
-            <span className="font-medium text-ink">{identity.title}</span>
-            {identity.detail ? <span className="hidden sm:inline"> · {identity.detail}</span> : null}
-          </span>
-        ) : (
-          <span className="text-[12px] text-muted">{loading ? "Loading profile…" : "No program declared"}</span>
-        )}
+        ) : null}
+        <label className="flex items-center gap-1.5 text-[12px] text-muted">
+          Entry
+          <select
+            value={entryYear ?? ""}
+            onChange={(e) => {
+              const year = Number(e.target.value);
+              if (year) void saveEntryYear(year);
+            }}
+            className="rounded-md border border-line bg-bg px-1.5 py-1 font-mono text-[12px] text-ink outline-none focus:border-accent"
+          >
+            {entryYear == null ? <option value="">Year</option> : null}
+            {years.map((year) => (
+              <option key={year.start_year} value={year.start_year}>
+                {year.code}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="ml-auto">
           <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto create" />
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <ProgramsPanel
+          programs={programs}
+          declared={declared}
+          selected={selectedCode}
+          onSelect={setSelectedCode}
+        />
+
         <section className="min-h-0 min-w-0 flex-1 overflow-auto border-b border-line lg:border-r lg:border-b-0">
-          <div className="flex flex-wrap items-end gap-x-4 border-b border-line px-3">
-            {PATHWAY_VIEWS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setView(option.id)}
-                className={`-mb-px border-b-2 py-2 text-[13px] ${
-                  view === option.id
-                    ? "border-ink font-medium text-ink"
-                    : "border-transparent text-muted hover:text-ink"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-            <div className="ml-auto flex min-w-0 items-center gap-3 py-1.5">
-              {Object.keys(progressByCode).length > 0 ? (
-                <span className="hidden font-mono text-[11px] text-muted sm:inline">
-                  {totals.missing} open{profile?.catalog_year ? ` · ${profile.catalog_year}` : ""}
-                </span>
+          {progress ? (
+            <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-2">
+              <div className="min-w-0">
+                <h2 className="text-[13px] font-medium">
+                  {progress.name}{" "}
+                  <span className="font-mono text-[11px] text-muted">
+                    {progress.code}
+                    {progress.year ? ` · ${progress.year}` : ""}
+                  </span>
+                </h2>
+                <p className="mt-0.5 text-[12px] text-muted">{progress.summary}</p>
+              </div>
+              {declaredEntry ? (
+                <button
+                  type="button"
+                  onClick={removeSelected}
+                  disabled={acting}
+                  className="shrink-0 rounded-md border border-line px-2.5 py-1 text-[12px] hover:bg-fill disabled:opacity-40"
+                >
+                  Remove
+                </button>
+              ) : selectedProgram ? (
+                <button
+                  type="button"
+                  onClick={declareSelected}
+                  disabled={acting}
+                  className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg disabled:opacity-40"
+                >
+                  Declare {roleFor(selectedProgram).replaceAll("_", " ")}
+                </button>
               ) : null}
-              <select
-                value={scope}
-                onChange={(e) => setScope(e.target.value as PathwayScope)}
-                className="bg-bg py-0.5 text-[13px] text-ink"
-              >
-                {PATHWAY_SCOPES.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Find a course"
-                className="w-28 bg-transparent py-0.5 text-[13px] outline-none placeholder:text-muted focus:w-40 sm:w-36"
-              />
             </div>
-          </div>
-          {loading && !profile ? (
-            <p className="px-3 py-6 text-[13px] text-muted">Loading profile…</p>
-          ) : profile && profile.declared_programs.length > 0 ? (
-            progressLoading && Object.keys(progressByCode).length === 0 ? (
-              <p className="px-3 py-6 text-[13px] text-muted">Loading COMP requirements…</p>
-            ) : (
-              Object.entries(progressByCode).map(([code, progress]) => {
-                const groups = filterRequirements(progress.requirements, view, scopeBuckets, query);
-                return (
-                  <div key={code}>
-                    {groups.length === 0 ? (
-                      <p className="px-3 py-6 text-[13px] text-muted">
-                        Nothing in this view. Switch to All, or pick Electives.
-                      </p>
-                    ) : (
-                      groups.map((g, i) => <RequirementGroup key={i} group={g} />)
-                    )}
-                  </div>
-                );
-              })
-            )
           ) : (
-            <p className="px-3 py-6 text-[13px] text-muted">No program declared yet.</p>
+            <h2 className="border-b border-line px-4 py-2 text-[12px] font-medium text-muted">Requirements</h2>
           )}
-          {profile && profile.courses.length > 0 ? (
-            <details className="border-t border-line">
-              <summary className="cursor-pointer px-3 py-2 text-[12px] text-muted hover:text-ink">
-                Course history
-                {historySummary(profile.courses) ? (
-                  <span className="ml-2 font-mono text-[11px]">{historySummary(profile.courses)}</span>
-                ) : null}
-              </summary>
-              <ul>
-                {sortHistory(profile.courses).map((c) => (
-                  <li
-                    key={`${c.course_code}-${c.status}`}
-                    className="grid grid-cols-[6.75rem_minmax(0,1fr)] gap-3 border-t border-line px-3 py-[7px] text-[13px]"
-                  >
-                    <span className="font-mono">{c.course_code}</span>
-                    <span className="text-[12px] text-muted">{c.status.replaceAll("_", " ")}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
+
+          {progress ? (
+            <div className="flex flex-wrap items-end gap-x-4 border-b border-line px-3">
+              {PATHWAY_VIEWS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setView(option.id)}
+                  className={`-mb-px border-b-2 py-2 text-[13px] ${
+                    view === option.id
+                      ? "border-ink font-medium text-ink"
+                      : "border-transparent text-muted hover:text-ink"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+              <div className="ml-auto flex min-w-0 items-center gap-3 py-1.5">
+                <span className="hidden font-mono text-[11px] text-muted sm:inline">
+                  {totals.missing} open{progress.catalog_year || progress.year ? ` · ${progress.catalog_year ?? progress.year}` : ""}
+                </span>
+                <select
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as PathwayScope)}
+                  className="bg-bg py-0.5 text-[13px] text-ink"
+                >
+                  {PATHWAY_SCOPES.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Find a course"
+                  className="w-28 bg-transparent py-0.5 text-[13px] outline-none placeholder:text-muted focus:w-40 sm:w-36"
+                />
+              </div>
+            </div>
           ) : null}
+
+          {loadingTree ? (
+            <p className="px-4 py-2.5 text-[13px] text-muted">Loading requirements…</p>
+          ) : progress?.error ? (
+            <p className="px-4 py-2.5 text-[13px] text-muted">{progress.error}</p>
+          ) : progress && visibleGroups.length > 0 ? (
+            <div className="flex flex-col gap-2 p-3">
+              {visibleGroups.map((group, i) => (
+                <RequirementGroup key={`${group.name}-${i}`} group={group} />
+              ))}
+            </div>
+          ) : progress && progress.requirements.length > 0 ? (
+            <p className="px-4 py-2.5 text-[13px] text-muted">
+              Nothing in this view. Switch to All, or pick Electives.
+            </p>
+          ) : (
+            <p className="px-4 py-2.5 text-[13px] text-muted">
+              {selectedCode ? "No requirement data for this program yet." : "Select a program to see its requirements."}
+            </p>
+          )}
         </section>
 
         <AgentPanel>
-          <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+          <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
             {messages.length === 0 ? (
-              <div className="flex flex-col gap-2">
-                <p className="text-[12px] text-muted">Ask about this plan</p>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[12px] text-muted">Ask about programs</p>
                 {STARTERS.map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}
-                    className="text-left text-[13px] leading-5 text-ink hover:underline"
+                    className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
                   >
                     {s}
                   </button>
                 ))}
+                <p className="pt-1 text-[11px] leading-4 text-muted">
+                  {mode === "suggest"
+                    ? "Suggest mode: click Apply to declare a program."
+                    : "Auto declare: the agent declares a program after checking fit."}
+                </p>
               </div>
             ) : (
               messages.map((m, i) => (

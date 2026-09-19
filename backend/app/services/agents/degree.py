@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.services import degree_ops, planner_ops
-from app.services.catalog_queries import get_course_detail, list_programs, search_programs
+from app.services.catalog_queries import get_course_detail, get_program_detail, list_programs, search_programs
 from app.services.search import search_courses
 
 Mode = Literal["suggest", "auto"]
@@ -108,6 +108,21 @@ READ_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "get_program",
+            "description": "Get one program's scraped requirement tree (groups, alternative courses, electives) for a catalog year.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "program_code": {"type": "string"},
+                    "intake_year": {"type": "integer", "description": "Catalog intake year, e.g. 2025 for 2025-26"},
+                },
+                "required": ["program_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_student_profile",
             "description": "Get standing year, intake_year, catalog_year, declared programs, and course history.",
             "parameters": {"type": "object", "properties": {}},
@@ -156,7 +171,10 @@ READ_TOOLS: list[dict[str, Any]] = [
             ),
             "parameters": {
                 "type": "object",
-                "properties": {"program_code": {"type": "string", "description": "Official code or slang (elec, cs, big data)."}},
+                "properties": {
+                    "program_code": {"type": "string", "description": "Official code or slang (elec, cs, big data)."},
+                    "intake_year": {"type": "integer"},
+                },
                 "required": ["program_code"],
             },
         },
@@ -293,11 +311,13 @@ def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any])
     if name == "search_courses":
         return search_courses(db, args.get("query", "")), None
     if name == "search_programs":
-        return search_programs(db, args.get("query", "")), None
+        return search_programs(db, args.get("query", ""), intake_year), None
     if name == "get_course":
         return get_course_detail(db, args["course_code"], intake_year), None
     if name == "list_programs":
         return list_programs(db, intake_year), None
+    if name == "get_program":
+        return get_program_detail(db, args["program_code"], args.get("intake_year", intake_year)), None
     if name == "get_student_profile":
         return degree_ops.get_student_profile(db, planner_id), None
     if name == "list_pathways":
@@ -307,7 +327,9 @@ def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any])
         limit = int(args["limit"]) if args.get("limit") is not None else 5
         return degree_ops.rank_add_on_pathways(db, planner_id, kinds, limit), None
     if name == "check_requirement_progress":
-        return degree_ops.check_requirement_progress(db, planner_id, args["program_code"]), None
+        return degree_ops.check_requirement_progress(
+            db, planner_id, args["program_code"], args.get("intake_year", intake_year)
+        ), None
     if name == "check_pathway_compatibility":
         return degree_ops.check_pathway_compatibility(db, planner_id, args.get("program_codes", [])), None
     if name == "mark_course":

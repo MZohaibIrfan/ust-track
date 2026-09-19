@@ -2,6 +2,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { CareerPage } from "./pages/Career";
 import { DegreePage } from "./pages/Degree";
+import { HistoryPage } from "./pages/History";
 import { OverviewPage } from "./pages/Overview";
 import { ProfilePage } from "./pages/Profile";
 import { TimetablePage } from "./pages/Timetable";
@@ -15,6 +16,7 @@ const pages = [
   { path: "/", element: <OverviewPage /> },
   { path: "/timetable", element: <TimetablePage /> },
   { path: "/degree", element: <DegreePage /> },
+  { path: "/history", element: <HistoryPage /> },
   { path: "/career", element: <CareerPage /> },
   { path: "/profile", element: <ProfilePage /> },
 ];

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, uuid_pk
@@ -16,6 +16,7 @@ class Planner(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     planner_id: Mapped[str] = mapped_column(String(64), unique=True)
+    entry_year: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     programs: Mapped[list[StudentProgram]] = relationship(
@@ -31,6 +32,10 @@ class Planner(Base):
         cascade="all, delete-orphan",
     )
     credit_allocations: Mapped[list[RequirementCreditAllocation]] = relationship(
+        back_populates="planner",
+        cascade="all, delete-orphan",
+    )
+    experiences: Mapped[list[StudentExperience]] = relationship(
         back_populates="planner",
         cascade="all, delete-orphan",
     )
@@ -77,6 +82,25 @@ class StudentClassSelection(Base):
     section_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("catalog.class_section.id"))
 
     planner: Mapped[Planner] = relationship(back_populates="class_selections")
+
+
+class StudentExperience(Base):
+    """An internship, job, or project the student reports having already done."""
+
+    __tablename__ = "student_experience"
+    __table_args__ = {"schema": "planner"}
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    planner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("planner.planner.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(255))
+    organization: Mapped[str] = mapped_column(String(255), default="")
+    kind: Mapped[str] = mapped_column(String(32), default="internship")
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    description: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    planner: Mapped[Planner] = relationship(back_populates="experiences")
 
 
 class RequirementCreditAllocation(Base):

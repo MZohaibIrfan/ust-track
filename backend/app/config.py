@@ -10,11 +10,11 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=(str(ROOT_DIR / ".env"), ".env", "../.env"),
         extra="ignore",
     )
 
-    database_url: str = "postgresql+psycopg://localhost/hkust_planner"
+    database_url: str
     cors_origins: str = "http://localhost:5173"
     openrouter_api_key: str = ""
     openrouter_model: str = "bytedance-seed/seed-2.0-lite"

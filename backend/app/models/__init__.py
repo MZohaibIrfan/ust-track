@@ -21,6 +21,7 @@ from app.models.planner import (
     RequirementCreditAllocation,
     StudentClassSelection,
     StudentCourse,
+    StudentExperience,
     StudentProgram,
 )
 
@@ -47,6 +48,7 @@ __all__ = [
     "StagingCourse",
     "StudentClassSelection",
     "StudentCourse",
+    "StudentExperience",
     "StudentProgram",
     "Term",
 ]
