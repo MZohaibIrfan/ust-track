@@ -4,6 +4,7 @@ import logo from "../assets/ustrack-logo.png";
 import { apiGet } from "../lib/api";
 import { getPlannerId, studentHeading } from "../lib/planner";
 import type { DegreeProfile } from "../lib/types";
+import { ProfileMenu } from "./ProfileMenu";
 import { ThemeToggle } from "./ThemeToggle";
 
 const links = [
@@ -30,7 +31,8 @@ export function Sidebar() {
         <NavLink to="/" className="flex items-center gap-2">
           <img src={logo} alt="USTrack" className="h-auto w-28 max-w-full sm:w-40" />
         </NavLink>
-        <div className="sm:hidden">
+        <div className="flex items-center gap-2 sm:hidden">
+          <ProfileMenu identity={identity} plannerId={getPlannerId()} />
           <ThemeToggle />
         </div>
       </div>
@@ -53,10 +55,13 @@ export function Sidebar() {
       </nav>
 
       <div className="hidden flex-col gap-2 px-3 py-3 sm:flex">
-        <ThemeToggle />
         <p className="text-[11px] leading-4 text-muted">
           {identity ? identity.title : "HKUST catalog"}
         </p>
+        <div className="flex items-center justify-between gap-2">
+          <ProfileMenu identity={identity} plannerId={getPlannerId()} />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
