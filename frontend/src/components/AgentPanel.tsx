@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCollapsed } from "../lib/collapse";
+import { CollapseButton } from "./CollapseButton";
 
 const WIDTH_KEY = "ust-track:agent-panel-width";
 const HEIGHT_KEY = "ust-track:agent-panel-height";
@@ -19,6 +21,7 @@ export function AgentPanel({ children }: { children: ReactNode }) {
   const [width, setWidth] = useState(() => readSize(WIDTH_KEY, DEFAULT_W, MIN_W, MAX_W));
   const [height, setHeight] = useState(() => readSize(HEIGHT_KEY, DEFAULT_H, MIN_H, MAX_H));
   const [dragging, setDragging] = useState<"x" | "y" | null>(null);
+  const [collapsed, setCollapsed] = useCollapsed("ust-track:agent-panel-collapsed");
   const drag = useRef<{ kind: "x" | "y"; start: number; size: number } | null>(null);
 
   useEffect(() => {
@@ -70,31 +73,50 @@ export function AgentPanel({ children }: { children: ReactNode }) {
   }
 
   const line = dragging ? "bg-accent" : "bg-transparent hover:bg-line";
+  const targetWidth = collapsed ? 36 : width;
+  const targetHeight = collapsed ? 36 : height;
 
   return (
     <section
-      className="relative flex min-h-0 shrink-0 flex-col border-t border-line bg-surface-raised max-lg:h-[var(--agent-h)] lg:h-auto lg:w-[var(--agent-w)] lg:border-t-0"
-      style={{ "--agent-w": `${width}px`, "--agent-h": `${height}px` } as CSSProperties}
+      className="relative flex min-h-0 shrink-0 flex-col overflow-hidden border-t border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out max-lg:h-[var(--agent-h)] lg:h-auto lg:w-[var(--agent-w)] lg:border-t-0"
+      style={{ "--agent-w": `${targetWidth}px`, "--agent-h": `${targetHeight}px` } as CSSProperties}
     >
+      {collapsed ? null : (
+        <>
+          <div
+            className="absolute inset-x-0 top-0 z-10 h-2 cursor-row-resize touch-none lg:hidden"
+            onPointerDown={(event) => start("y", event)}
+            aria-label="Resize agent panel"
+            role="separator"
+            aria-orientation="horizontal"
+          >
+            <div className={`h-px w-full ${line}`} />
+          </div>
+          <div
+            className="absolute inset-y-0 left-0 z-10 hidden w-2 cursor-col-resize touch-none lg:block"
+            onPointerDown={(event) => start("x", event)}
+            aria-label="Resize agent panel"
+            role="separator"
+            aria-orientation="vertical"
+          >
+            <div className={`h-full w-px ${line}`} />
+          </div>
+        </>
+      )}
+      <CollapseButton
+        collapsed={collapsed}
+        onClick={() => setCollapsed(!collapsed)}
+        side="right"
+        label={collapsed ? "Expand assistant" : "Collapse assistant"}
+        className={`absolute top-1 z-20 ${collapsed ? "inset-x-0 mx-auto" : "right-1"}`}
+      />
       <div
-        className="absolute inset-x-0 top-0 z-10 h-2 cursor-row-resize touch-none lg:hidden"
-        onPointerDown={(event) => start("y", event)}
-        aria-label="Resize agent panel"
-        role="separator"
-        aria-orientation="horizontal"
+        className={`flex min-h-0 flex-1 flex-col transition-opacity duration-150 ${
+          collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
       >
-        <div className={`h-px w-full ${line}`} />
+        {children}
       </div>
-      <div
-        className="absolute inset-y-0 left-0 z-10 hidden w-2 cursor-col-resize touch-none lg:block"
-        onPointerDown={(event) => start("x", event)}
-        aria-label="Resize agent panel"
-        role="separator"
-        aria-orientation="vertical"
-      >
-        <div className={`h-full w-px ${line}`} />
-      </div>
-      {children}
     </section>
   );
 }

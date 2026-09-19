@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { apiGetCached, apiPost } from "../lib/api";
+import { useCollapsed } from "../lib/collapse";
 import { DAY_LABELS } from "../lib/time";
+import { CollapseButton } from "./CollapseButton";
 import type {
   CatalogOffering,
   CatalogSection,
@@ -90,6 +92,7 @@ export function CatalogPanel({
   const [tutorial, setTutorial] = useState<CatalogSection | null>(null);
   const [lab, setLab] = useState<CatalogSection | null>(null);
   const [adding, setAdding] = useState(false);
+  const [collapsed, setCollapsed] = useCollapsed("ust-track:catalog-collapsed");
 
   const selectedCodes = useMemo(
     () => new Set((plan?.class_selections ?? []).map((s) => `${s.course_code}|${s.section_code}`)),
@@ -265,9 +268,13 @@ export function CatalogPanel({
             : "Course";
 
   return (
-    <section className="flex h-64 min-h-0 shrink-0 flex-col border-b border-line bg-surface-raised lg:h-auto lg:w-64 lg:border-r lg:border-b-0">
+    <section
+      className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-b border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out lg:border-r lg:border-b-0 ${
+        collapsed ? "h-9 lg:h-auto lg:w-9" : "h-64 lg:h-auto lg:w-64"
+      }`}
+    >
       <header className="flex shrink-0 items-center gap-2 border-b border-line px-2.5 py-2">
-        {view.name !== "home" ? (
+        {!collapsed && view.name !== "home" ? (
           <button
             type="button"
             onClick={goBack}
@@ -276,26 +283,38 @@ export function CatalogPanel({
             Back
           </button>
         ) : null}
-        <h2 className="min-w-0 truncate text-[13px] font-medium">{heading}</h2>
+        {collapsed ? null : <h2 className="min-w-0 truncate text-[13px] font-medium">{heading}</h2>}
+        <CollapseButton
+          collapsed={collapsed}
+          onClick={() => setCollapsed(!collapsed)}
+          side="left"
+          label={collapsed ? "Expand catalog" : "Collapse catalog"}
+          className={collapsed ? "mx-auto" : "ml-auto"}
+        />
       </header>
 
-      {view.name === "home" || view.name === "common-core" ? (
-        <div className="shrink-0 border-b border-line p-2">
-          <input
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              if (view.name !== "home") setView({ name: "home" });
-            }}
-            placeholder="Search code or name…"
-            className="w-full rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-          />
-        </div>
-      ) : null}
+      <div
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity duration-150 lg:w-64 ${
+          collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
+      >
+        {view.name === "home" || view.name === "common-core" ? (
+          <div className="shrink-0 border-b border-line p-2">
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (view.name !== "home") setView({ name: "home" });
+              }}
+              placeholder="Search code or name…"
+              className="w-full rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+            />
+          </div>
+        ) : null}
 
-      {error ? <p className="border-b border-line px-2.5 py-1.5 text-[12px] text-accent">{error}</p> : null}
+        {error ? <p className="border-b border-line px-2.5 py-1.5 text-[12px] text-accent">{error}</p> : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {busy ? <p className="px-1 text-[12px] text-muted">Loading…</p> : null}
 
         {view.name === "home" && query.trim() ? (
@@ -416,6 +435,7 @@ export function CatalogPanel({
             onAdd={addChosen}
           />
         ) : null}
+        </div>
       </div>
     </section>
   );

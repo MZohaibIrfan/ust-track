@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { useCollapsed } from "../lib/collapse";
 import type { CatalogProgram, DeclaredProgram } from "../lib/types";
+import { CollapseButton } from "./CollapseButton";
 
 const CATEGORIES: { id: string; label: string }[] = [
   { id: "major", label: "Major" },
@@ -41,6 +43,7 @@ export function ProgramsPanel({
   onSelect: (code: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useCollapsed("ust-track:programs-collapsed");
   const declaredCodes = useMemo(
     () => new Set(declared.map((d) => d.code).filter((code): code is string => !!code)),
     [declared],
@@ -88,20 +91,36 @@ export function ProgramsPanel({
   const visibleCount = grouped.reduce((sum, group) => sum + group.programs.length, 0);
 
   return (
-    <section className="flex h-56 min-h-0 shrink-0 flex-col border-b border-line bg-surface-raised lg:h-auto lg:w-64 lg:border-r lg:border-b-0">
+    <section
+      className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-b border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out lg:border-r lg:border-b-0 ${
+        collapsed ? "h-9 lg:h-auto lg:w-9" : "h-56 lg:h-auto lg:w-64"
+      }`}
+    >
       <header className="flex shrink-0 items-center gap-2 border-b border-line px-2.5 py-2">
-        <h2 className="min-w-0 truncate text-[13px] font-medium">Programs</h2>
-        <span className="ml-auto font-mono text-[11px] text-muted">{visibleCount}</span>
-      </header>
-      <div className="shrink-0 border-b border-line p-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search major or minor…"
-          className="w-full rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+        {collapsed ? null : <h2 className="min-w-0 truncate text-[13px] font-medium">Programs</h2>}
+        {collapsed ? null : <span className="ml-auto font-mono text-[11px] text-muted">{visibleCount}</span>}
+        <CollapseButton
+          collapsed={collapsed}
+          onClick={() => setCollapsed(!collapsed)}
+          side="left"
+          label={collapsed ? "Expand programs" : "Collapse programs"}
+          className={collapsed ? "mx-auto" : ""}
         />
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      </header>
+      <div
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity duration-150 lg:w-64 ${
+          collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
+      >
+        <div className="shrink-0 border-b border-line p-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search major or minor…"
+            className="w-full rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+          />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {grouped.length === 0 ? (
           <p className="px-1 text-[12px] text-muted">No programs match that search.</p>
         ) : (
@@ -143,6 +162,7 @@ export function ProgramsPanel({
             ))}
           </div>
         )}
+        </div>
       </div>
     </section>
   );
