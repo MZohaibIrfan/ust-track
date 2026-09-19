@@ -436,8 +436,8 @@ export function CareerPage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <section className="min-h-0 min-w-0 flex-1 overflow-auto border-b border-line lg:border-r lg:border-b-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
+        <section className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl border border-line bg-surface-raised shadow-soft">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <h2 className="flex items-center gap-2 text-[13px] font-medium">
               Experience
@@ -470,7 +470,7 @@ export function CareerPage() {
             <form
               ref={formRef}
               onSubmit={addExperience}
-              className="flex flex-col gap-2.5 border-b border-line bg-surface-raised px-3 py-3"
+              className="flex flex-col gap-2.5 border-b border-line bg-bg px-3 py-3"
             >
               <div className="flex flex-wrap gap-2">
                 <input
@@ -478,13 +478,13 @@ export function CareerPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Title (e.g. Software Engineering Intern)"
                   required
-                  className="min-w-[14rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[14rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
                 <input
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   placeholder="Organization"
-                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
               </div>
 
@@ -513,7 +513,7 @@ export function CareerPage() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                    className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[13px] outline-none focus:border-accent"
                   />
                 </label>
                 <label className="flex items-center gap-1.5 text-[12px] text-muted">
@@ -522,7 +522,7 @@ export function CareerPage() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                    className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[13px] outline-none focus:border-accent"
                   />
                 </label>
               </div>
@@ -531,7 +531,7 @@ export function CareerPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What did you actually do? (used to line up with future job descriptions)"
                 rows={3}
-                className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <div className="flex items-center gap-2">
                 <button
@@ -568,7 +568,7 @@ export function CareerPage() {
                 return (
                   <li
                     key={exp.id}
-                    className="group flex items-start gap-2.5 rounded-2xl border border-line bg-surface-raised px-3.5 py-3 shadow-soft transition-all hover:-translate-y-0.5 hover:border-page-career/40 hover:shadow-soft-lg"
+                    className="group flex items-start gap-2.5 rounded-2xl border border-line bg-bg px-3.5 py-3 shadow-soft transition-all hover:-translate-y-0.5 hover:border-page-career/40 hover:shadow-soft-lg"
                   >
                     <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-page-career/15 text-page-career">
                       {meta.icon}
@@ -667,12 +667,12 @@ export function CareerPage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Paste a job description or ask something…"
                 disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="flex items-center gap-1.5 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
               >
                 <SendIcon />
                 Send

@@ -365,9 +365,9 @@ export function TimetablePage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
         <CatalogPanel plannerId={plannerId} plan={plan} onApplied={applyPlanUpdate} onPreview={setPreview} />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-line">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line shadow-soft">
           {selected ? (
             <CourseActions
               plannerId={plannerId}
@@ -461,12 +461,12 @@ export function TimetablePage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about classes…"
                 disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="shrink-0 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
               >
                 Send
               </button>

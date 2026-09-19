@@ -186,6 +186,7 @@ export function WeekGrid({
 
   const y = (minutes: number) => (minutes - START_MIN) * pxPerMin;
   const columnDates = WEEKDAYS.map((_, i) => addDays(weekStart, i));
+  const todayIso = isoDate(new Date());
 
   const blocksByDay = emptyDayBlocks();
   const onPlan = new Set(selections.map((selection) => selectionKey(selection.course_code, selection.section_code)));
@@ -223,12 +224,23 @@ export function WeekGrid({
       <div className="min-w-[640px]">
         <div className="sticky top-0 z-10 grid grid-cols-[2.75rem_repeat(5,1fr)] border-b border-line bg-surface-raised">
           <div />
-          {WEEKDAYS.map((day, i) => (
-            <div key={day} className="px-1 py-1.5 text-center">
-              <p className="text-[11px] font-medium tracking-wide text-muted uppercase">{DAY_LABELS[day]}</p>
-              <p className="font-mono text-[11px] text-muted tabular-nums">{formatShortDate(columnDates[i])}</p>
-            </div>
-          ))}
+          {WEEKDAYS.map((day, i) => {
+            const isToday = isoDate(columnDates[i]) === todayIso;
+            return (
+              <div key={day} className="px-1 py-2 text-center">
+                <p className={`text-[11px] font-medium tracking-wide uppercase ${isToday ? "text-accent" : "text-muted"}`}>
+                  {DAY_LABELS[day]}
+                </p>
+                <p
+                  className={`mt-0.5 inline-flex items-center justify-center rounded-full px-2 py-0.5 font-mono text-[11px] tabular-nums ${
+                    isToday ? "bg-accent font-medium text-accent-ink shadow-soft" : "text-muted"
+                  }`}
+                >
+                  {formatShortDate(columnDates[i])}
+                </p>
+              </div>
+            );
+          })}
         </div>
         <div className="relative grid grid-cols-[2.75rem_repeat(5,1fr)]" style={{ height: `${totalPx}px` }}>
           <div className="relative">
@@ -242,8 +254,13 @@ export function WeekGrid({
               </span>
             ))}
           </div>
-          {WEEKDAYS.map((day) => (
-            <div key={day} className="relative border-l border-line">
+          {WEEKDAYS.map((day, dayIdx) => (
+            <div
+              key={day}
+              className={`relative border-l border-line ${
+                isoDate(columnDates[dayIdx]) === todayIso ? "bg-accent-soft/40" : ""
+              }`}
+            >
               {HOURS.map((h) => (
                 <div
                   key={h}
@@ -256,13 +273,13 @@ export function WeekGrid({
                 const dimmed = !b.preview && selectedCourse != null && !lit;
                 const clash = clashing.has(blockKey(b));
                 const className =
-                  "tt-block absolute overflow-hidden rounded-[3px] py-0.5 pr-1 pl-1.5 text-left text-[11px] leading-tight";
+                  "tt-block absolute overflow-hidden rounded-lg py-1 pr-1.5 pl-2 text-left text-[11px] leading-tight transition-transform hover:z-10 hover:-translate-y-px";
                 const style = {
                   "--course-h": String(hues.get(b.course_code.toUpperCase()) ?? 234),
                   top: `${y(b.start)}px`,
-                  height: `${Math.max((b.end - b.start) * pxPerMin, 20)}px`,
-                  left: `calc(${(b.col / b.cols) * 100}% + 2px)`,
-                  width: `calc(${100 / b.cols}% - 4px)`,
+                  height: `${Math.max((b.end - b.start) * pxPerMin, 22)}px`,
+                  left: `calc(${(b.col / b.cols) * 100}% + 3px)`,
+                  width: `calc(${100 / b.cols}% - 6px)`,
                 } as CSSProperties;
                 const body = (
                   <>

@@ -463,7 +463,7 @@ export function DegreePage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
         <ProgramsPanel
           programs={programs}
           declared={declared}
@@ -471,7 +471,7 @@ export function DegreePage() {
           onSelect={setSelectedCode}
         />
 
-        <section className="min-h-0 min-w-0 flex-1 overflow-auto border-b border-line lg:border-r lg:border-b-0">
+        <section className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl border border-line bg-surface-raised shadow-soft">
           {progress ? (
             <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-2">
               <div className="min-w-0">
@@ -628,12 +628,12 @@ export function DegreePage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about programs…"
                 disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="shrink-0 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
               >
                 Send
               </button>

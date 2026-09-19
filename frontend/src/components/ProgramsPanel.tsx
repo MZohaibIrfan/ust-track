@@ -67,11 +67,15 @@ export function ProgramsPanel({
 
   return (
     <section
-      className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-b border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out lg:rounded-2xl lg:border lg:border-b lg:shadow-soft ${
+      className={`flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft transition-[width,height] duration-200 ease-in-out ${
         collapsed ? "h-9 lg:h-auto lg:w-9" : "h-56 lg:h-auto lg:w-64"
       }`}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2.5">
+      <header
+        className={`flex shrink-0 items-center gap-2 border-b border-line py-2.5 ${
+          collapsed ? "justify-center px-0" : "px-3"
+        }`}
+      >
         {collapsed ? null : <h2 className="min-w-0 truncate text-[13px] font-semibold">Programs</h2>}
         {collapsed ? null : (
           <span className="ml-auto rounded-full bg-fill px-1.5 py-0.5 font-mono text-[11px] text-muted">
@@ -83,7 +87,6 @@ export function ProgramsPanel({
           onClick={() => setCollapsed(!collapsed)}
           side="left"
           label={collapsed ? "Expand programs" : "Collapse programs"}
-          className={collapsed ? "mx-auto" : ""}
         />
       </header>
       <div

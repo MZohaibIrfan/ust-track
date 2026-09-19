@@ -295,11 +295,15 @@ export function CatalogPanel({
 
   return (
     <section
-      className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-b border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out lg:border-r lg:border-b-0 ${
+      className={`flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft transition-[width,height] duration-200 ease-in-out ${
         collapsed ? "h-9 lg:h-auto lg:w-9" : "h-64 lg:h-auto lg:w-64"
       }`}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-line px-2.5 py-2">
+      <header
+        className={`flex shrink-0 items-center gap-2 border-b border-line py-2 ${
+          collapsed ? "justify-center px-0" : "px-2.5"
+        }`}
+      >
         {!collapsed && view.name !== "home" ? (
           <button
             type="button"
@@ -315,7 +319,7 @@ export function CatalogPanel({
           onClick={() => setCollapsed(!collapsed)}
           side="left"
           label={collapsed ? "Expand catalog" : "Collapse catalog"}
-          className={collapsed ? "mx-auto" : "ml-auto"}
+          className={collapsed ? "" : "ml-auto"}
         />
       </header>
 

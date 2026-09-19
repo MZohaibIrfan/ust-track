@@ -16,7 +16,7 @@ function initials(name: string): string {
 
 function ProgramCard({ program }: { program: DeclaredProgram }) {
   return (
-    <div className="rounded-xl border border-line bg-surface-raised p-3">
+    <div className="rounded-2xl border border-line bg-surface-raised p-3.5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-soft-lg">
       <p className="text-[13px] font-medium text-ink">{program.name ?? program.code ?? "Unnamed program"}</p>
       <p className="mt-0.5 font-mono text-[12px] text-muted">{program.code}</p>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-muted">
@@ -56,24 +56,24 @@ export function ProfilePage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <header className="shrink-0 border-b border-line px-4 py-3">
-        <h1 className="text-[15px] font-semibold tracking-tight">Profile</h1>
+      <header className="shrink-0 border-b border-line px-4 py-5">
+        <h1 className="text-[22px] font-semibold tracking-tight text-ink">Profile</h1>
       </header>
 
       <div className="flex flex-col gap-4 p-4">
-        <section className="flex items-center gap-3 rounded-xl border border-line bg-surface-raised p-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[18px] font-medium text-accent">
+        <section className="flex items-center gap-4 rounded-2xl border border-line bg-surface-raised p-5 shadow-soft">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[20px] font-semibold text-accent shadow-soft">
             {initials(displayName)}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[16px] font-semibold text-ink">{displayName}</p>
+            <p className="truncate text-[17px] font-semibold text-ink">{displayName}</p>
             {user?.display_name ? <p className="text-[12px] text-muted">{user.email}</p> : null}
             <p className="mt-1 font-mono text-[11px] text-muted">Planner ID: {plannerId}</p>
           </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="shrink-0 rounded-xl border border-line px-2.5 py-1.5 text-[12px] font-medium hover:bg-fill"
+            className="shrink-0 rounded-xl border border-line px-3 py-1.5 text-[12px] font-medium hover:bg-fill"
           >
             Log out
           </button>
@@ -84,24 +84,33 @@ export function ProfilePage() {
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-line bg-surface-raised p-3">
-                <p className="text-[11px] font-medium tracking-wide text-muted uppercase">School</p>
-                <p className="mt-1 text-[13px] text-ink">
+              <div className="rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">
+                <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">
+                  <span className="h-1.5 w-1.5 rounded-full bg-page-degree" />
+                  School
+                </p>
+                <p className="mt-1.5 text-[14px] font-medium text-ink">
                   {schools.length > 0 ? schools.join(", ") : "HKUST"}
                 </p>
               </div>
-              <div className="rounded-xl border border-line bg-surface-raised p-3">
-                <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Year</p>
-                <p className="mt-1 text-[13px] text-ink">
+              <div className="rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">
+                <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">
+                  <span className="h-1.5 w-1.5 rounded-full bg-page-timetable" />
+                  Year
+                </p>
+                <p className="mt-1.5 text-[14px] font-medium text-ink">
                   {profile?.standing_year ? `Year ${profile.standing_year}` : "Not set"}
                 </p>
                 {profile?.intake_year ? (
                   <p className="mt-0.5 text-[12px] text-muted">Intake {profile.intake_year}</p>
                 ) : null}
               </div>
-              <div className="rounded-xl border border-line bg-surface-raised p-3">
-                <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Catalog</p>
-                <p className="mt-1 text-[13px] text-ink">{profile?.catalog_year ?? "Not set"}</p>
+              <div className="rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">
+                <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">
+                  <span className="h-1.5 w-1.5 rounded-full bg-page-career" />
+                  Catalog
+                </p>
+                <p className="mt-1.5 text-[14px] font-medium text-ink">{profile?.catalog_year ?? "Not set"}</p>
               </div>
             </div>
 
