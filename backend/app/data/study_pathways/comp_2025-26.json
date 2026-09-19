@@ -1,0 +1,248 @@
+{
+  "program_code": "COMP",
+  "intake_year": 2025,
+  "catalog_year": "2025-26",
+  "source_url": "https://cse.hkust.edu.hk/ug/comp/study_pathways_COMP_2025-26_intake.pdf",
+  "source_label": "CSE recommended study pathway, 2025-26 intake",
+  "notes": [
+    "Students must take 3 COMP courses from one area and 2 courses from other area(s).",
+    "To graduate, complete at least 120 credits in approved courses. Extra courses may be needed beyond this plan."
+  ],
+  "variants": [
+    {
+      "id": "major",
+      "label": "COMP",
+      "title": "BEng in Computer Science",
+      "years": [
+        {
+          "year": 1,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": [10, 11],
+              "zero_credit": ["COMP4900"],
+              "slots": [
+                {"kind": "bucket", "label": "U Core English I", "credits": 3, "note": "Pre-enrolled by CLE"},
+                {"kind": "choice", "label": "Calculus I", "codes": ["MATH1013", "MATH1023", "MATH1020"], "credits": [3, 4]},
+                {"kind": "course", "label": "Introduction to Python Programming", "codes": ["COMP1023"], "credits": 3},
+                {"kind": "course", "label": "HMAW 1905B", "codes": ["HMAW1905"], "credits": 1, "note": "Pre-enrolled by Common Core Office"}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": 11,
+              "zero_credit": ["COMP4900"],
+              "slots": [
+                {"kind": "bucket", "label": "U Core English II", "credits": 3, "note": "Pre-enrolled by CLE"},
+                {"kind": "choice", "label": "Calculus II", "codes": ["MATH1014", "MATH1024"], "credits": 3},
+                {"kind": "course", "label": "HMAW 1905B (continued)", "codes": ["HMAW1905"], "credits": 2, "note": "Pre-enrolled by Common Core Office"},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3}
+              ]
+            }
+          ]
+        },
+        {
+          "year": 2,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": 11,
+              "zero_credit": ["COMP4900"],
+              "slots": [
+                {"kind": "course", "label": "Matrix Algebra", "codes": ["MATH2111"], "credits": 3},
+                {"kind": "course", "label": "Programming with C++", "codes": ["COMP2011"], "credits": 4},
+                {"kind": "course", "label": "Discrete Math", "codes": ["COMP2711"], "credits": 4}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": [14, 15],
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "choice", "label": "Probability / Statistics", "codes": ["MATH2411", "MATH2421", "MATH2431", "ELEC2600", "IEDA2520", "IEDA2540"], "credits": [3, 4]},
+                {"kind": "course", "label": "OOP & Data Structures", "codes": ["COMP2012"], "credits": 4},
+                {"kind": "course", "label": "Computer Organization", "codes": ["COMP2611"], "credits": 4},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3}
+              ]
+            }
+          ]
+        },
+        {
+          "year": 3,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": 13,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "course", "label": "Software Engineering", "codes": ["COMP3111"], "credits": 4},
+                {"kind": "course", "label": "Operating Systems", "codes": ["COMP3511"], "credits": 3},
+                {"kind": "course", "label": "Design and Analysis of Algorithms", "codes": ["COMP3711"], "credits": 3},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": 12,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "bucket", "label": "COMP area elective", "credits": 3, "tag": "area"},
+                {"kind": "bucket", "label": "COMP area elective", "credits": 3, "tag": "area"},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3}
+              ]
+            }
+          ]
+        },
+        {
+          "year": 4,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": 12,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "choice", "label": "Final Year Project / Thesis", "codes": ["COMP4981", "COMP4981H"], "credits": 3},
+                {"kind": "bucket", "label": "COMP area elective", "credits": 3, "tag": "area"},
+                {"kind": "bucket", "label": "COMP other-area elective", "credits": 3, "tag": "other_area"},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": 12,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "choice", "label": "Final Year Project / Thesis (continued)", "codes": ["COMP4981", "COMP4981H"], "credits": 3},
+                {"kind": "bucket", "label": "COMP other-area elective", "credits": 3, "tag": "other_area"},
+                {"kind": "bucket", "label": "COMP 2000-level or above elective", "credits": 3},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "major_plus_minor",
+      "label": "COMP + minor",
+      "title": "BEng in Computer Science plus a minor",
+      "notes": ["A minor is 18 credits, roughly six 3-credit courses."],
+      "years": [
+        {
+          "year": 1,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": [10, 11],
+              "zero_credit": ["COMP4900"],
+              "slots": [
+                {"kind": "bucket", "label": "U Core English I", "credits": 3, "note": "Pre-enrolled by CLE"},
+                {"kind": "choice", "label": "Calculus I", "codes": ["MATH1013", "MATH1023", "MATH1020"], "credits": [3, 4]},
+                {"kind": "course", "label": "Introduction to Python Programming", "codes": ["COMP1023"], "credits": 3},
+                {"kind": "course", "label": "HMAW 1905B", "codes": ["HMAW1905"], "credits": 1, "note": "Pre-enrolled by Common Core Office"}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": 11,
+              "zero_credit": ["COMP4900"],
+              "slots": [
+                {"kind": "bucket", "label": "U Core English II", "credits": 3, "note": "Pre-enrolled by CLE"},
+                {"kind": "choice", "label": "Calculus II", "codes": ["MATH1014", "MATH1024"], "credits": 3},
+                {"kind": "course", "label": "HMAW 1905B (continued)", "codes": ["HMAW1905"], "credits": 2, "note": "Pre-enrolled by Common Core Office"},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3}
+              ]
+            }
+          ]
+        },
+        {
+          "year": 2,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": 11,
+              "zero_credit": ["COMP4900"],
+              "slots": [
+                {"kind": "course", "label": "Matrix Algebra", "codes": ["MATH2111"], "credits": 3},
+                {"kind": "course", "label": "Programming with C++", "codes": ["COMP2011"], "credits": 4},
+                {"kind": "course", "label": "Discrete Math", "codes": ["COMP2711"], "credits": 4}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": [17, 18],
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "choice", "label": "Probability / Statistics", "codes": ["MATH2411", "MATH2421", "MATH2431", "ELEC2600", "IEDA2520", "IEDA2540"], "credits": [3, 4]},
+                {"kind": "course", "label": "OOP & Data Structures", "codes": ["COMP2012"], "credits": 4},
+                {"kind": "course", "label": "Computer Organization", "codes": ["COMP2611"], "credits": 4},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3},
+                {"kind": "bucket", "label": "Minor elective", "credits": 3, "tag": "minor"}
+              ]
+            }
+          ]
+        },
+        {
+          "year": 3,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": 16,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "course", "label": "Software Engineering", "codes": ["COMP3111"], "credits": 4},
+                {"kind": "course", "label": "Operating Systems", "codes": ["COMP3511"], "credits": 3},
+                {"kind": "course", "label": "Design and Analysis of Algorithms", "codes": ["COMP3711"], "credits": 3},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3},
+                {"kind": "bucket", "label": "Minor elective", "credits": 3, "tag": "minor"}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": 18,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "bucket", "label": "COMP area elective", "credits": 3, "tag": "area"},
+                {"kind": "bucket", "label": "COMP area elective", "credits": 3, "tag": "area"},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3},
+                {"kind": "bucket", "label": "Minor elective", "credits": 3, "tag": "minor"},
+                {"kind": "bucket", "label": "Minor elective", "credits": 3, "tag": "minor"}
+              ]
+            }
+          ]
+        },
+        {
+          "year": 4,
+          "terms": [
+            {
+              "season": "fall",
+              "credits": 15,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "choice", "label": "Final Year Project / Thesis", "codes": ["COMP4981", "COMP4981H"], "credits": 3},
+                {"kind": "bucket", "label": "COMP area elective", "credits": 3, "tag": "area"},
+                {"kind": "bucket", "label": "COMP other-area elective", "credits": 3, "tag": "other_area"},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3},
+                {"kind": "bucket", "label": "Minor elective", "credits": 3, "tag": "minor"}
+              ]
+            },
+            {
+              "season": "spring",
+              "credits": 15,
+              "zero_credit": ["COMP1991", "COMP4900"],
+              "slots": [
+                {"kind": "choice", "label": "Final Year Project / Thesis (continued)", "codes": ["COMP4981", "COMP4981H"], "credits": 3},
+                {"kind": "bucket", "label": "COMP other-area elective", "credits": 3, "tag": "other_area"},
+                {"kind": "bucket", "label": "COMP 2000-level or above elective", "credits": 3},
+                {"kind": "bucket", "label": "U Core — others", "credits": 3},
+                {"kind": "bucket", "label": "Minor elective", "credits": 3, "tag": "minor"}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

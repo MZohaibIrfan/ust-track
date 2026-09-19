@@ -119,7 +119,24 @@ export type DeclaredProgram = {
   role: string;
   intake_year: number | null;
 };
-export type CourseRecord = { course_code: string | null; status: string };
+export type CourseRecord = {
+  course_code: string | null;
+  status: string;
+  title?: string | null;
+  credits?: number | null;
+  term_label?: string | null;
+};
+
+export type AcademicHistoryStatus = "taken" | "transferred" | "in_progress";
+
+export type AcademicHistoryRow = {
+  course_code: string;
+  title: string;
+  term: string;
+  grade: string | null;
+  units: number;
+  status: AcademicHistoryStatus;
+};
 
 export type DegreeProfile = {
   planner_id: string;
@@ -150,6 +167,7 @@ export type RequirementItemProgress = {
   course_code: string | null;
   note: string | null;
   status: "done" | "in_progress" | "missing" | "info";
+  sort_index?: number;
 };
 
 export type RequirementGroupProgress = {
@@ -161,6 +179,7 @@ export type RequirementGroupProgress = {
   of: number;
   status?: "done" | "in_progress" | "missing" | "info";
   children: RequirementGroupProgress[];
+  sort_index?: number;
 };
 
 export type RequirementProgress = {
@@ -227,3 +246,58 @@ export type DegreePathway = {
   home: boolean;
   declared_programs: DeclaredProgram[];
 };
+
+export type StudyPlanSlotStatus = "done" | "in_progress" | "planned" | "open";
+
+export type StudyPlanSlot = {
+  kind: "course" | "choice" | "bucket";
+  label: string;
+  codes: string[];
+  credits: { min: number; max: number };
+  credits_label: string;
+  note: string | null;
+  tag: string | null;
+  status: StudyPlanSlotStatus;
+  matched_code: string | null;
+};
+
+export type StudyPlanTerm = {
+  season: string;
+  label: string;
+  credits: { min: number; max: number };
+  credits_label: string;
+  zero_credit: string[];
+  slots: StudyPlanSlot[];
+};
+
+export type StudyPlanYear = {
+  year: number;
+  label: string;
+  current: boolean;
+  terms: StudyPlanTerm[];
+};
+
+export type StudyPlanVariant = {
+  id: string;
+  label: string;
+  title: string;
+  notes: string[];
+  years: StudyPlanYear[];
+};
+
+export type StudyPathway = {
+  available: boolean;
+  program_code: string;
+  intake_year?: number;
+  catalog_year?: string;
+  source_url?: string;
+  source_label?: string;
+  notes?: string[];
+  year_note?: string | null;
+  suggested_variant?: string;
+  suggest_reason?: string | null;
+  has_minor?: boolean;
+  standing_year?: number | null;
+  variants?: StudyPlanVariant[];
+};
+

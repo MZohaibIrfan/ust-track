@@ -36,14 +36,18 @@ export function ProgramsPanel({
   declared,
   selected,
   onSelect,
+  onClose,
 }: {
   programs: CatalogProgram[];
   declared: DeclaredProgram[];
   selected: string | null;
   onSelect: (code: string) => void;
+  onClose?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useCollapsed("ust-track:programs-collapsed");
+  const drawer = Boolean(onClose);
+  const hideBody = !drawer && collapsed;
   const declaredCodes = useMemo(
     () => new Set(declared.map((d) => d.code).filter((code): code is string => !!code)),
     [declared],
@@ -93,23 +97,33 @@ export function ProgramsPanel({
   return (
     <section
       className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-b border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out lg:border-r lg:border-b-0 ${
-        collapsed ? "h-9 lg:h-auto lg:w-9" : "h-56 lg:h-auto lg:w-64"
+        drawer ? "h-full w-full border-b-0" : hideBody ? "h-9 lg:h-auto lg:w-9" : "h-56 lg:h-auto lg:w-64"
       }`}
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-line px-2.5 py-2">
-        {collapsed ? null : <h2 className="min-w-0 truncate text-[13px] font-medium">Programs</h2>}
-        {collapsed ? null : <span className="ml-auto font-mono text-[11px] text-muted">{visibleCount}</span>}
-        <CollapseButton
-          collapsed={collapsed}
-          onClick={() => setCollapsed(!collapsed)}
-          side="left"
-          label={collapsed ? "Expand programs" : "Collapse programs"}
-          className={collapsed ? "mx-auto" : ""}
-        />
+        {hideBody ? null : <h2 className="min-w-0 truncate text-[13px] font-medium">Browse catalog</h2>}
+        {hideBody ? null : <span className="ml-auto font-mono text-[11px] text-muted">{visibleCount}</span>}
+        {drawer ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-1.5 py-0.5 text-[12px] text-muted hover:bg-fill hover:text-ink"
+          >
+            Close
+          </button>
+        ) : (
+          <CollapseButton
+            collapsed={collapsed}
+            onClick={() => setCollapsed(!collapsed)}
+            side="left"
+            label={collapsed ? "Expand programs" : "Collapse programs"}
+            className={collapsed ? "mx-auto" : ""}
+          />
+        )}
       </header>
       <div
-        className={`flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity duration-150 lg:w-64 ${
-          collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity duration-150 ${
+          hideBody ? "pointer-events-none opacity-0 lg:w-64" : drawer ? "opacity-100" : "opacity-100 lg:w-64"
         }`}
       >
         <div className="shrink-0 border-b border-line p-2">

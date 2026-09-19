@@ -13,10 +13,10 @@ export const PATHWAY_VIEWS: { id: PathwayView; label: string }[] = [
 ];
 
 export const PATHWAY_SCOPES: { id: PathwayScope; label: string; buckets: PathwayBucket[] }[] = [
-  { id: "cores", label: "Cores", buckets: ["required", "fundamentals"] },
+  { id: "cores", label: "Core", buckets: ["required", "fundamentals"] },
   { id: "electives", label: "Electives", buckets: ["electives"] },
   { id: "notes", label: "Notes", buckets: ["notes"] },
-  { id: "all", label: "All sections", buckets: ["required", "fundamentals", "electives", "notes"] },
+  { id: "all", label: "All", buckets: ["required", "fundamentals", "electives", "notes"] },
 ];
 
 const BUCKET_KINDS: Record<PathwayBucket, string[]> = {
@@ -64,6 +64,9 @@ function filterGroup(
   const hasCourse = items.some((item) => item.status !== "info");
   if (!hasCourse && children.length === 0) {
     if (query) return null;
+    if (view === "remaining" && group.status !== "done" && (group.of > 0 || group.kind === "elective_list")) {
+      return { ...group, items, children };
+    }
     if (view !== "all") return null;
   }
 

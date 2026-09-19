@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiGet } from "../lib/api";
-import { getPlannerId, studentHeading } from "../lib/planner";
+import { usePlanner } from "../lib/PlannerContext";
+import { studentHeading } from "../lib/planner";
 import { countStatuses } from "../lib/pathway";
 import { DAY_LABELS, WEEKDAYS, parseISODate, shortTime, toMinutes } from "../lib/time";
 import type {
@@ -30,7 +31,7 @@ const tools = [
     href: "/history",
     color: "var(--page-history)",
     label: "History",
-    body: "Completed, in-progress, and planned courses.",
+    body: "Grades, terms, units, and credit status.",
   },
   {
     href: "/career",
@@ -105,7 +106,7 @@ function upcomingClasses(selections: ClassSelection[], limit: number): UpcomingC
 }
 
 export function OverviewPage() {
-  const plannerId = getPlannerId();
+  const { plannerId } = usePlanner();
 
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
   const [progressByCode, setProgressByCode] = useState<Record<string, RequirementProgress>>({});
@@ -114,8 +115,14 @@ export function OverviewPage() {
   const [terms, setTerms] = useState<Term[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
+    setProfile(null);
+    setProgressByCode({});
+    setPlan(null);
+    setConflicts([]);
     apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
       .then(async (p) => {
+        if (cancelled) return;
         setProfile(p);
         const declared = p.declared_programs.filter((d): d is { code: string; role: string; intake_year: number | null } => !!d.code);
         const entries = await Promise.all(
@@ -126,17 +133,30 @@ export function OverviewPage() {
             return [d.code, progress] as const;
           }),
         );
-        setProgressByCode(Object.fromEntries(entries));
+        if (!cancelled) setProgressByCode(Object.fromEntries(entries));
       })
       .catch(() => {
         // backend may not be running yet
       });
 
-    apiGet<Plan>(`/api/plan?planner_id=${plannerId}`).then(setPlan).catch(() => {});
-    apiGet<{ planner_id: string; conflicts: ConflictEntry[] }>(`/api/plan/conflicts?planner_id=${plannerId}`)
-      .then((r) => setConflicts(r.conflicts))
+    apiGet<Plan>(`/api/plan?planner_id=${plannerId}`)
+      .then((next) => {
+        if (!cancelled) setPlan(next);
+      })
       .catch(() => {});
-    apiGet<Term[]>("/api/term").then(setTerms).catch(() => {});
+    apiGet<{ planner_id: string; conflicts: ConflictEntry[] }>(`/api/plan/conflicts?planner_id=${plannerId}`)
+      .then((r) => {
+        if (!cancelled) setConflicts(r.conflicts);
+      })
+      .catch(() => {});
+    apiGet<Term[]>("/api/term")
+      .then((next) => {
+        if (!cancelled) setTerms(next);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [plannerId]);
 
   const identity = studentHeading(profile);

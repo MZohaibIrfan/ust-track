@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "../lib/api";
-import { getPlannerId } from "../lib/planner";
+import { usePlanner } from "../lib/PlannerContext";
 import type { DeclaredProgram, DegreeProfile } from "../lib/types";
-
-const DEMO_NAME = "Demo Student";
 
 const MINOR_ROLES = new Set(["minor"]);
 
@@ -28,17 +26,27 @@ function ProgramCard({ program }: { program: DeclaredProgram }) {
 }
 
 export function ProfilePage() {
-  const plannerId = getPlannerId();
+  const { plannerId, profile: demo } = usePlanner();
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setProfile(null);
     apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
-      .then(setProfile)
-      .catch(() => {
-        // backend may not be running yet
+      .then((next) => {
+        if (!cancelled) setProfile(next);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setProfile(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [plannerId]);
 
   const declared = profile?.declared_programs.filter((d) => d.code) ?? [];
@@ -55,11 +63,11 @@ export function ProfilePage() {
       <div className="flex flex-col gap-4 p-4">
         <section className="flex items-center gap-3 rounded-md border border-line bg-surface-raised p-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[18px] font-medium text-accent">
-            {initials(DEMO_NAME)}
+            {initials(demo.name)}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[16px] font-semibold text-ink">{DEMO_NAME}</p>
-            <p className="text-[12px] text-muted">Demo profile · no account system yet</p>
+            <p className="truncate text-[16px] font-semibold text-ink">{demo.name}</p>
+            <p className="text-[12px] text-muted">{demo.label} · demo account</p>
             <p className="mt-1 font-mono text-[11px] text-muted">Planner ID: {plannerId}</p>
           </div>
         </section>
@@ -72,7 +80,7 @@ export function ProfilePage() {
               <div className="rounded-md border border-line bg-surface-raised p-3">
                 <p className="text-[11px] font-medium tracking-wide text-muted uppercase">School</p>
                 <p className="mt-1 text-[13px] text-ink">
-                  {schools.length > 0 ? schools.join(", ") : "HKUST"}
+                  {schools.length > 0 ? schools.join(", ") : demo.school}
                 </p>
               </div>
               <div className="rounded-md border border-line bg-surface-raised p-3">

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     AcademicYear,
     Course,
+    CourseVersion,
     Planner,
     Program,
     RequirementGroup,
@@ -24,6 +25,7 @@ from app.models import (
     StudentClassSelection,
     StudentCourse,
     StudentProgram,
+    Term,
 )
 from app.services.catalog_queries import (
     academic_year_for_intake,
@@ -43,7 +45,7 @@ IN_PROGRESS_STATUSES = {"in_progress", "planned"}
 COURSE_CODE_RE = re.compile(r"\b([A-Z]{2,8})\s*(\d{4}[A-Z]?)\b")
 COMPACT_CODE_RE = re.compile(r"\b[A-Z]{2,8}\d{4}[A-Z]?\b")
 N_COURSES_RE = re.compile(r"(\d+)\s+courses?", re.I)
-TRAILING_CREDITS_RE = re.compile(r"\s+\d+(?:\s*-\s*\d+)?\s*$")
+TRAILING_CREDITS_RE = re.compile(r"\s+\d{1,2}(?:\s*-\s*\d{1,2})?\s*$")
 
 OPTION_KINDS = {"area", "elective_list", "electives", "area_constraint"}
 OR_KINDS = {"or_group"}
@@ -120,7 +122,9 @@ def _display_expr(note: str) -> str:
     if compact and compact.start() > 8:
         return note[: compact.start()].strip(" -:·,")
     cleaned = TRAILING_CREDITS_RE.sub("", note.strip())
-    return cleaned if len(cleaned) <= 90 else cleaned[:87].rsplit(" ", 1)[0] + "…"
+    if " OR " in cleaned.upper():
+        return cleaned
+    return cleaned if len(cleaned) <= 130 else cleaned[:127].rsplit(" ", 1)[0] + "…"
 
 
 def _item_status(course_code: str | None, by_code: dict[str, str]) -> str:
@@ -268,6 +272,7 @@ def _annotate_group(group: dict[str, Any], by_code: dict[str, str]) -> dict[str,
                 "course_code": code,
                 "note": raw.get("note"),
                 "status": _item_status(code, by_code),
+                "sort_index": raw.get("sort_index"),
             }
         )
     children = [_annotate_group(child, by_code) for child in group.get("children", [])]
@@ -335,6 +340,7 @@ def _annotate_group(group: dict[str, Any], by_code: dict[str, str]) -> dict[str,
         "done": done,
         "of": of,
         "status": status,
+        "sort_index": group.get("sort_index"),
     }
 
 
@@ -391,7 +397,26 @@ def get_student_profile(db: Session, planner_id: str) -> dict[str, Any]:
     history = []
     for sc in courses:
         course = db.get(Course, sc.course_id)
-        history.append({"course_code": course.course_code if course else None, "status": sc.status})
+        version = None
+        if course is not None:
+            version = db.scalar(
+                select(CourseVersion)
+                .join(AcademicYear, CourseVersion.academic_year_id == AcademicYear.id)
+                .where(CourseVersion.course_id == course.id)
+                .order_by(AcademicYear.start_year.desc())
+                .limit(1)
+            )
+        term = db.get(Term, sc.term_id) if sc.term_id else None
+        credits = float(version.credits) if version is not None and version.credits is not None else None
+        history.append(
+            {
+                "course_code": course.course_code if course else None,
+                "status": sc.status,
+                "title": version.title if version else None,
+                "credits": credits,
+                "term_label": term.label if term else None,
+            }
+        )
 
     entry_year = student_entry_year(db, planner_id)
     major = next((d for d in declared if d["role"] == "major"), declared[0] if declared else None)
