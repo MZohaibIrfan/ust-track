@@ -198,11 +198,11 @@ export function DegreePage() {
 
   async function refreshProfile() {
     try {
-      const listed = await apiGet<{ pathways: DegreePathway[] }>(
-        `/api/degree/pathways?planner_id=${getPlannerId()}`,
-      );
+      const [listed, p] = await Promise.all([
+        apiGet<{ pathways: DegreePathway[] }>(`/api/degree/pathways?planner_id=${getPlannerId()}`),
+        apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${pathwayId}`),
+      ]);
       setPathways(listed.pathways);
-      const p = await apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${pathwayId}`);
       setProfile(p);
       setLoading(false);
       const declared = p.declared_programs.filter(
