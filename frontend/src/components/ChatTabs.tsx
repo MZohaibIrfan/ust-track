@@ -53,7 +53,7 @@ export function ChatTabs({
     <div className="flex shrink-0 items-center gap-1 border-b border-line px-2 py-1.5 pr-9">
       <button
         onClick={() => onChange("chat")}
-        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium transition-colors ${
+        className={`flex items-center gap-1.5 rounded-xl px-2 py-1 text-[12px] font-medium transition-colors ${
           tab === "chat" ? "bg-fill text-ink" : "text-muted hover:text-ink"
         }`}
       >
@@ -62,7 +62,7 @@ export function ChatTabs({
       </button>
       <button
         onClick={() => onChange("history")}
-        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium transition-colors ${
+        className={`flex items-center gap-1.5 rounded-xl px-2 py-1 text-[12px] font-medium transition-colors ${
           tab === "history" ? "bg-fill text-ink" : "text-muted hover:text-ink"
         }`}
       >
@@ -83,7 +83,7 @@ export function ChatHistoryFooter({ label, onClear, disabled }: { label: string;
       <button
         onClick={onClear}
         disabled={disabled}
-        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted transition-colors hover:bg-fill hover:text-accent disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-xl px-2 py-1 text-[12px] text-muted transition-colors hover:bg-fill hover:text-accent disabled:opacity-40"
       >
         <TrashIcon /> Clear
       </button>

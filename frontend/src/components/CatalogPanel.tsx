@@ -61,7 +61,7 @@ function RowButton({
       type="button"
       onClick={onClick}
       onPointerEnter={onPointerEnter}
-      className={`flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface-raised px-2.5 py-2 text-left text-[13px] hover:bg-fill ${
+      className={`flex w-full items-center justify-between gap-2 rounded-xl border border-line bg-surface-raised px-2.5 py-2 text-left text-[13px] hover:bg-fill ${
         mono ? "font-mono" : ""
       }`}
     >
@@ -304,7 +304,7 @@ export function CatalogPanel({
           <button
             type="button"
             onClick={goBack}
-            className="rounded-md px-1.5 py-0.5 text-[12px] text-muted hover:bg-fill hover:text-ink"
+            className="rounded-xl px-1.5 py-0.5 text-[12px] text-muted hover:bg-fill hover:text-ink"
           >
             Back
           </button>
@@ -333,7 +333,7 @@ export function CatalogPanel({
                 if (view.name !== "home") setView({ name: "home" });
               }}
               placeholder="Search code or name…"
-              className="w-full rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              className="w-full rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
             />
           </div>
         ) : null}
@@ -379,7 +379,7 @@ export function CatalogPanel({
                   key={subject}
                   type="button"
                   onClick={() => openSubject(subject)}
-                  className="flex items-center justify-between rounded-md border border-line bg-bg px-2 py-1.5 text-left font-mono text-[12px] hover:bg-fill"
+                  className="flex items-center justify-between rounded-xl border border-line bg-bg px-2 py-1.5 text-left font-mono text-[12px] hover:bg-fill"
                 >
                   {subject}
                   <Chevron />
@@ -546,7 +546,7 @@ function CoursePicker({
             type="button"
             disabled={!canAdd || adding}
             onClick={onAdd}
-            className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
           >
             {adding ? "Adding…" : "Add to timetable"}
           </button>
@@ -583,7 +583,7 @@ function SectionGroup({
               <button
                 type="button"
                 onClick={() => onPick(section)}
-                className={`w-full rounded-md border px-2 py-1.5 text-left ${
+                className={`w-full rounded-xl border px-2 py-1.5 text-left ${
                   active ? "border-accent bg-accent-soft" : "border-line bg-bg hover:bg-fill"
                 }`}
               >

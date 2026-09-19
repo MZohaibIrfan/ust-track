@@ -1,33 +1,8 @@
 import { useMemo, useState } from "react";
 import { useCollapsed } from "../lib/collapse";
+import { CATEGORIES, categoryColorClasses, categoryFor, roleFor } from "../lib/programCategories";
 import type { CatalogProgram, DeclaredProgram } from "../lib/types";
 import { CollapseButton } from "./CollapseButton";
-
-const CATEGORIES: { id: string; label: string }[] = [
-  { id: "major", label: "Major" },
-  { id: "minor", label: "Minor" },
-  { id: "extended_major", label: "Extended major" },
-  { id: "dual", label: "Dual degree" },
-  { id: "framework", label: "Framework" },
-  { id: "common_core", label: "Common core" },
-];
-
-function categoryFor(program: CatalogProgram): string {
-  if (program.kind === "minor") return "minor";
-  if (program.kind === "extended_major") return "extended_major";
-  if (program.kind === "dual") return "dual";
-  if (program.kind === "framework") return "framework";
-  if (program.code === "UNIV-CC" || program.kind === "common_core") return "common_core";
-  return "major";
-}
-
-function roleFor(program: CatalogProgram): string {
-  if (program.kind === "minor") return "minor";
-  if (program.kind === "extended_major") return "extended_major";
-  if (program.kind === "dual") return "dual_degree";
-  if (program.code === "UNIV-CC") return "school_requirement";
-  return "major";
-}
 
 export { roleFor };
 
@@ -92,13 +67,17 @@ export function ProgramsPanel({
 
   return (
     <section
-      className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-b border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out lg:border-r lg:border-b-0 ${
+      className={`flex min-h-0 shrink-0 flex-col overflow-hidden border-b border-line bg-surface-raised transition-[width,height] duration-200 ease-in-out lg:rounded-2xl lg:border lg:border-b lg:shadow-soft ${
         collapsed ? "h-9 lg:h-auto lg:w-9" : "h-56 lg:h-auto lg:w-64"
       }`}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-line px-2.5 py-2">
-        {collapsed ? null : <h2 className="min-w-0 truncate text-[13px] font-medium">Programs</h2>}
-        {collapsed ? null : <span className="ml-auto font-mono text-[11px] text-muted">{visibleCount}</span>}
+      <header className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2.5">
+        {collapsed ? null : <h2 className="min-w-0 truncate text-[13px] font-semibold">Programs</h2>}
+        {collapsed ? null : (
+          <span className="ml-auto rounded-full bg-fill px-1.5 py-0.5 font-mono text-[11px] text-muted">
+            {visibleCount}
+          </span>
+        )}
         <CollapseButton
           collapsed={collapsed}
           onClick={() => setCollapsed(!collapsed)}
@@ -112,54 +91,58 @@ export function ProgramsPanel({
           collapsed ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
       >
-        <div className="shrink-0 border-b border-line p-2">
+        <div className="shrink-0 border-b border-line p-2.5">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search major or minor…"
-            className="w-full rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+            className="w-full rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
           />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
         {grouped.length === 0 ? (
           <p className="px-1 text-[12px] text-muted">No programs match that search.</p>
         ) : (
-          <div className="flex flex-col gap-3">
-            {grouped.map((group) => (
-              <div key={group.id}>
-                <p className="mb-1 px-1 text-[11px] font-medium tracking-wide text-muted uppercase">
-                  {group.label}
-                  <span className="ml-1.5 font-mono font-normal tabular-nums">{group.programs.length}</span>
-                </p>
-                <ul className="flex flex-col gap-1">
-                  {group.programs.map((program) => {
-                    const active = selected === program.code;
-                    const isDeclared = declaredCodes.has(program.code);
-                    return (
-                      <li key={program.code}>
-                        <button
-                          type="button"
-                          onClick={() => onSelect(program.code)}
-                          className={`flex w-full items-start justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-[13px] ${
-                            active
-                              ? "border-accent bg-accent-soft"
-                              : "border-line bg-bg hover:bg-fill"
-                          }`}
-                        >
-                          <span className="min-w-0">
-                            <span className="block font-mono text-[12px]">{program.code}</span>
-                            <span className="mt-0.5 block truncate text-[12px] text-muted">{program.name}</span>
-                          </span>
-                          {isDeclared ? (
-                            <span className="shrink-0 text-[11px] text-accent">Declared</span>
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
+          <div className="flex flex-col gap-3.5">
+            {grouped.map((group) => {
+              const colors = categoryColorClasses(group.id);
+              return (
+                <div key={group.id}>
+                  <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-medium tracking-wide text-muted uppercase">
+                    <span className={`h-1.5 w-1.5 rounded-full ${colors.dot}`} />
+                    {group.label}
+                    <span className="ml-0.5 font-mono font-normal tabular-nums">{group.programs.length}</span>
+                  </p>
+                  <ul className="flex flex-col gap-1">
+                    {group.programs.map((program) => {
+                      const active = selected === program.code;
+                      const isDeclared = declaredCodes.has(program.code);
+                      return (
+                        <li key={program.code}>
+                          <button
+                            type="button"
+                            onClick={() => onSelect(program.code)}
+                            className={`flex w-full items-start justify-between gap-2 rounded-xl border px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                              active
+                                ? `${colors.border} ${colors.bg}`
+                                : "border-transparent bg-bg hover:bg-fill"
+                            }`}
+                          >
+                            <span className="min-w-0">
+                              <span className="block font-mono text-[12px]">{program.code}</span>
+                              <span className="mt-0.5 block truncate text-[12px] text-muted">{program.name}</span>
+                            </span>
+                            {isDeclared ? (
+                              <span className={`shrink-0 text-[11px] font-medium ${colors.text}`}>Declared</span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         )}
         </div>

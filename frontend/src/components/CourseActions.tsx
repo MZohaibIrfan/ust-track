@@ -53,7 +53,7 @@ function PickList({
               type="button"
               disabled={busy}
               onClick={() => onPick(section)}
-              className={`rounded-md border px-2 py-1.5 text-left disabled:opacity-40 ${
+              className={`rounded-xl border px-2 py-1.5 text-left disabled:opacity-40 ${
                 active ? "border-accent bg-surface-raised" : "border-line bg-bg hover:bg-fill"
               }`}
             >
@@ -218,7 +218,7 @@ export function CourseActions({
             type="button"
             disabled={busy}
             onClick={openSwap}
-            className="rounded-md border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill disabled:opacity-40"
+            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill disabled:opacity-40"
           >
             Swap section
           </button>
@@ -226,14 +226,14 @@ export function CourseActions({
             type="button"
             disabled={busy}
             onClick={dropCourse}
-            className="rounded-md border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill disabled:opacity-40"
+            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill disabled:opacity-40"
           >
             Drop
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-1.5 py-1 text-[12px] text-muted hover:bg-fill hover:text-ink"
+            className="rounded-xl px-1.5 py-1 text-[12px] text-muted hover:bg-fill hover:text-ink"
           >
             Close
           </button>
@@ -273,7 +273,7 @@ export function CourseActions({
                 type="button"
                 disabled={!canSwapLecture || busy}
                 onClick={() => void swapLectureBundle()}
-                className="mt-2 rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="mt-2 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
               >
                 {busy ? "Swapping…" : "Swap"}
               </button>

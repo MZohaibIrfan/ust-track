@@ -36,7 +36,7 @@ export function CollapseButton({
       aria-label={label}
       aria-expanded={!collapsed}
       title={label}
-      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-fill hover:text-ink ${className ?? ""}`}
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-fill hover:text-ink ${className ?? ""}`}
     >
       <PanelIcon side={side} className="h-4 w-4" />
     </button>

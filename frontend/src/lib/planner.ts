@@ -31,18 +31,18 @@ export function setDegreePathwayId(id: string) {
 }
 
 export function studentHeading(profile: DegreeProfile | null): { title: string; detail: string } | null {
-  if (!profile?.declared_programs.length) return null;
-  const major =
-    profile.declared_programs.find((d) => d.role === "major") ?? profile.declared_programs[0];
-  if (!major.code) return null;
-  const extras = profile.declared_programs
-    .filter((d) => d.role !== "major" && d.code)
-    .map((d) => d.code);
+  if (!profile) return null;
+  const declared = profile.declared_programs.filter((d): d is typeof d & { code: string } => !!d.code);
+  const major = declared.find((d) => d.role === "major") ?? declared[0] ?? null;
+  const extras = declared.filter((d) => d !== major).map((d) => d.code);
   const year = profile.standing_year ? `Year ${profile.standing_year}` : null;
-  const title = [year, [major.code, ...extras].join(" + ")].filter(Boolean).join(" · ");
+  const programPart = major ? [major.code, ...extras].join(" + ") : null;
+  if (!year && !programPart) return null;
+
+  const title = [year, programPart].filter(Boolean).join(" · ");
   const bits = [
-    major.name,
-    major.intake_year != null ? `intake ${major.intake_year}` : null,
+    major?.name,
+    (major?.intake_year ?? profile.intake_year) != null ? `intake ${major?.intake_year ?? profile.intake_year}` : null,
     profile.catalog_year ? `catalog ${profile.catalog_year}` : null,
   ].filter(Boolean);
   return { title, detail: bits.join(" · ") };

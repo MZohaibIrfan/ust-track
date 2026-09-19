@@ -106,7 +106,7 @@ function ScoreBar({ score, max }: { score: number; max: number }) {
 
 function CourseMatchCard({ course, maxScore }: { course: CourseMatch; maxScore: number }) {
   return (
-    <div className="group rounded-md border border-line bg-bg px-3 py-2.5 text-[13px] transition-colors hover:border-page-career/50">
+    <div className="group rounded-xl border border-line bg-bg px-3 py-2.5 text-[13px] shadow-soft transition-colors hover:border-page-career/50">
       <div className="flex items-center justify-between gap-3">
         <p className="font-mono font-medium">
           {course.course_code} <span className="font-sans font-normal text-muted">· {course.credits} cr</span>
@@ -145,13 +145,13 @@ function CourseMatchCard({ course, maxScore }: { course: CourseMatch; maxScore: 
 
 function JobMatchCard({ data }: { data: JobMatchResult }) {
   if (data.error) {
-    return <p className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
+    return <p className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
   }
   const allCourses = [...data.already_relevant, ...data.recommended];
   const maxScore = Math.max(1, ...allCourses.map((c) => c.score));
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised px-3 py-3">
+    <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface-raised px-3.5 py-3.5 shadow-soft">
       {data.matched_keywords.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1 border-b border-line pb-2.5">
           <span className="text-[11px] font-medium text-muted">Picked up on:</span>
@@ -229,7 +229,7 @@ function parseSegments(content: string): Segment[] {
 
 function TypingDots() {
   return (
-    <div className="mr-auto flex max-w-[90%] items-center gap-1 rounded-md bg-bg px-3 py-2.5">
+    <div className="mr-auto flex max-w-[90%] items-center gap-1 rounded-xl bg-bg px-3 py-2.5">
       <span className="size-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.3s]" />
       <span className="size-1.5 animate-bounce rounded-full bg-muted [animation-delay:-0.15s]" />
       <span className="size-1.5 animate-bounce rounded-full bg-muted" />
@@ -240,7 +240,7 @@ function TypingDots() {
 function ChatBubble({ message, pending }: { message: ChatMessage; pending: boolean }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[90%] rounded-md bg-ink px-3 py-2 text-[13px] text-bg whitespace-pre-wrap">
+      <div className="ml-auto max-w-[90%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg whitespace-pre-wrap">
         {message.content}
       </div>
     );
@@ -264,14 +264,14 @@ function ChatBubble({ message, pending }: { message: ChatMessage; pending: boole
           return (
             <p
               key={i}
-              className="flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[12px] text-accent"
+              className="flex items-center gap-1.5 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2 text-[12px] text-accent"
             >
               <CheckIcon /> Logged: {seg.data.title}
             </p>
           );
         }
         return (
-          <p key={i} className="flex items-center gap-1.5 rounded-md border border-line bg-bg px-3 py-2 text-[12px] text-muted">
+          <p key={i} className="flex items-center gap-1.5 rounded-xl border border-line bg-bg px-3 py-2 text-[12px] text-muted">
             <TrashIcon /> Removed
           </p>
         );
@@ -427,7 +427,7 @@ export function CareerPage() {
   return (
     <main className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-line px-3 py-2.5">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-page-career/15 text-page-career">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-page-career/15 text-page-career">
           <CareerIcon className="size-4" />
         </span>
         <div className="min-w-0">
@@ -449,7 +449,7 @@ export function CareerPage() {
             </h2>
             <button
               onClick={() => setShowForm((v) => !v)}
-              className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+              className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-[12px] font-medium transition-colors ${
                 showForm ? "bg-fill text-ink hover:bg-line" : "bg-ink text-bg hover:bg-ink/90"
               }`}
             >
@@ -478,13 +478,13 @@ export function CareerPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Title (e.g. Software Engineering Intern)"
                   required
-                  className="min-w-[14rem] flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[14rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
                 <input
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   placeholder="Organization"
-                  className="min-w-[10rem] flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
               </div>
 
@@ -513,7 +513,7 @@ export function CareerPage() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="rounded-md border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
                   />
                 </label>
                 <label className="flex items-center gap-1.5 text-[12px] text-muted">
@@ -522,7 +522,7 @@ export function CareerPage() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="rounded-md border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
                   />
                 </label>
               </div>
@@ -531,13 +531,13 @@ export function CareerPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What did you actually do? (used to line up with future job descriptions)"
                 rows={3}
-                className="rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <div className="flex items-center gap-2">
                 <button
                   type="submit"
                   disabled={saving || !title.trim()}
-                  className="self-start rounded-md bg-ink px-3 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                  className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
                 >
                   {saving ? "Saving…" : "Save experience"}
                 </button>
@@ -548,7 +548,7 @@ export function CareerPage() {
           {loading ? (
             <div className="flex flex-col gap-2 px-3 py-3">
               {[0, 1].map((i) => (
-                <div key={i} className="h-14 animate-pulse rounded-md bg-fill" />
+                <div key={i} className="h-14 animate-pulse rounded-xl bg-fill" />
               ))}
             </div>
           ) : experiences.length === 0 ? (
@@ -568,9 +568,9 @@ export function CareerPage() {
                 return (
                   <li
                     key={exp.id}
-                    className="group flex items-start gap-2.5 rounded-md border border-line bg-surface-raised px-3 py-2.5 transition-colors hover:border-page-career/40"
+                    className="group flex items-start gap-2.5 rounded-2xl border border-line bg-surface-raised px-3.5 py-3 shadow-soft transition-all hover:-translate-y-0.5 hover:border-page-career/40 hover:shadow-soft-lg"
                   >
-                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-page-career/15 text-page-career">
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-page-career/15 text-page-career">
                       {meta.icon}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -635,7 +635,7 @@ export function CareerPage() {
                       <button
                         key={s}
                         onClick={() => send(s)}
-                        className="rounded-md border border-line px-2.5 py-1.5 text-left text-[13px] leading-5 text-ink transition-colors hover:border-page-career/50 hover:bg-page-career/5"
+                        className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[13px] leading-5 text-ink transition-colors hover:border-page-career/50 hover:bg-page-career/5"
                       >
                         {s}
                       </button>
@@ -667,12 +667,12 @@ export function CareerPage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Paste a job description or ask something…"
                 disabled={busy}
-                className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="flex items-center gap-1.5 rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                className="flex items-center gap-1.5 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
               >
                 <SendIcon />
                 Send

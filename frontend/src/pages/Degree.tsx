@@ -75,7 +75,7 @@ function ProgramCard({
 }) {
   if (data.error) {
     return (
-      <p className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>
+      <p className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>
     );
   }
 
@@ -83,7 +83,7 @@ function ProgramCard({
   const isRemoved = kind === "removed";
 
   return (
-    <div className="rounded-md border border-line bg-surface-raised px-3 py-2.5 text-[13px]">
+    <div className="rounded-2xl border border-line bg-surface-raised px-3.5 py-3 text-[13px] shadow-soft">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-mono font-medium">
@@ -100,7 +100,7 @@ function ProgramCard({
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+            className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
           >
             {data.fork ? "Open pathway" : "Apply"}
           </button>
@@ -128,7 +128,7 @@ function ChatBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] rounded-md bg-ink px-3 py-2 text-[13px] text-bg">
+      <div className="ml-auto max-w-[85%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg">
         {message.content}
       </div>
     );
@@ -431,7 +431,7 @@ export function DegreePage() {
           <select
             value={pathwayId}
             onChange={(e) => selectPathway(e.target.value)}
-            className="max-w-[16rem] rounded-md border border-line bg-bg px-1.5 py-1 text-[13px] text-ink"
+            className="max-w-[16rem] rounded-xl border border-line bg-bg px-1.5 py-1 text-[13px] text-ink"
           >
             {pathways.map((option) => (
               <option key={option.planner_id} value={option.planner_id}>
@@ -448,7 +448,7 @@ export function DegreePage() {
               const year = Number(e.target.value);
               if (year) void saveEntryYear(year);
             }}
-            className="rounded-md border border-line bg-bg px-1.5 py-1 font-mono text-[12px] text-ink outline-none focus:border-accent"
+            className="rounded-xl border border-line bg-bg px-1.5 py-1 font-mono text-[12px] text-ink outline-none focus:border-accent"
           >
             {entryYear == null ? <option value="">Year</option> : null}
             {years.map((year) => (
@@ -489,7 +489,7 @@ export function DegreePage() {
                   type="button"
                   onClick={removeSelected}
                   disabled={acting}
-                  className="shrink-0 rounded-md border border-line px-2.5 py-1 text-[12px] hover:bg-fill disabled:opacity-40"
+                  className="shrink-0 rounded-xl border border-line px-2.5 py-1 text-[12px] hover:bg-fill disabled:opacity-40"
                 >
                   Remove
                 </button>
@@ -498,7 +498,7 @@ export function DegreePage() {
                   type="button"
                   onClick={declareSelected}
                   disabled={acting}
-                  className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg disabled:opacity-40"
+                  className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg disabled:opacity-40"
                 >
                   Declare {roleFor(selectedProgram).replaceAll("_", " ")}
                 </button>
@@ -586,7 +586,7 @@ export function DegreePage() {
                     <button
                       key={s}
                       onClick={() => send(s)}
-                      className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                      className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
                     >
                       {s}
                     </button>
@@ -628,12 +628,12 @@ export function DegreePage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about programs…"
                 disabled={busy}
-                className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
               >
                 Send
               </button>

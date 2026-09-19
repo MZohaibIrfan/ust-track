@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
-import { apiGet, apiGetCached, apiPost } from "../lib/api";
+import { ProgramGrid } from "../components/ProgramGrid";
+import { apiGet, apiGetCached, apiPost, apiPut } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { roleFor } from "../lib/programCategories";
 import { getPlannerId } from "../lib/planner";
-import type { CatalogProgram, CourseHit, DeclaredProgram, DegreeProfile } from "../lib/types";
+import type { AcademicYear, CatalogProgram, CourseHit, DeclaredProgram, DegreeProfile } from "../lib/types";
 
-type Step = "welcome" | "status" | "courses" | "program" | "experience";
+type Step = "welcome" | "status" | "courses" | "interests" | "program" | "experience";
 type Status = "new" | "undeclared_with_courses" | "declared" | "special_program";
 
 const STATUS_OPTIONS: { id: Status; label: string; body: string }[] = [
@@ -22,36 +23,61 @@ const COURSE_STATUS_OPTIONS = [
   { value: "planned", label: "Planned" },
 ];
 
+const UNDECLARED: Status[] = ["new", "undeclared_with_courses"];
+
 function nextStep(current: Step, status: Status | null): Step | "done" {
   if (current === "welcome") return "status";
-  if (current === "status") return status === "new" ? "program" : "courses";
-  if (current === "courses") return "program";
+  if (current === "status") return status === "new" ? "interests" : "courses";
+  if (current === "courses") return status && UNDECLARED.includes(status) ? "interests" : "program";
+  if (current === "interests") return "experience";
   if (current === "program") return "experience";
   return "done";
+}
+
+const PROGRESS_STAGES: Step[] = ["welcome", "status", "courses", "experience"];
+
+function progressFor(step: Step): number {
+  const normalized = step === "interests" || step === "program" ? "courses" : step;
+  const index = PROGRESS_STAGES.indexOf(normalized as Step);
+  return index < 0 ? 0 : (index + 1) / PROGRESS_STAGES.length;
 }
 
 function StepShell({
   eyebrow,
   title,
   subtitle,
+  wide,
+  progress,
   children,
   footer,
 }: {
   eyebrow: string;
   title: string;
   subtitle?: string;
+  wide?: boolean;
+  progress: number;
   children: React.ReactNode;
   footer: React.ReactNode;
 }) {
   return (
-    <div className="flex w-full max-w-xl flex-col gap-5">
+    <div
+      className={`flex w-full flex-col gap-6 rounded-2xl border border-line bg-surface-raised p-7 shadow-soft-lg sm:p-9 ${
+        wide ? "max-w-3xl" : "max-w-xl"
+      }`}
+    >
+      <div className="h-1 w-full overflow-hidden rounded-full bg-fill">
+        <div
+          className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+          style={{ width: `${Math.round(progress * 100)}%` }}
+        />
+      </div>
       <div>
-        <p className="text-[11px] font-medium tracking-wide text-muted uppercase">{eyebrow}</p>
-        <h1 className="mt-1 text-[20px] font-semibold tracking-tight text-ink">{title}</h1>
-        {subtitle ? <p className="mt-1 text-[13px] text-muted">{subtitle}</p> : null}
+        <p className="text-[11px] font-semibold tracking-wide text-accent uppercase">{eyebrow}</p>
+        <h1 className="mt-1.5 text-[24px] font-semibold tracking-tight text-ink">{title}</h1>
+        {subtitle ? <p className="mt-1.5 text-[13px] leading-5 text-muted">{subtitle}</p> : null}
       </div>
       {children}
-      <div className="flex items-center justify-between border-t border-line pt-4">{footer}</div>
+      <div className="flex items-center justify-between border-t border-line pt-5">{footer}</div>
     </div>
   );
 }
@@ -78,7 +104,7 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-md bg-ink px-4 py-2 text-[13px] font-medium text-bg disabled:opacity-40"
+      className="rounded-xl bg-ink px-5 py-2.5 text-[13px] font-medium text-bg shadow-soft transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-40"
     >
       {children}
     </button>
@@ -94,6 +120,34 @@ export function OnboardingPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [finishing, setFinishing] = useState(false);
 
+  const [years, setYears] = useState<AcademicYear[]>([]);
+  const [entryYear, setEntryYear] = useState<number | null>(null);
+  const [entryYearTouched, setEntryYearTouched] = useState(false);
+
+  useEffect(() => {
+    apiGetCached<AcademicYear[]>("/api/academic-years")
+      .then(setYears)
+      .catch(() => {});
+  }, []);
+
+  const latestYear = useMemo(
+    () => (years.length > 0 ? years.reduce((a, b) => (a.start_year > b.start_year ? a : b)) : null),
+    [years],
+  );
+
+  // "New student" obviously means this year's intake — fill it in so they don't have to think
+  // about it, but leave it editable in case someone picks it by mistake.
+  useEffect(() => {
+    if (status === "new" && latestYear && !entryYearTouched) {
+      setEntryYear(latestYear.start_year);
+    }
+  }, [status, latestYear, entryYearTouched]);
+
+  const standingYear = useMemo(() => {
+    if (!entryYear || !latestYear) return null;
+    return Math.min(4, Math.max(1, latestYear.start_year - entryYear + 1));
+  }, [entryYear, latestYear]);
+
   async function finish() {
     if (finishing) return;
     setFinishing(true);
@@ -105,6 +159,11 @@ export function OnboardingPage() {
   }
 
   function advance() {
+    if (step === "status" && entryYear) {
+      apiPut("/api/degree/entry-year", { planner_id: plannerId, entry_year: entryYear }).catch(() => {
+        // best-effort — the student can set this later from Degree
+      });
+    }
     const next = nextStep(step, status);
     if (next === "done") {
       finish();
@@ -114,10 +173,11 @@ export function OnboardingPage() {
   }
 
   return (
-    <main className="flex h-full min-h-0 flex-col items-center overflow-y-auto bg-bg px-4 py-10">
+    <main className="flex h-full min-h-0 items-center justify-center overflow-y-auto bg-bg px-4 py-10">
       {step === "welcome" ? (
         <StepShell
           eyebrow="Welcome"
+          progress={progressFor("welcome")}
           title="Your HKUST degree, planned your way."
           subtitle="Build your academic pathway, fit in the experiences you want, and stay on track to graduation."
           footer={
@@ -137,35 +197,68 @@ export function OnboardingPage() {
       {step === "status" ? (
         <StepShell
           eyebrow="Step 1"
+          progress={progressFor("status")}
           title="Where are you in your HKUST journey?"
           footer={
             <>
               <SkipLink onClick={finish} />
-              <PrimaryButton onClick={advance} disabled={!status}>
+              <PrimaryButton onClick={advance} disabled={!status || !entryYear}>
                 Continue
               </PrimaryButton>
             </>
           }
         >
-          <div className="grid gap-2 sm:grid-cols-2">
-            {STATUS_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setStatus(option.id)}
-                className={`rounded-md border px-3 py-2.5 text-left text-[13px] transition-colors ${
-                  status === option.id ? "border-accent bg-accent-soft" : "border-line bg-surface-raised hover:bg-fill"
-                }`}
-              >
-                <p className="font-medium text-ink">{option.label}</p>
-                <p className="mt-0.5 text-[12px] text-muted">{option.body}</p>
-              </button>
-            ))}
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {STATUS_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setStatus(option.id)}
+                  className={`rounded-xl border px-3.5 py-3 text-left text-[13px] shadow-soft transition-all ${
+                    status === option.id
+                      ? "border-accent bg-accent-soft"
+                      : "border-line bg-surface-raised hover:-translate-y-0.5 hover:shadow-soft-lg"
+                  }`}
+                >
+                  <p className="font-medium text-ink">{option.label}</p>
+                  <p className="mt-0.5 text-[12px] text-muted">{option.body}</p>
+                </button>
+              ))}
+            </div>
+
+            {status ? (
+              <label className="flex items-center gap-2 text-[13px]">
+                <span className="text-muted">
+                  {status === "new" ? "You're starting in" : "What year did you start at HKUST?"}
+                </span>
+                <select
+                  value={entryYear ?? ""}
+                  onChange={(e) => {
+                    setEntryYearTouched(true);
+                    setEntryYear(Number(e.target.value) || null);
+                  }}
+                  className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[13px] outline-none focus:border-accent"
+                >
+                  {entryYear == null ? <option value="">Select a year</option> : null}
+                  {years.map((year) => (
+                    <option key={year.start_year} value={year.start_year}>
+                      {year.code}
+                    </option>
+                  ))}
+                </select>
+                {standingYear ? <span className="text-[12px] text-muted">Year {standingYear}</span> : null}
+              </label>
+            ) : null}
           </div>
         </StepShell>
       ) : null}
 
       {step === "courses" ? <CoursesStep plannerId={plannerId} onNext={advance} onSkip={advance} /> : null}
+
+      {step === "interests" ? (
+        <InterestsStep plannerId={plannerId} defaultYear={standingYear ?? 1} onNext={advance} onSkip={advance} />
+      ) : null}
 
       {step === "program" ? <ProgramStep plannerId={plannerId} onNext={advance} onSkip={advance} /> : null}
 
@@ -225,6 +318,7 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
   return (
     <StepShell
       eyebrow="Step 2"
+      progress={progressFor("courses")}
       title="Add courses you've already taken"
       subtitle="Search by code — mark each as completed, in progress, or planned."
       footer={
@@ -243,12 +337,12 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
               setQuery(e.target.value);
             }}
             placeholder="Course code or title, e.g. COMP2011"
-            className="min-w-[14rem] flex-1 rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+            className="min-w-[14rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
           />
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px]"
+            className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px]"
           >
             {COURSE_STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -260,14 +354,14 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
             type="button"
             onClick={addCourse}
             disabled={!courseCode || saving}
-            className="rounded-md bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
           >
             {saving ? "Adding…" : "Add"}
           </button>
         </div>
 
         {!courseCode && hits.length > 0 ? (
-          <ul className="flex flex-col gap-1 rounded-md border border-line bg-surface-raised p-1.5">
+          <ul className="flex flex-col gap-1 rounded-xl border border-line bg-surface-raised p-1.5">
             {hits.slice(0, 6).map((hit) => (
               <li key={hit.course_code}>
                 <button
@@ -277,7 +371,7 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
                     setQuery(hit.course_code);
                     setHits([]);
                   }}
-                  className="flex w-full items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-fill"
+                  className="flex w-full items-baseline justify-between gap-2 rounded-xl px-2 py-1.5 text-left text-[13px] hover:bg-fill"
                 >
                   <span className="font-mono">{hit.course_code}</span>
                   <span className="min-w-0 truncate text-[12px] text-muted">{hit.title}</span>
@@ -294,10 +388,164 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
             {added.map((c, i) => (
               <li
                 key={`${c.course_code}-${i}`}
-                className="flex items-center justify-between rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px]"
+                className="flex items-center justify-between rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px]"
               >
                 <span className="font-mono">{c.course_code}</span>
                 <span className="text-[12px] text-muted">{c.status.replaceAll("_", " ")}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </StepShell>
+  );
+}
+
+function InterestsStep({
+  plannerId,
+  defaultYear,
+  onNext,
+  onSkip,
+}: {
+  plannerId: string;
+  defaultYear: number;
+  onNext: () => void;
+  onSkip: () => void;
+}) {
+  const [year, setYear] = useState(defaultYear);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [suggestions, setSuggestions] = useState<CourseHit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const [searched, setSearched] = useState(false);
+
+  useEffect(() => {
+    apiGetCached<{ subjects: string[] }>("/api/catalog/nav")
+      .then((nav) => setSubjects(nav.subjects))
+      .catch(() => {});
+  }, []);
+
+  function toggleSubject(subject: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(subject)) next.delete(subject);
+      else next.add(subject);
+      return next;
+    });
+  }
+
+  async function findSuggestions() {
+    if (selected.size === 0) return;
+    setLoading(true);
+    setSearched(true);
+    try {
+      const results = await Promise.all(
+        [...selected].map((subject) => apiGetCached<CourseHit[]>(`/api/courses?subject=${encodeURIComponent(subject)}`)),
+      );
+      const levelMatch = results.flat().filter((hit) => {
+        const digit = hit.course_code.match(/(\d)/)?.[1];
+        return digit ? Number(digit) === year : false;
+      });
+      setSuggestions(levelMatch.slice(0, 12));
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addCourse(code: string) {
+    try {
+      await apiPost("/api/plan/course", { planner_id: plannerId, course_code: code, status: "planned" });
+      setAdded((prev) => new Set(prev).add(code));
+    } catch {
+      // best-effort — the student can add it again later from Timetable
+    }
+  }
+
+  return (
+    <StepShell
+      eyebrow="Step 3"
+      progress={progressFor("interests")}
+      title="What are you interested in?"
+      subtitle="No major to declare yet — pick a few subjects and your year, and we'll suggest courses that fit. This doesn't lock you into anything."
+      footer={
+        <>
+          <SkipLink onClick={onSkip} />
+          <PrimaryButton onClick={onNext}>{added.size > 0 ? "Continue" : "Continue without adding"}</PrimaryButton>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-[13px]">
+          <span className="text-muted">Year of study this term</span>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[13px]"
+          >
+            {[1, 2, 3, 4].map((y) => (
+              <option key={y} value={y}>
+                Year {y}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div>
+          <p className="mb-1.5 text-[12px] text-muted">Subjects you're curious about</p>
+          <div className="flex flex-wrap gap-1.5">
+            {subjects.map((subject) => (
+              <button
+                key={subject}
+                type="button"
+                onClick={() => toggleSubject(subject)}
+                className={`rounded-full border px-2.5 py-1 font-mono text-[12px] transition-colors ${
+                  selected.has(subject) ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:bg-fill"
+                }`}
+              >
+                {subject}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={findSuggestions}
+          disabled={selected.size === 0 || loading}
+          className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+        >
+          {loading ? "Finding…" : "Suggest courses"}
+        </button>
+
+        {searched && !loading && suggestions.length === 0 ? (
+          <p className="text-[12px] text-muted">No Year {year} courses found in those subjects — try another subject.</p>
+        ) : null}
+
+        {suggestions.length > 0 ? (
+          <ul className="flex flex-col gap-1.5">
+            {suggestions.map((hit) => (
+              <li
+                key={hit.course_code}
+                className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-raised px-3 py-2 text-[13px]"
+              >
+                <span className="min-w-0">
+                  <span className="font-mono">{hit.course_code}</span>{" "}
+                  <span className="text-muted">{hit.title}</span>
+                </span>
+                {added.has(hit.course_code) ? (
+                  <span className="shrink-0 text-[12px] text-accent">Added</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => addCourse(hit.course_code)}
+                    className="shrink-0 rounded-xl border border-line px-2 py-1 text-[12px] hover:bg-fill"
+                  >
+                    Add to plan
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -347,8 +595,10 @@ function ProgramStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
   return (
     <StepShell
       eyebrow="Step 3"
+      progress={progressFor("program")}
       title="Declare a program"
       subtitle="Pick your major (or minor, extended major — whatever fits). You can change this any time from Degree."
+      wide
       footer={
         <>
           <SkipLink onClick={onSkip} />
@@ -356,17 +606,15 @@ function ProgramStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
         </>
       }
     >
-      <div className="flex flex-col gap-2">
-        <div className="h-72 overflow-hidden rounded-md border border-line">
-          <ProgramsPanel programs={programs} declared={declared} selected={selected} onSelect={setSelected} />
-        </div>
+      <div className="flex flex-col gap-3">
+        <ProgramGrid programs={programs} declared={declared} selected={selected} onSelect={setSelected} />
         {error ? <p className="text-[12px] text-accent">{error}</p> : null}
         {selectedProgram ? (
           <button
             type="button"
             onClick={declare}
             disabled={saving || declaredNow}
-            className="self-start rounded-md bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
           >
             {declaredNow ? "Declared" : saving ? "Declaring…" : `Declare ${roleFor(selectedProgram).replaceAll("_", " ")}`}
           </button>
@@ -422,6 +670,7 @@ function ExperienceStep({ plannerId, onNext, onSkip }: { plannerId: string; onNe
   return (
     <StepShell
       eyebrow="Step 4"
+      progress={progressFor("experience")}
       title="Add experiences"
       subtitle="Exchange, Co-op, internships, research — anything that shapes your timeline. Optional."
       footer={
@@ -437,18 +686,18 @@ function ExperienceStep({ plannerId, onNext, onSkip }: { plannerId: string; onNe
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title (e.g. Software Engineering Intern)"
-            className="min-w-[14rem] flex-1 rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+            className="min-w-[14rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
           />
           <input
             value={organization}
             onChange={(e) => setOrganization(e.target.value)}
             placeholder="Organization"
-            className="min-w-[10rem] flex-1 rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+            className="min-w-[10rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
           />
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value)}
-            className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px]"
+            className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px]"
           >
             {KIND_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -462,19 +711,19 @@ function ExperienceStep({ plannerId, onNext, onSkip }: { plannerId: string; onNe
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+            className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+            className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
           />
           <button
             type="button"
             onClick={addExperience}
             disabled={!title.trim() || saving}
-            className="rounded-md bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+            className="rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
           >
             {saving ? "Adding…" : "Add another"}
           </button>

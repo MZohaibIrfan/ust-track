@@ -159,18 +159,21 @@ export function OverviewPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <header className="shrink-0 border-b border-line px-4 py-3">
-        <h1 className="text-[17px] font-semibold tracking-tight">
+      <header className="shrink-0 border-b border-line px-4 py-5">
+        <h1 className="text-[22px] font-semibold tracking-tight text-ink">
           {termLabel ? `Hello — ${termLabel}` : "Hello"}
         </h1>
-        <p className="mt-0.5 text-[12px] text-muted">
+        <p className="mt-1 text-[13px] text-muted">
           {identity ? `${identity.title}${identity.detail ? ` · ${identity.detail}` : ""}` : "No program declared yet."}
         </p>
       </header>
 
       <div className="grid gap-3 p-4 md:grid-cols-3">
-        <section className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
-          <p className="text-[11px] font-medium tracking-wide text-muted uppercase">Pathway & requirements</p>
+        <section className="flex flex-col gap-2 rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">
+            <span className="h-1.5 w-1.5 rounded-full bg-page-degree" />
+            Pathway & requirements
+          </p>
           {profile && profile.declared_programs.length > 0 ? (
             <ul className="flex flex-col gap-1">
               {profile.declared_programs.map((d) => {
@@ -189,6 +192,23 @@ export function OverviewPage() {
                 );
               })}
             </ul>
+          ) : profile && profile.courses.length > 0 ? (
+            <>
+              <p className="text-[13px] text-muted">No major declared yet — {profile.courses.length} course
+                {profile.courses.length === 1 ? "" : "s"} on your plan.
+              </p>
+              <ul className="flex flex-col gap-0.5">
+                {profile.courses.slice(0, 4).map((c) => (
+                  <li key={`${c.course_code}-${c.status}`} className="text-[13px]">
+                    <span className="font-mono">{c.course_code}</span>{" "}
+                    <span className="text-muted">· {c.status.replaceAll("_", " ")}</span>
+                  </li>
+                ))}
+              </ul>
+              {profile.courses.length > 4 ? (
+                <p className="text-[12px] text-muted">+{profile.courses.length - 4} more</p>
+              ) : null}
+            </>
           ) : (
             <p className="text-[13px] text-muted">No program declared yet.</p>
           )}
@@ -197,8 +217,11 @@ export function OverviewPage() {
           </Link>
         </section>
 
-        <section className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
-          <p className="text-[11px] font-medium tracking-wide text-muted uppercase">My experiences</p>
+        <section className="flex flex-col gap-2 rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">
+            <span className="h-1.5 w-1.5 rounded-full bg-page-career" />
+            My experiences
+          </p>
           <p className="text-[13px] text-muted">
             Not tracked yet — Co-op, internships, and exchange will show up here once Career is wired up.
           </p>
@@ -207,8 +230,11 @@ export function OverviewPage() {
           </Link>
         </section>
 
-        <section className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
-          <p className="text-[11px] font-medium tracking-wide text-muted uppercase">This week</p>
+        <section className="flex flex-col gap-2 rounded-2xl border border-line bg-surface-raised p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">
+            <span className="h-1.5 w-1.5 rounded-full bg-page-timetable" />
+            This week
+          </p>
           {upcoming.length > 0 ? (
             <ul className="flex flex-col gap-1.5">
               {upcoming.map((c) => (
@@ -234,7 +260,7 @@ export function OverviewPage() {
       {programBars.length > 0 ? (
         <div className="grid gap-3 px-4 pb-4 md:grid-cols-3">
           {programBars.map((b) => (
-            <div key={b.code} className="flex flex-col gap-1.5 rounded-md border border-line p-3">
+            <div key={b.code} className="flex flex-col gap-1.5 rounded-2xl border border-line bg-surface-raised p-3.5 shadow-soft">
               <p className="text-[13px] font-medium">{b.name}</p>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-fill">
                 <div className="h-full rounded-full bg-accent" style={{ width: `${b.pct}%` }} />
@@ -254,7 +280,7 @@ export function OverviewPage() {
             {conflicts.map((c, i) => (
               <li
                 key={i}
-                className="rounded-md border border-line bg-surface-raised px-3 py-2 text-[13px] text-accent"
+                className="rounded-xl border border-line bg-surface-raised px-3 py-2 text-[13px] text-accent"
               >
                 Schedule conflict: {c.a} {c.a_section} overlaps {c.b} {c.b_section} on {DAY_LABELS[c.weekday] ?? c.weekday}.
               </li>

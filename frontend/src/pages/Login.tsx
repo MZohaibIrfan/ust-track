@@ -52,7 +52,7 @@ export function LoginPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Your name"
-                className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
             </label>
           ) : null}
@@ -65,7 +65,7 @@ export function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@connect.ust.hk"
-              className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
             />
           </label>
 
@@ -78,7 +78,7 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
             />
           </label>
 
@@ -87,7 +87,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="mt-1 rounded-md bg-ink px-3 py-2 text-[13px] font-medium text-bg disabled:opacity-40"
+            className="mt-1 rounded-xl bg-ink px-3 py-2 text-[13px] font-medium text-bg disabled:opacity-40"
           >
             {busy ? "Please wait…" : mode === "login" ? "Log in" : "Sign up"}
           </button>

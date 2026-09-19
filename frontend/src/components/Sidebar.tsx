@@ -57,7 +57,7 @@ export function Sidebar() {
         />
       </div>
 
-      <nav className="flex gap-0.5 overflow-x-auto px-2 pb-2 text-[13px] sm:flex-1 sm:flex-col sm:overflow-visible">
+      <nav className="flex gap-1 overflow-x-auto px-2 pb-2 text-[13px] sm:flex-1 sm:flex-col sm:overflow-visible">
         {links.map((link) => (
           <NavLink
             key={link.href}
@@ -65,9 +65,9 @@ export function Sidebar() {
             end={link.href === "/"}
             title={link.label}
             className={({ isActive }) =>
-              `flex shrink-0 items-center gap-2 rounded-md px-2 py-1.5 transition-colors ${
+              `flex shrink-0 items-center gap-2 rounded-xl px-2.5 py-1.5 transition-all ${
                 collapsed ? "sm:justify-center sm:gap-0 sm:px-1.5" : ""
-              } ${isActive ? "bg-fill font-medium text-ink" : "text-muted hover:bg-fill hover:text-ink"}`
+              } ${isActive ? "bg-ink font-medium text-bg shadow-soft" : "text-muted hover:bg-fill hover:text-ink"}`
             }
           >
             <link.icon className="h-4 w-4 shrink-0" />

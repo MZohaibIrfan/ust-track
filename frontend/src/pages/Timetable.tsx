@@ -92,7 +92,7 @@ function SectionCard({
   onPreview: (data: SectionActionPayload) => void;
 }) {
   if (data.error) {
-    return <p className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
+    return <p className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
   }
 
   const meeting = data.meetings?.[0];
@@ -104,7 +104,7 @@ function SectionCard({
 
   return (
     <div
-      className={`rounded-md border bg-surface-raised px-3 py-2.5 text-[13px] ${
+      className={`rounded-xl border bg-surface-raised px-3 py-2.5 text-[13px] ${
         previewing ? "border-accent" : "border-line"
       }`}
     >
@@ -129,7 +129,7 @@ function SectionCard({
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+            className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
           >
             {replacing ? "Replace" : "Apply"}
           </button>
@@ -161,7 +161,7 @@ function ChatBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] rounded-md bg-ink px-3 py-2 text-[13px] text-bg">
+      <div className="ml-auto max-w-[85%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg">
         {message.content}
       </div>
     );
@@ -331,7 +331,7 @@ export function TimetablePage() {
     <main className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
         <h1 className="text-[15px] font-semibold tracking-tight">Timetable</h1>
-        <div className="inline-flex rounded-md border border-line bg-bg p-0.5 text-[12px]">
+        <div className="inline-flex rounded-xl border border-line bg-bg p-0.5 text-[12px]">
           <button
             onClick={() => setWeekStart((w) => clampDate(addDays(w, -7), bounds.min, bounds.max))}
             disabled={bounds.min !== null && weekStart <= bounds.min}
@@ -358,7 +358,7 @@ export function TimetablePage() {
           <ModeToggle mode={mode} onChange={setMode} />
           <a
             href={`/api/plan.ics?planner_id=${plannerId}`}
-            className="rounded-md border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill"
+            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill"
           >
             .ics
           </a>
@@ -415,7 +415,7 @@ export function TimetablePage() {
                     <button
                       key={s}
                       onClick={() => send(s)}
-                      className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                      className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
                     >
                       {s}
                     </button>
@@ -461,12 +461,12 @@ export function TimetablePage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about classes…"
                 disabled={busy}
-                className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
               >
                 Send
               </button>
