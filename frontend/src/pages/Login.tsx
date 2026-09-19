@@ -41,7 +41,7 @@ export function LoginPage() {
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-cat-dual-soft opacity-50 blur-3xl"
+        className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-gold-soft opacity-70 blur-3xl"
         aria-hidden
       />
 

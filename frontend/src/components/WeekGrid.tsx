@@ -233,7 +233,7 @@ export function WeekGrid({
                 </p>
                 <p
                   className={`mt-0.5 inline-flex items-center justify-center rounded-full px-2 py-0.5 font-mono text-[11px] tabular-nums ${
-                    isToday ? "bg-accent font-medium text-accent-ink shadow-soft" : "text-muted"
+                    isToday ? "bg-gold font-semibold text-gold-ink shadow-soft" : "text-muted"
                   }`}
                 >
                   {formatShortDate(columnDates[i])}
@@ -258,7 +258,7 @@ export function WeekGrid({
             <div
               key={day}
               className={`relative border-l border-line ${
-                isoDate(columnDates[dayIdx]) === todayIso ? "bg-accent-soft/40" : ""
+                isoDate(columnDates[dayIdx]) === todayIso ? "bg-gold-soft/50" : ""
               }`}
             >
               {HOURS.map((h) => (

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../lib/api";
+import { ProfileIcon } from "../components/NavIcons";
+import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../lib/auth";
 import { usePlanner } from "../lib/PlannerContext";
 import type { DeclaredProgram, DegreeProfile } from "../lib/types";
@@ -69,9 +71,7 @@ export function ProfilePage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <header className="shrink-0 border-b border-line px-4 py-5">
-        <h1 className="text-[22px] font-semibold tracking-tight text-ink">Profile</h1>
-      </header>
+      <PageHeader icon={ProfileIcon} badgeClassName="bg-gold-soft text-gold" title="Profile" />
 
       <div className="flex flex-col gap-4 p-4">
         <section className="flex items-center gap-4 rounded-2xl border border-line bg-surface-raised p-5 shadow-soft">

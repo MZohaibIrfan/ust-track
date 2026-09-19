@@ -4,6 +4,8 @@ import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { DegreeDashboard } from "../components/DegreeDashboard";
+import { DegreeIcon } from "../components/NavIcons";
+import { PageHeader } from "../components/PageHeader";
 import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
 import { RequirementGroup } from "../components/RequirementTree";
 import { StudyPlan } from "../components/StudyPlan";
@@ -524,8 +526,7 @@ export function DegreePage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <h1 className="text-[15px] font-semibold tracking-tight">Degree</h1>
+      <PageHeader icon={DegreeIcon} badgeClassName="bg-page-degree/15 text-page-degree" title="Degree">
         {pathways.length > 0 ? (
           <select
             value={pathwayId}
@@ -542,8 +543,8 @@ export function DegreePage() {
         <button
           type="button"
           onClick={() => setBrowseOpen((open) => !open)}
-          className={`rounded-xl px-2.5 py-1 text-[12px] ${
-            browseOpen ? "bg-fill font-medium text-ink" : "border border-line text-muted hover:text-ink"
+          className={`rounded-xl px-2.5 py-1 text-[12px] font-medium ${
+            browseOpen ? "bg-accent text-accent-ink" : "border border-line text-muted hover:text-ink"
           }`}
         >
           Browse catalog
@@ -566,10 +567,8 @@ export function DegreePage() {
             ))}
           </select>
         </label>
-        <div className="ml-auto">
-          <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto create" />
-        </div>
-      </header>
+        <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto create" />
+      </PageHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
         <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft">

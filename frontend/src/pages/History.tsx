@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "../lib/api";
+import { HistoryIcon } from "../components/NavIcons";
+import { PageHeader } from "../components/PageHeader";
 import { usePlanner } from "../lib/PlannerContext";
 import type { AcademicHistoryRow, AcademicHistoryStatus, CourseRecord, DegreeProfile } from "../lib/types";
 
@@ -107,11 +109,16 @@ export function HistoryPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-line px-3 py-2">
-        <h1 className="text-[15px] font-semibold tracking-tight">History</h1>
-        <span className="text-[11px] text-muted">{loading ? "Loading…" : `${rows.length} courses`}</span>
-        <span className="font-mono text-[11px] text-muted">{plannerId}</span>
-      </header>
+      <PageHeader
+        icon={HistoryIcon}
+        badgeClassName="bg-page-history/15 text-page-history"
+        title="History"
+        subtitle={plannerId}
+      >
+        <span className="rounded-full bg-fill px-2 py-0.5 text-[11px] text-muted">
+          {loading ? "Loading…" : `${rows.length} courses`}
+        </span>
+      </PageHeader>
 
       <div className="min-h-0 flex-1 overflow-auto">
         <div
@@ -137,7 +144,7 @@ export function HistoryPage() {
               <col className="w-[4.5rem]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-line bg-fill text-[12px] font-medium text-muted">
+              <tr className="border-b border-line bg-accent-soft text-[12px] font-medium text-muted">
                 <th className="px-3 py-2 font-medium">Course</th>
                 <th className="px-3 py-2 font-medium">Description</th>
                 <th className="px-3 py-2 font-medium">Term</th>
