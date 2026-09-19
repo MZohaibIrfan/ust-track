@@ -56,36 +56,38 @@ function ProgramCard({
   onApply: (data: ProgramActionPayload) => void;
 }) {
   if (data.error) {
-    return <p className="border border-line bg-surface px-4 py-3 text-sm text-muted">{data.error}</p>;
+    return (
+      <p className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>
+    );
   }
 
   const isApplied = kind === "applied" || applied;
   const isRemoved = kind === "removed";
 
   return (
-    <div className="border border-line bg-surface px-4 py-3 text-sm">
+    <div className="rounded-md border border-line bg-surface-raised px-3 py-2.5 text-[13px]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-mono font-medium">
             {data.code} <span className="text-muted">· {data.role}</span>
           </p>
-          <p className="mt-0.5 text-xs text-muted">{data.name}</p>
+          <p className="mt-0.5 text-[12px] text-muted">{data.name}</p>
         </div>
         {isRemoved ? (
-          <span className="shrink-0 text-xs text-muted">Removed</span>
+          <span className="shrink-0 text-[12px] text-muted">Removed</span>
         ) : isApplied ? (
-          <span className="shrink-0 text-xs font-medium text-accent">Declared ✓</span>
+          <span className="shrink-0 text-[12px] font-medium text-accent">Declared</span>
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition-opacity hover:opacity-90"
+            className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
           >
             Apply
           </button>
         )}
       </div>
       {data.overlaps?.length ? (
-        <p className="mt-2 text-xs text-accent">
+        <p className="mt-2 text-[12px] text-accent">
           Overlaps: {data.overlaps.map((o) => `${o.course_code} (${o.programs.join(" + ")})`).join(", ")}
         </p>
       ) : null}
@@ -106,20 +108,27 @@ function ChatBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] bg-accent px-4 py-3 text-sm text-accent-ink">{message.content}</div>
+      <div className="ml-auto max-w-[85%] rounded-md bg-ink px-3 py-2 text-[13px] text-bg">
+        {message.content}
+      </div>
     );
   }
 
   const segments = parseSegments(message.content);
   if (segments.length === 0) {
-    return pending ? <div className="mr-auto max-w-[85%] bg-accent-soft px-4 py-3 text-sm">…</div> : null;
+    return pending ? (
+      <div className="mr-auto max-w-[85%] rounded-md bg-bg px-3 py-2 text-[13px] text-muted">…</div>
+    ) : null;
   }
 
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-2">
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
-          <p key={i} className="whitespace-pre-wrap bg-accent-soft px-4 py-3 text-sm leading-6">
+          <p
+            key={i}
+            className="rounded-md bg-bg px-3 py-2 text-[13px] leading-5 whitespace-pre-wrap"
+          >
             {seg.text.trim()}
           </p>
         ) : (
@@ -230,67 +239,73 @@ export function DegreePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8 sm:py-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-semibold">Degree</h1>
-          <p className="mt-1 text-muted">
-            Program requirements and pathway trade-offs — checked against a real requirement tree, not estimated.
-          </p>
+    <main className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+        <h1 className="text-[15px] font-semibold tracking-tight">Degree</h1>
+        <span className="font-mono text-[11px] text-muted">Demo · {DEMO_PLANNER_ID}</span>
+        <div className="ml-auto">
+          <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto declare" />
         </div>
-        <span className="border border-line bg-surface px-3 py-1.5 font-mono text-xs text-muted">
-          Demo student · {DEMO_PLANNER_ID}
-        </span>
-      </div>
+      </header>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted">My pathway</h2>
-        {profile && profile.declared_programs.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {Object.entries(progressByCode).map(([code, progress]) => (
-              <div key={code} className="flex flex-col gap-3">
-                <p className="text-sm font-medium">
-                  {progress.name} <span className="font-mono text-xs text-muted">({progress.summary})</span>
-                </p>
-                {progress.requirements.map((g, i) => (
-                  <RequirementGroup key={i} group={g} />
-                ))}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="border border-line bg-surface px-6 py-10 text-center text-sm text-muted">
-            Nothing declared yet — ask the agent about your options below.
-          </div>
-        )}
-        {profile && profile.courses.length > 0 ? (
-          <p className="text-xs text-muted">
-            Course history: {profile.courses.map((c) => `${c.course_code} (${c.status})`).join(", ")}
-          </p>
-        ) : null}
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[1fr_18rem]">
-        <div className="flex flex-col border border-line bg-surface">
-          <div
-            ref={scrollRef}
-            className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
-            style={{ minHeight: "20rem", maxHeight: "50vh" }}
-          >
-            {messages.length === 0 ? (
-              <div className="m-auto flex flex-col items-center gap-3 text-center">
-                <p className="text-sm text-muted">Try asking:</p>
-                <div className="flex flex-col gap-2">
-                  {STARTERS.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => send(s)}
-                      className="border border-line px-4 py-2 text-sm transition-colors hover:bg-accent-soft"
-                    >
-                      {s}
-                    </button>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <section className="min-h-0 min-w-0 flex-1 overflow-auto border-b border-line lg:border-r lg:border-b-0">
+          <h2 className="border-b border-line px-4 py-2 text-[12px] font-medium text-muted">Pathway</h2>
+          {profile && profile.declared_programs.length > 0 ? (
+            <div className="grid gap-3 p-3 md:grid-cols-2">
+              {Object.entries(progressByCode).map(([code, progress]) => (
+                <div key={code} className="flex flex-col gap-2">
+                  <p className="text-[13px] font-medium">
+                    {progress.name} <span className="font-mono text-[11px] text-muted">({progress.summary})</span>
+                  </p>
+                  {progress.requirements.map((g, i) => (
+                    <RequirementGroup key={i} group={g} />
                   ))}
                 </div>
+              ))}
+            </div>
+          ) : (
+            <p className="px-4 py-2.5 text-[13px] text-muted">No program declared yet.</p>
+          )}
+          {profile && profile.courses.length > 0 ? (
+            <div>
+              <h3 className="border-t border-b border-line px-4 py-2 text-[12px] font-medium text-muted">
+                Course history
+              </h3>
+              <ul>
+                {profile.courses.map((c) => (
+                  <li
+                    key={`${c.course_code}-${c.status}`}
+                    className="flex items-baseline justify-between gap-3 border-b border-line px-4 py-1.5 text-[13px] last:border-b-0"
+                  >
+                    <span className="font-mono">{c.course_code}</span>
+                    <span className="text-[12px] text-muted">{c.status.replaceAll("_", " ")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="flex h-64 min-h-0 shrink-0 flex-col bg-surface-raised lg:h-auto lg:w-80">
+          <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
+            {messages.length === 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[12px] text-muted">Ask about programs</p>
+                {STARTERS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
+                    className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                  >
+                    {s}
+                  </button>
+                ))}
+                <p className="pt-1 text-[11px] leading-4 text-muted">
+                  {mode === "suggest"
+                    ? "Suggest mode: click Apply to declare a program."
+                    : "Auto declare: the agent declares a program after checking fit."}
+                </p>
               </div>
             ) : (
               messages.map((m, i) => (
@@ -305,42 +320,34 @@ export function DegreePage() {
             )}
           </div>
 
-          {error ? <p className="border-t border-line bg-accent-soft px-4 py-3 text-sm">{error}</p> : null}
+          {error ? (
+            <p className="border-t border-line bg-bg px-2.5 py-1.5 text-[12px] text-accent">{error}</p>
+          ) : null}
 
           <form
             onSubmit={(e) => {
               e.preventDefault();
               send(input);
             }}
-            className="flex gap-2 border-t border-line p-3"
+            className="flex gap-1.5 border-t border-line p-2"
           >
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about programs, requirements, or trade-offs…"
+              placeholder="Ask about programs…"
               disabled={busy}
-              className="flex-1 border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
             />
             <button
               type="submit"
               disabled={busy || !input.trim()}
-              className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-opacity disabled:opacity-40"
+              className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
             >
               Send
             </button>
           </form>
-        </div>
-
-        <div className="flex flex-col gap-3 border border-line bg-surface p-4">
-          <p className="text-sm font-medium">Agent mode</p>
-          <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto declare" />
-          <p className="text-xs leading-5 text-muted">
-            {mode === "suggest"
-              ? "The agent proposes a program — click Apply to declare it."
-              : "The agent declares a program itself once it's checked requirement fit and overlaps."}
-          </p>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }

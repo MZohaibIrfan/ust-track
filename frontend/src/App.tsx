@@ -7,9 +7,9 @@ import { TimetablePage } from "./pages/Timetable";
 
 export function App() {
   return (
-    <div className="flex min-h-full flex-col bg-bg text-ink sm:flex-row">
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-bg text-ink sm:flex-row">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Routes>
           <Route path="/" element={<OverviewPage />} />
           <Route path="/timetable" element={<TimetablePage />} />

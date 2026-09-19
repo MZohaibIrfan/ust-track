@@ -1,8 +1,10 @@
+import { useEffect, useRef, useState } from "react";
 import { DAY_LABELS, WEEKDAYS, addDays, formatShortDate, isoDate, toMinutes, type Weekday } from "../lib/time";
 import type { ClassSelection } from "../lib/types";
 
 const START_MIN = 8 * 60;
 const END_MIN = 20 * 60;
+const HEADER_PX = 40;
 const HOURS = Array.from({ length: (END_MIN - START_MIN) / 60 + 1 }, (_, i) => 8 + i);
 
 type Block = {
@@ -23,8 +25,6 @@ function formatMinutes(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-/** A meeting is active on `date` if that date falls inside its own term window — meetings with no
- * recorded date range are treated as always active rather than hidden. */
 function activeOn(date: string, startDate: string | null, endDate: string | null): boolean {
   if (startDate && date < startDate) return false;
   if (endDate && date > endDate) return false;
@@ -32,6 +32,23 @@ function activeOn(date: string, startDate: string | null, endDate: string | null
 }
 
 export function WeekGrid({ selections, weekStart }: { selections: ClassSelection[]; weekStart: Date }) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const [pxPerMin, setPxPerMin] = useState(0.7);
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const fit = () => {
+      const available = el.clientHeight - HEADER_PX;
+      setPxPerMin(Math.max(0.55, available / (END_MIN - START_MIN)));
+    };
+    fit();
+    const obs = new ResizeObserver(fit);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const y = (minutes: number) => (minutes - START_MIN) * pxPerMin;
   const columnDates = WEEKDAYS.map((_, i) => addDays(weekStart, i));
 
   const blocksByDay: Record<Weekday, Block[]> = { Mo: [], Tu: [], We: [], Th: [], Fr: [] };
@@ -52,30 +69,27 @@ export function WeekGrid({ selections, weekStart }: { selections: ClassSelection
     }
   });
 
-  const totalMin = END_MIN - START_MIN;
+  const totalPx = (END_MIN - START_MIN) * pxPerMin;
 
   return (
-    <div className="overflow-x-auto border border-line bg-surface">
+    <div ref={shellRef} className="h-full min-h-0 overflow-auto bg-surface-raised">
       <div className="min-w-[640px]">
-        <div className="grid grid-cols-[3rem_repeat(5,1fr)] border-b border-line">
+        <div className="sticky top-0 z-10 grid grid-cols-[2.75rem_repeat(5,1fr)] border-b border-line bg-surface-raised">
           <div />
           {WEEKDAYS.map((day, i) => (
-            <div key={day} className="px-2 py-2 text-center">
-              <p className="font-mono text-xs tracking-wide text-muted uppercase">{DAY_LABELS[day]}</p>
-              <p className="font-mono text-xs text-muted">{formatShortDate(columnDates[i])}</p>
+            <div key={day} className="px-1 py-1.5 text-center">
+              <p className="text-[11px] font-medium tracking-wide text-muted uppercase">{DAY_LABELS[day]}</p>
+              <p className="font-mono text-[11px] text-muted tabular-nums">{formatShortDate(columnDates[i])}</p>
             </div>
           ))}
         </div>
-        <div
-          className="relative grid grid-cols-[3rem_repeat(5,1fr)]"
-          style={{ height: `${totalMin}px` }}
-        >
+        <div className="relative grid grid-cols-[2.75rem_repeat(5,1fr)]" style={{ height: `${totalPx}px` }}>
           <div className="relative">
             {HOURS.map((h) => (
               <span
                 key={h}
-                className="absolute right-1 -translate-y-1/2 font-mono text-[10px] text-muted"
-                style={{ top: `${h * 60 - START_MIN}px` }}
+                className={`absolute right-1 font-mono text-[10px] text-muted tabular-nums ${h === 8 ? "top-0.5" : "-translate-y-1/2"}`}
+                style={{ top: h === 8 ? undefined : `${y(h * 60)}px` }}
               >
                 {String(h).padStart(2, "0")}:00
               </span>
@@ -86,18 +100,22 @@ export function WeekGrid({ selections, weekStart }: { selections: ClassSelection
               {HOURS.map((h) => (
                 <div
                   key={h}
-                  className="absolute right-0 left-0 border-t border-line/60"
-                  style={{ top: `${h * 60 - START_MIN}px` }}
+                  className="absolute right-0 left-0 border-t border-line/70"
+                  style={{ top: `${y(h * 60)}px` }}
                 />
               ))}
               {blocksByDay[day].map((b, i) => (
                 <div
                   key={i}
-                  className="absolute right-0.5 left-0.5 overflow-hidden rounded-sm border border-accent/30 bg-accent-soft px-1.5 py-1 text-[11px] leading-tight"
-                  style={{ top: `${b.start - START_MIN}px`, height: `${Math.max(b.end - b.start, 24)}px` }}
+                  className="absolute right-0.5 left-0.5 overflow-hidden rounded-[3px] bg-accent-soft py-0.5 pr-1 pl-1.5 text-[11px] leading-tight"
+                  style={{
+                    top: `${y(b.start)}px`,
+                    height: `${Math.max((b.end - b.start) * pxPerMin, 20)}px`,
+                    boxShadow: "inset 2px 0 0 var(--accent)",
+                  }}
                 >
-                  <p className="font-mono font-medium">{b.label}</p>
-                  <p className="text-muted">
+                  <p className="font-medium">{b.label}</p>
+                  <p className="text-muted tabular-nums">
                     {formatMinutes(b.start)}–{formatMinutes(b.end)}
                     {b.venue ? ` · ${b.venue}` : ""}
                   </p>

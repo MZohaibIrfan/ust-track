@@ -8,21 +8,22 @@ export function ModeToggle({
   mode: AgentMode;
   onChange: (m: AgentMode) => void;
   autoLabel?: string;
+  accent?: string;
 }) {
   return (
-    <div className="inline-flex border border-line text-sm">
+    <div className="inline-flex rounded-md border border-line bg-bg p-0.5 text-[13px]">
       <button
         onClick={() => onChange("suggest")}
-        className={`px-3 py-1.5 transition-colors ${
-          mode === "suggest" ? "bg-accent text-accent-ink" : "text-muted hover:bg-accent-soft"
+        className={`rounded-[5px] px-2.5 py-1 transition-colors ${
+          mode === "suggest" ? "bg-surface-raised font-medium text-ink" : "text-muted hover:text-ink"
         }`}
       >
         Suggest
       </button>
       <button
         onClick={() => onChange("auto")}
-        className={`px-3 py-1.5 transition-colors ${
-          mode === "auto" ? "bg-accent text-accent-ink" : "text-muted hover:bg-accent-soft"
+        className={`rounded-[5px] px-2.5 py-1 transition-colors ${
+          mode === "auto" ? "bg-surface-raised font-medium text-ink" : "text-muted hover:text-ink"
         }`}
       >
         {autoLabel}

@@ -66,7 +66,7 @@ function SectionCard({
   onApply: (data: SectionActionPayload) => void;
 }) {
   if (data.error) {
-    return <p className="border border-line bg-surface px-4 py-3 text-sm text-muted">{data.error}</p>;
+    return <p className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
   }
 
   const meeting = data.meetings?.[0];
@@ -74,14 +74,14 @@ function SectionCard({
   const isRemoved = kind === "removed";
 
   return (
-    <div className="border border-line bg-surface px-4 py-3 text-sm">
+    <div className="rounded-md border border-line bg-surface-raised px-3 py-2.5 text-[13px]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-mono font-medium">
             {data.course_code} {data.section_code}
           </p>
           {meeting?.weekday && meeting.start_time && meeting.end_time ? (
-            <p className="mt-0.5 text-xs text-muted">
+            <p className="mt-0.5 text-[12px] text-muted tabular-nums">
               {DAY_LABELS[meeting.weekday] ?? meeting.weekday} {meeting.start_time.slice(0, 5)}–
               {meeting.end_time.slice(0, 5)}
               {meeting.venue ? ` · ${meeting.venue}` : ""}
@@ -89,13 +89,13 @@ function SectionCard({
           ) : null}
         </div>
         {isRemoved ? (
-          <span className="shrink-0 text-xs text-muted">Removed</span>
+          <span className="shrink-0 text-[12px] text-muted">Removed</span>
         ) : isApplied ? (
-          <span className="shrink-0 text-xs font-medium text-accent">Added ✓</span>
+          <span className="shrink-0 text-[12px] font-medium text-accent">Added</span>
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition-opacity hover:opacity-90"
+            className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
           >
             Apply
           </button>
@@ -123,7 +123,7 @@ function ChatBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] bg-accent px-4 py-3 text-sm text-accent-ink">
+      <div className="ml-auto max-w-[85%] rounded-md bg-ink px-3 py-2 text-[13px] text-bg">
         {message.content}
       </div>
     );
@@ -132,7 +132,7 @@ function ChatBubble({
   const segments = parseSegments(message.content);
   if (segments.length === 0) {
     return pending ? (
-      <div className="mr-auto max-w-[85%] bg-accent-soft px-4 py-3 text-sm">…</div>
+      <div className="mr-auto max-w-[85%] rounded-md bg-bg px-3 py-2 text-[13px] text-muted">…</div>
     ) : null;
   }
 
@@ -140,7 +140,10 @@ function ChatBubble({
     <div className="mr-auto flex max-w-[85%] flex-col gap-2">
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
-          <p key={i} className="whitespace-pre-wrap bg-accent-soft px-4 py-3 text-sm leading-6">
+          <p
+            key={i}
+            className="rounded-md bg-bg px-3 py-2 text-[13px] leading-5 whitespace-pre-wrap"
+          >
             {seg.text.trim()}
           </p>
         ) : (
@@ -264,69 +267,70 @@ export function TimetablePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8 sm:py-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-semibold">Timetable</h1>
-          <p className="mt-1 text-muted">Real class sections, from the catalog to your calendar.</p>
-        </div>
-        <a
-          href={`/api/plan.ics?planner_id=${plannerId}`}
-          className="border border-line bg-surface px-4 py-2 text-sm transition-colors hover:bg-accent-soft"
-        >
-          Download .ics
-        </a>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex border border-line text-sm">
+    <main className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+        <h1 className="text-[15px] font-semibold tracking-tight">Timetable</h1>
+        <div className="inline-flex rounded-md border border-line bg-bg p-0.5 text-[12px]">
           <button
             onClick={() => setWeekStart((w) => clampDate(addDays(w, -7), bounds.min, bounds.max))}
             disabled={bounds.min !== null && weekStart <= bounds.min}
-            className="px-3 py-1.5 text-muted transition-colors hover:bg-accent-soft hover:text-ink disabled:opacity-30"
+            className="rounded-[5px] px-2 py-0.5 text-muted hover:bg-surface-raised hover:text-ink disabled:opacity-30"
           >
-            ← Prev
+            Prev
           </button>
           <button
             onClick={() => setWeekStart(clampDate(mondayOf(new Date()), bounds.min, bounds.max))}
-            className="border-x border-line px-3 py-1.5 text-muted transition-colors hover:bg-accent-soft hover:text-ink"
+            className="rounded-[5px] px-2 py-0.5 text-muted hover:bg-surface-raised hover:text-ink"
           >
             Today
           </button>
           <button
             onClick={() => setWeekStart((w) => clampDate(addDays(w, 7), bounds.min, bounds.max))}
             disabled={bounds.max !== null && weekStart >= bounds.max}
-            className="px-3 py-1.5 text-muted transition-colors hover:bg-accent-soft hover:text-ink disabled:opacity-30"
+            className="rounded-[5px] px-2 py-0.5 text-muted hover:bg-surface-raised hover:text-ink disabled:opacity-30"
           >
-            Next →
+            Next
           </button>
         </div>
-        <p className="font-mono text-sm text-muted">{formatWeekRange(weekStart)}</p>
-      </div>
+        <p className="font-mono text-[12px] text-muted tabular-nums">{formatWeekRange(weekStart)}</p>
+        <div className="ml-auto flex items-center gap-2">
+          <ModeToggle mode={mode} onChange={setMode} />
+          <a
+            href={`/api/plan.ics?planner_id=${plannerId}`}
+            className="rounded-md border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill"
+          >
+            .ics
+          </a>
+        </div>
+      </header>
 
-      <WeekGrid selections={plan?.class_selections ?? []} weekStart={weekStart} />
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="min-h-0 min-w-0 flex-1 border-r border-line">
+          <WeekGrid selections={plan?.class_selections ?? []} weekStart={weekStart} />
+        </div>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_18rem]">
-        <div className="flex flex-col border border-line bg-surface">
+        <section className="flex h-64 min-h-0 shrink-0 flex-col border-t border-line bg-surface-raised lg:h-auto lg:w-80 lg:border-t-0 lg:border-l">
           <div
             ref={scrollRef}
-            className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
-            style={{ minHeight: "20rem", maxHeight: "50vh" }}
+            className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5"
           >
             {messages.length === 0 ? (
-              <div className="m-auto flex flex-col items-center gap-3 text-center">
-                <p className="text-sm text-muted">Try asking:</p>
-                <div className="flex flex-col gap-2">
-                  {STARTERS.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => send(s)}
-                      className="border border-line px-4 py-2 text-sm transition-colors hover:bg-accent-soft"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[12px] text-muted">Ask about a class</p>
+                {STARTERS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
+                    className="rounded-md border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                  >
+                    {s}
+                  </button>
+                ))}
+                <p className="pt-1 text-[11px] leading-4 text-muted">
+                  {mode === "suggest"
+                    ? "Suggest mode: click Apply to put a class on the calendar."
+                    : "Auto apply: the agent adds a class as soon as it finds a fit."}
+                </p>
               </div>
             ) : (
               messages.map((m, i) => (
@@ -341,42 +345,34 @@ export function TimetablePage() {
             )}
           </div>
 
-          {error ? <p className="border-t border-line bg-accent-soft px-4 py-3 text-sm">{error}</p> : null}
+          {error ? (
+            <p className="border-t border-line bg-bg px-2.5 py-1.5 text-[12px] text-accent">{error}</p>
+          ) : null}
 
           <form
             onSubmit={(e) => {
               e.preventDefault();
               send(input);
             }}
-            className="flex gap-2 border-t border-line p-3"
+            className="flex gap-1.5 border-t border-line p-2"
           >
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about classes or your calendar…"
+              placeholder="Ask about classes…"
               disabled={busy}
-              className="flex-1 border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+              className="flex-1 rounded-md border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
             />
             <button
               type="submit"
               disabled={busy || !input.trim()}
-              className="bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-opacity disabled:opacity-40"
+              className="rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
             >
               Send
             </button>
           </form>
-        </div>
-
-        <div className="flex flex-col gap-3 border border-line bg-surface p-4">
-          <p className="text-sm font-medium">Agent mode</p>
-          <ModeToggle mode={mode} onChange={setMode} />
-          <p className="text-xs leading-5 text-muted">
-            {mode === "suggest"
-              ? "The agent proposes a class — click Apply to put it on the calendar."
-              : "The agent adds classes to the calendar itself as soon as it finds a good option."}
-          </p>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }
