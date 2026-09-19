@@ -6,7 +6,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from sqlalchemy import text
 
-from app.api import career, catalog, degree, import_sis, ingest, plan, timetable
+from app.api import auth, career, catalog, degree, import_sis, ingest, plan, timetable
 from app.config import get_settings
 from app.db import engine
 
@@ -27,6 +27,7 @@ app.include_router(ingest.router, prefix="/api")
 app.include_router(timetable.router, prefix="/api")
 app.include_router(degree.router, prefix="/api")
 app.include_router(career.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
 
 
 @app.get("/api/health")

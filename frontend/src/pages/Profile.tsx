@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { getPlannerId } from "../lib/planner";
 import type { DeclaredProgram, DegreeProfile } from "../lib/types";
-
-const DEMO_NAME = "Demo Student";
 
 const MINOR_ROLES = new Set(["minor"]);
 
@@ -29,8 +29,16 @@ function ProgramCard({ program }: { program: DeclaredProgram }) {
 
 export function ProfilePage() {
   const plannerId = getPlannerId();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const displayName = user?.display_name || user?.email || "Signed in";
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  async function handleLogout() {
+    await logout();
+    navigate("/login");
+  }
 
   useEffect(() => {
     apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
@@ -55,13 +63,20 @@ export function ProfilePage() {
       <div className="flex flex-col gap-4 p-4">
         <section className="flex items-center gap-3 rounded-md border border-line bg-surface-raised p-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[18px] font-medium text-accent">
-            {initials(DEMO_NAME)}
+            {initials(displayName)}
           </span>
-          <div className="min-w-0">
-            <p className="truncate text-[16px] font-semibold text-ink">{DEMO_NAME}</p>
-            <p className="text-[12px] text-muted">Demo profile · no account system yet</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[16px] font-semibold text-ink">{displayName}</p>
+            {user?.display_name ? <p className="text-[12px] text-muted">{user.email}</p> : null}
             <p className="mt-1 font-mono text-[11px] text-muted">Planner ID: {plannerId}</p>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-medium hover:bg-fill"
+          >
+            Log out
+          </button>
         </section>
 
         {loading ? (

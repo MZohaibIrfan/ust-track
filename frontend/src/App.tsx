@@ -1,8 +1,11 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
+import { useAuth } from "./lib/auth";
 import { CareerPage } from "./pages/Career";
 import { DegreePage } from "./pages/Degree";
 import { HistoryPage } from "./pages/History";
+import { LoginPage } from "./pages/Login";
+import { OnboardingPage } from "./pages/Onboarding";
 import { OverviewPage } from "./pages/Overview";
 import { ProfilePage } from "./pages/Profile";
 import { TimetablePage } from "./pages/Timetable";
@@ -23,6 +26,31 @@ const pages = [
 
 export function App() {
   const location = useLocation();
+  const { user, loading } = useAuth();
+
+  if (location.pathname === "/login") {
+    return <LoginPage />;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center bg-bg text-[13px] text-muted">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (location.pathname === "/onboarding") {
+    return <OnboardingPage />;
+  }
+
+  if (!user.onboarding_completed_at) {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   if (!pages.some((page) => page.path === location.pathname)) {
     return <Navigate to="/" replace />;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../lib/api";
-import { DEMO_PLANNER_ID } from "../lib/planner";
+import { getPlannerId } from "../lib/planner";
 import type { CourseRecord, DegreeProfile } from "../lib/types";
 
 const GROUPS: { status: string; label: string }[] = [
@@ -13,11 +13,13 @@ export function HistoryPage() {
   const [courses, setCourses] = useState<CourseRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const plannerId = getPlannerId();
+
   useEffect(() => {
-    apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${DEMO_PLANNER_ID}`)
+    apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${plannerId}`)
       .then((profile) => setCourses(profile.courses))
       .catch(() => setError("Couldn't load course history."));
-  }, []);
+  }, [plannerId]);
 
   const grouped = useMemo(() => {
     const byStatus = new Map<string, CourseRecord[]>();
@@ -44,7 +46,7 @@ export function HistoryPage() {
     <main className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-line px-3 py-2">
         <h1 className="text-[15px] font-semibold tracking-tight">History</h1>
-        <span className="font-mono text-[11px] text-muted">Demo · {DEMO_PLANNER_ID}</span>
+        <span className="font-mono text-[11px] text-muted">{plannerId}</span>
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto">

@@ -4,7 +4,7 @@ const catalogCache = new Map<string, { expires: number; data: unknown }>();
 const inFlight = new Map<string, Promise<unknown>>();
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`);
+  const response = await fetch(`${API_BASE}${path}`, { credentials: "include" });
   if (!response.ok) {
     throw new Error(await response.text());
   }
@@ -33,6 +33,7 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -45,6 +46,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -53,7 +55,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
+  const response = await fetch(`${API_BASE}${path}`, { method: "DELETE", credentials: "include" });
   if (!response.ok) {
     throw new Error(await response.text());
   }
@@ -65,5 +67,6 @@ export async function apiPostStream(path: string, body: unknown): Promise<Respon
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "include",
   });
 }

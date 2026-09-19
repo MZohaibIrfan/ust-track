@@ -19,6 +19,12 @@ class PlanBody(BaseModel):
     course_ids: list[str] = []
 
 
+class PlannedCourseBody(BaseModel):
+    planner_id: str
+    course_code: str
+    status: str = "planned"
+
+
 @router.get("/plan")
 def get_plan(planner_id: str, db: Session = Depends(get_db)) -> dict:
     return planner_ops.resolve_plan(db, planner_id)
@@ -27,6 +33,11 @@ def get_plan(planner_id: str, db: Session = Depends(get_db)) -> dict:
 @router.put("/plan")
 def put_plan(body: PlanBody, db: Session = Depends(get_db)) -> dict:
     return planner_ops.replace_plan(db, body.planner_id, body.course_ids, body.section_ids)
+
+
+@router.post("/plan/course")
+def add_planned_course(body: PlannedCourseBody, db: Session = Depends(get_db)) -> dict:
+    return planner_ops.add_planned_course(db, body.planner_id, body.course_code, body.status)
 
 
 @router.get("/plan/conflicts")

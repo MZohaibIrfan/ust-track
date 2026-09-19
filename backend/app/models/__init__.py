@@ -25,6 +25,7 @@ from app.models.planner import (
     StudentExperience,
     StudentProgram,
 )
+from app.models.user import User
 
 __all__ = [
     "AcademicYear",
@@ -53,4 +54,5 @@ __all__ = [
     "StudentExperience",
     "StudentProgram",
     "Term",
+    "User",
 ]
