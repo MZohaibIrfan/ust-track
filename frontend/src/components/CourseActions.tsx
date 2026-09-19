@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { apiGetCached, apiPost } from "../lib/api";
+import { courseHue } from "../lib/courseColor";
 import { DAY_LABELS } from "../lib/time";
 import type { CatalogSection, CourseDetail, Plan, RemovedPayload, SectionActionPayload } from "../lib/types";
 import type { GridSelection } from "./WeekGrid";
@@ -204,7 +205,10 @@ export function CourseActions({
   }
 
   return (
-    <div className="shrink-0 border-b border-line bg-accent-soft px-3 py-2">
+    <div
+      className="tt-block shrink-0 border-b border-line px-3 py-2"
+      style={{ "--course-h": String(courseHue(selected.course_code)) } as CSSProperties}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <p className="font-mono text-[13px] font-medium">
           {selected.course_code} <span className="text-muted">{selected.section_code}</span>

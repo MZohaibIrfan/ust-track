@@ -5,7 +5,7 @@ import { CatalogPanel } from "../components/CatalogPanel";
 import { CourseActions } from "../components/CourseActions";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { ThinkingDots } from "../components/ThinkingDots";
-import { WeekGrid, type GridSelection } from "../components/WeekGrid";
+import { WeekGrid, type GridSelection, type PreviewSelection } from "../components/WeekGrid";
 import { apiGet, apiGetCached, apiPost, apiPostStream } from "../lib/api";
 import {
   DAY_LABELS,
@@ -59,16 +59,36 @@ function describeConflict(entry: SectionActionPayload["conflicts"][number], cour
   return entry.a === courseCode ? `${entry.b} ${entry.b_section}` : `${entry.a} ${entry.a_section}`;
 }
 
+function previewFromAction(data: SectionActionPayload): PreviewSelection[] {
+  return [
+    {
+      course_code: data.course_code,
+      section_code: data.section_code,
+      meetings: data.meetings ?? [],
+    },
+  ];
+}
+
+function previewMatches(preview: PreviewSelection[] | null, data: SectionActionPayload): boolean {
+  return Boolean(
+    preview?.some((item) => item.course_code === data.course_code && item.section_code === data.section_code),
+  );
+}
+
 function SectionCard({
   kind,
   data,
   applied,
+  previewing,
   onApply,
+  onPreview,
 }: {
   kind: "suggest" | "applied" | "removed";
   data: SectionActionPayload;
   applied: boolean;
+  previewing: boolean;
   onApply: (data: SectionActionPayload) => void;
+  onPreview: (data: SectionActionPayload) => void;
 }) {
   if (data.error) {
     return <p className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
@@ -82,9 +102,13 @@ function SectionCard({
     : null;
 
   return (
-    <div className="rounded-md border border-line bg-surface-raised px-3 py-2.5 text-[13px]">
+    <div
+      className={`rounded-md border bg-surface-raised px-3 py-2.5 text-[13px] ${
+        previewing ? "border-accent" : "border-line"
+      }`}
+    >
       <div className="flex items-center justify-between gap-3">
-        <div>
+        <button type="button" onClick={() => onPreview(data)} className="min-w-0 flex-1 text-left">
           <p className="font-mono font-medium">
             {data.course_code} {data.section_code}
           </p>
@@ -96,7 +120,7 @@ function SectionCard({
               {meeting.venue ? ` · ${meeting.venue}` : ""}
             </p>
           ) : null}
-        </div>
+        </button>
         {isRemoved ? (
           <span className="shrink-0 text-[12px] text-muted">Removed</span>
         ) : isApplied ? (
@@ -123,12 +147,16 @@ function ChatBubble({
   message,
   pending,
   appliedKeys,
+  preview,
   onApply,
+  onPreview,
 }: {
   message: ChatMessage;
   pending: boolean;
   appliedKeys: Set<string>;
+  preview: PreviewSelection[] | null;
   onApply: (data: SectionActionPayload) => void;
+  onPreview: (data: SectionActionPayload) => void;
 }) {
   if (message.role === "user") {
     return (
@@ -154,7 +182,9 @@ function ChatBubble({
             kind={seg.kind}
             data={seg.data}
             applied={appliedKeys.has(`${seg.data.course_code}|${seg.data.section_code}`)}
+            previewing={previewMatches(preview, seg.data)}
             onApply={onApply}
+            onPreview={onPreview}
           />
         ),
       )}
@@ -177,6 +207,7 @@ export function TimetablePage() {
   const [error, setError] = useState<string | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<GridSelection | null>(null);
+  const [preview, setPreview] = useState<PreviewSelection[] | null>(null);
 
   // Bounds come from whatever terms the catalog actually has — nothing here is a fixed date.
   const bounds = useMemo(() => {
@@ -233,6 +264,7 @@ export function TimetablePage() {
         replaces_section_code: data.replaces_section_code,
       });
       setAppliedKeys((prev) => new Set(prev).add(`${data.course_code}|${data.section_code}`));
+      setPreview(null);
       applyPlanUpdate(result.plan);
     } catch {
       setError("Couldn't apply that suggestion — check the server is running.");
@@ -316,7 +348,7 @@ export function TimetablePage() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <CatalogPanel plannerId={plannerId} plan={plan} onApplied={applyPlanUpdate} />
+        <CatalogPanel plannerId={plannerId} plan={plan} onApplied={applyPlanUpdate} onPreview={setPreview} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-line">
           {selected ? (
             <CourseActions
@@ -331,6 +363,7 @@ export function TimetablePage() {
             selections={plan?.class_selections ?? []}
             weekStart={weekStart}
             selectedCourse={selected?.course_code ?? null}
+            preview={preview}
             onSelect={(next) => {
               if (!next) {
                 setSelected(null);
@@ -375,7 +408,11 @@ export function TimetablePage() {
                   message={m}
                   pending={busy && i === messages.length - 1}
                   appliedKeys={appliedKeys}
+                  preview={preview}
                   onApply={applySuggestion}
+                  onPreview={(data) => {
+                    setPreview((cur) => (previewMatches(cur, data) ? null : previewFromAction(data)));
+                  }}
                 />
               ))
             )}

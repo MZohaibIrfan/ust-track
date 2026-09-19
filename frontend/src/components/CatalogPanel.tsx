@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { apiGetCached, apiPost } from "../lib/api";
 import { DAY_LABELS } from "../lib/time";
+import type { PreviewSelection } from "./WeekGrid";
 import type {
   CatalogOffering,
   CatalogSection,
@@ -68,14 +69,24 @@ function RowButton({
   );
 }
 
+function toPreview(courseCode: string, sections: CatalogSection[]): PreviewSelection[] {
+  return sections.map((section) => ({
+    course_code: courseCode,
+    section_code: section.section_code,
+    meetings: section.meetings,
+  }));
+}
+
 export function CatalogPanel({
   plannerId,
   plan,
   onApplied,
+  onPreview,
 }: {
   plannerId: string;
   plan: Plan | null;
   onApplied: (plan?: Plan) => void;
+  onPreview?: (preview: PreviewSelection[] | null) => void;
 }) {
   const [view, setView] = useState<View>({ name: "home" });
   const [subjects, setSubjects] = useState<string[]>([]);
@@ -206,6 +217,21 @@ export function CatalogPanel({
   const needsTutorial = Boolean(lecture && offering && offering.sections.some((s) => s.kind === "tutorial"));
   const needsLab = Boolean(lecture && offering && offering.sections.some((s) => s.kind === "lab"));
   const canAdd = Boolean(lecture && (!needsTutorial || tutorial) && (!needsLab || lab));
+
+  useEffect(() => {
+    if (!onPreview) return;
+    if (view.name !== "course" || !detail) {
+      onPreview(null);
+      return;
+    }
+    const chosen = [lecture, tutorial, lab].filter((s): s is CatalogSection => !!s);
+    let sections = chosen;
+    if (sections.length === 0 && offering) {
+      const lectureSections = offering.sections.filter((s) => s.kind === "lecture");
+      sections = lectureSections.length > 0 ? lectureSections : offering.sections;
+    }
+    onPreview(toPreview(detail.course_code, sections));
+  }, [view, detail, offering, lecture, tutorial, lab, onPreview]);
 
   const labelsByFamily = useMemo(() => {
     const grouped = new Map<string, CommonCoreLabel[]>();
