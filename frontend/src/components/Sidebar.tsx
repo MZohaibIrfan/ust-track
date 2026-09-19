@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import logo from "../assets/ustrack-logo.png";
 import { ThemeToggle } from "./ThemeToggle";
 
 const links = [
@@ -13,8 +14,7 @@ export function Sidebar() {
     <header className="flex w-full min-w-0 shrink-0 flex-col border-b border-line bg-bg sm:h-full sm:w-48 sm:border-r sm:border-b-0">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <NavLink to="/" className="flex items-center gap-2">
-          <span className="h-3.5 w-3.5 rounded-[3px] bg-accent" aria-hidden />
-          <span className="text-[13px] font-semibold tracking-tight">USTrack</span>
+          <img src={logo} alt="USTrack" className="h-auto w-28 max-w-full sm:w-40" />
         </NavLink>
         <div className="sm:hidden">
           <ThemeToggle />
