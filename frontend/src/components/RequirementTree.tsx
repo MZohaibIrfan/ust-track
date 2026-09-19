@@ -4,16 +4,30 @@ import type { RequirementGroupProgress, RequirementItemProgress } from "../lib/t
 
 const MARK: Record<NonNullable<RequirementGroupProgress["status"]>, string> = {
   done: "✓",
-  in_progress: "·",
+  in_progress: "◐",
   missing: "○",
   info: "–",
 };
 
 const MARK_COLOR: Record<NonNullable<RequirementGroupProgress["status"]>, string> = {
-  done: "text-accent",
-  in_progress: "text-ink",
+  done: "text-page-degree",
+  in_progress: "text-page-career",
   missing: "text-muted",
   info: "text-muted",
+};
+
+const STATUS_PILL: Record<NonNullable<RequirementItemProgress["status"]>, string> = {
+  done: "bg-page-degree/10 text-page-degree",
+  in_progress: "bg-page-career/10 text-page-career",
+  missing: "bg-fill text-muted",
+  info: "bg-fill text-muted",
+};
+
+const STATUS_LABEL: Record<NonNullable<RequirementItemProgress["status"]>, string> = {
+  done: "Completed",
+  in_progress: "In progress",
+  missing: "Not yet",
+  info: "Note",
 };
 
 function progressLabel(group: RequirementGroupProgress): string {
@@ -32,6 +46,9 @@ function Item({ item, programCode }: { item: RequirementItemProgress; programCod
         {item.course_code && item.note ? (
           <span className="mt-0.5 block text-[12px] text-muted">{completeCatalogText(item.note, programCode)}</span>
         ) : null}
+      </span>
+      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${STATUS_PILL[item.status]}`}>
+        {STATUS_LABEL[item.status]}
       </span>
     </div>
   );
@@ -92,9 +109,15 @@ export function RequirementGroup({
   const hasBody = items.length > 0 || group.children.length > 0;
   const rows = orderedRows({ ...group, items });
   const mixed = items.length > 0 && group.children.length > 0;
+  const bar =
+    status === "done"
+      ? "border-l-page-degree"
+      : status === "in_progress"
+        ? "border-l-page-career"
+        : "border-l-line";
 
   return (
-    <div className={`overflow-hidden rounded-lg border border-line ${depth > 0 ? "bg-bg" : "bg-surface-raised"}`}>
+    <div className={`overflow-hidden rounded-lg border border-line border-l-4 ${bar} ${depth > 0 ? "bg-bg" : "bg-surface-raised"}`}>
       <button
         type="button"
         onClick={() => hasBody && setOpen((value) => !value)}

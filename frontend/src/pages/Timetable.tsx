@@ -5,6 +5,8 @@ import { CatalogPanel } from "../components/CatalogPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { CourseActions } from "../components/CourseActions";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
+import { TimetableIcon } from "../components/NavIcons";
+import { PageHeader } from "../components/PageHeader";
 import { ThinkingDots } from "../components/ThinkingDots";
 import { WeekGrid, type GridSelection, type PreviewSelection } from "../components/WeekGrid";
 import { apiDelete, apiGet, apiGetCached, apiPost, apiPostStream } from "../lib/api";
@@ -129,7 +131,7 @@ function SectionCard({
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+            className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:bg-accent/90"
           >
             {replacing ? "Replace" : "Apply"}
           </button>
@@ -161,7 +163,7 @@ function ChatBubble({
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg">
+      <div className="ml-auto max-w-[85%] rounded-xl bg-accent px-3 py-2 text-[13px] text-accent-ink">
         {message.content}
       </div>
     );
@@ -350,9 +352,8 @@ export function TimetablePage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <h1 className="text-[15px] font-semibold tracking-tight">Timetable</h1>
-        <div className="inline-flex rounded-xl border border-line bg-bg p-0.5 text-[12px]">
+      <PageHeader icon={TimetableIcon} badgeClassName="bg-page-timetable/15 text-page-timetable" title="Timetable">
+        <div className="inline-flex rounded-xl border border-accent/20 bg-accent-soft p-0.5 text-[12px]">
           <button
             onClick={() => setWeekStart((w) => clampDate(addDays(w, -7), bounds.min, bounds.max))}
             disabled={bounds.min !== null && weekStart <= bounds.min}
@@ -362,7 +363,7 @@ export function TimetablePage() {
           </button>
           <button
             onClick={() => setWeekStart(clampDate(mondayOf(new Date()), bounds.min, bounds.max))}
-            className="rounded-[5px] px-2 py-0.5 text-muted hover:bg-surface-raised hover:text-ink"
+            className="rounded-[5px] px-2 py-0.5 font-medium text-accent hover:bg-surface-raised"
           >
             Today
           </button>
@@ -375,20 +376,18 @@ export function TimetablePage() {
           </button>
         </div>
         <p className="font-mono text-[12px] text-muted tabular-nums">{formatWeekRange(weekStart)}</p>
-        <div className="ml-auto flex items-center gap-2">
-          <ModeToggle mode={mode} onChange={setMode} />
-          <a
-            href={`/api/plan.ics?planner_id=${plannerId}`}
-            className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill"
-          >
-            .ics
-          </a>
-        </div>
-      </header>
+        <ModeToggle mode={mode} onChange={setMode} />
+        <a
+          href={`/api/plan.ics?planner_id=${plannerId}`}
+          className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[12px] font-medium hover:bg-fill"
+        >
+          .ics
+        </a>
+      </PageHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
         <CatalogPanel plannerId={plannerId} plan={plan} onApplied={applyPlanUpdate} onPreview={setPreview} />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-line">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line shadow-soft">
           {selected ? (
             <CourseActions
               plannerId={plannerId}
@@ -482,12 +481,12 @@ export function TimetablePage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about classes…"
                 disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="shrink-0 rounded-xl bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
               >
                 Send
               </button>

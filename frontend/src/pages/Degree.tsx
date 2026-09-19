@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { DegreeDashboard } from "../components/DegreeDashboard";
+import { DegreeIcon } from "../components/NavIcons";
+import { DegreeRequirements } from "../components/DegreeRequirements";
+import { PageHeader } from "../components/PageHeader";
 import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
-import { RequirementGroup } from "../components/RequirementTree";
 import { StudyPlan } from "../components/StudyPlan";
 import { ThinkingDots } from "../components/ThinkingDots";
 import { apiDelete, apiGet, apiGetCached, apiPost, apiPostStream, apiPut } from "../lib/api";
@@ -13,13 +16,21 @@ import { DUMMY_EXCHANGE_OPTIONS, programTotals, suggestCourses } from "../lib/de
 import {
   PATHWAY_SCOPES,
   PATHWAY_VIEWS,
-  countStatuses,
-  filterRequirements,
   type PathwayScope,
   type PathwayView,
 } from "../lib/pathway";
 import { getDegreePathwayId, setDegreePathwayId, studentHeading } from "../lib/planner";
 import { usePlanner } from "../lib/PlannerContext";
+import {
+  loadDraft,
+  reconcileDraft,
+  saveDraft,
+  seedFromPathway,
+  snapshotFromPayload,
+  suggestedVariant,
+  type PlanCourse,
+  type TermStatus,
+} from "../lib/studyPlanMaker";
 import type {
   AcademicYear,
   CatalogProgram,
@@ -27,22 +38,34 @@ import type {
   DegreeProfile,
   ProgramActionPayload,
   RequirementProgress,
+  StudyPlanActionPayload,
   StudyPathway,
 } from "../lib/types";
 
-type Pane = "requirements" | "study_plan";
+type DegreeSubpage = "overview" | "requirements" | "plan";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Segment =
   | { kind: "text"; text: string }
-  | { kind: "suggest" | "applied" | "removed"; data: ProgramActionPayload };
+  | { kind: "suggest" | "applied" | "removed"; data: ProgramActionPayload }
+  | { kind: "plan_suggest" | "plan_applied"; data: StudyPlanActionPayload };
 
-const STARTERS = [
-  "What does my course history already count toward?",
-  "Should I add the Mathematics minor?",
-  "Compare my program options",
+const SUBPAGES: { id: DegreeSubpage; to: string; label: string }[] = [
+  { id: "overview", to: "/degree", label: "Overview" },
+  { id: "requirements", to: "/degree/requirements", label: "Requirements" },
+  { id: "plan", to: "/degree/plan", label: "Study plan" },
 ];
 
-const MARKER_RE = /<<PROGRAM_(SUGGEST|APPLIED|REMOVED):([A-Za-z0-9+/=]+)>>/g;
+const STARTERS: Record<DegreeSubpage, string[]> = {
+  overview: ["What does my course history already count toward?", "Should I add the Mathematics minor?", "Compare my program options"],
+  requirements: ["What have I already completed?", "What's still open?", "Which electives should I prioritize?"],
+  plan: [
+    "I want to go on exchange year 3 fall, help me modify my study plan",
+    "Mark year 2 spring as leave",
+    "Do I need to defer if I take a term off?",
+  ],
+};
+
+const MARKER_RE = /<<(PROGRAM_SUGGEST|PROGRAM_APPLIED|PROGRAM_REMOVED|PLAN_SUGGEST|PLAN_APPLIED):([A-Za-z0-9+/=]+)>>/g;
 
 function parseSegments(content: string): Segment[] {
   const segments: Segment[] = [];
@@ -54,8 +77,10 @@ function parseSegments(content: string): Segment[] {
       segments.push({ kind: "text", text: content.slice(lastIndex, match.index) });
     }
     try {
-      const data = JSON.parse(atob(match[2])) as ProgramActionPayload;
-      segments.push({ kind: match[1].toLowerCase() as "suggest" | "applied" | "removed", data });
+      const data = JSON.parse(atob(match[2]));
+      if (match[1] === "PLAN_SUGGEST") segments.push({ kind: "plan_suggest", data });
+      else if (match[1] === "PLAN_APPLIED") segments.push({ kind: "plan_applied", data });
+      else segments.push({ kind: match[1].replace("PROGRAM_", "").toLowerCase() as "suggest" | "applied" | "removed", data });
     } catch {
       // malformed marker — skip it rather than breaking the whole message
     }
@@ -105,7 +130,7 @@ function ProgramCard({
         ) : (
           <button
             onClick={() => onApply(data)}
-            className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
+            className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:bg-accent/90"
           >
             {data.fork ? "Open pathway" : "Apply"}
           </button>
@@ -120,20 +145,63 @@ function ProgramCard({
   );
 }
 
+function PlanCard({
+  kind,
+  data,
+  applied,
+  onApply,
+}: {
+  kind: "plan_suggest" | "plan_applied";
+  data: StudyPlanActionPayload;
+  applied: boolean;
+  onApply: (data: StudyPlanActionPayload) => void;
+}) {
+  if (data.error) {
+    return <p className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] text-muted">{data.error}</p>;
+  }
+  const isApplied = kind === "plan_applied" || applied;
+  return (
+    <div className="rounded-2xl border border-line bg-surface-raised px-3.5 py-3 text-[13px] shadow-soft">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium">{data.title}</p>
+          <p className="mt-0.5 text-[12px] text-muted">{data.summary}</p>
+          {data.deferral?.needed ? (
+            <p className="mt-1.5 text-[12px] text-page-career">Deferral suggested{data.deferral.year ? ` · Year ${data.deferral.year}` : ""}.</p>
+          ) : null}
+        </div>
+        {isApplied ? (
+          <span className="shrink-0 text-[12px] font-medium text-accent">Applied</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onApply(data)}
+            className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:bg-accent/90"
+          >
+            Apply
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ChatBubble({
   message,
   pending,
   appliedKeys,
   onApply,
+  onApplyPlan,
 }: {
   message: ChatMessage;
   pending: boolean;
   appliedKeys: Set<string>;
   onApply: (data: ProgramActionPayload) => void;
+  onApplyPlan: (data: StudyPlanActionPayload) => void;
 }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[85%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg">
+      <div className="ml-auto max-w-[85%] rounded-xl bg-accent px-3 py-2 text-[13px] text-accent-ink">
         {message.content}
       </div>
     );
@@ -146,19 +214,32 @@ function ChatBubble({
 
   return (
     <div className="mr-auto flex max-w-[85%] flex-col gap-2">
-      {segments.map((seg, i) =>
-        seg.kind === "text" ? (
-          <AgentMarkdown key={i}>{seg.text}</AgentMarkdown>
-        ) : (
-          <ProgramCard
-            key={i}
-            kind={seg.kind}
-            data={seg.data}
-            applied={appliedKeys.has(seg.data.code)}
-            onApply={onApply}
-          />
-        ),
-      )}
+      {segments.map((seg, i) => {
+        if (seg.kind === "text") return <AgentMarkdown key={i}>{seg.text}</AgentMarkdown>;
+        if (seg.kind === "plan_suggest" || seg.kind === "plan_applied") {
+          return (
+            <PlanCard
+              key={i}
+              kind={seg.kind}
+              data={seg.data}
+              applied={appliedKeys.has(seg.data.title)}
+              onApply={onApplyPlan}
+            />
+          );
+        }
+        if (seg.kind === "suggest" || seg.kind === "applied" || seg.kind === "removed") {
+          return (
+            <ProgramCard
+              key={i}
+              kind={seg.kind}
+              data={seg.data}
+              applied={appliedKeys.has(seg.data.code)}
+              onApply={onApply}
+            />
+          );
+        }
+        return null;
+      })}
       {pending ? <ThinkingDots boxed={false} /> : null}
     </div>
   );
@@ -166,8 +247,12 @@ function ChatBubble({
 
 export function DegreePage() {
   const { plannerId } = usePlanner();
+  const location = useLocation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const loadGen = useRef(0);
+  const skipSave = useRef(true);
+  const subpage: DegreeSubpage =
+    location.pathname === "/degree/plan" ? "plan" : location.pathname === "/degree/requirements" ? "requirements" : "overview";
 
   const [pathwayId, setPathwayId] = useState(() => getDegreePathwayId(plannerId));
   const [pathways, setPathways] = useState<DegreePathway[]>([]);
@@ -177,7 +262,6 @@ export function DegreePage() {
   const [progress, setProgress] = useState<RequirementProgress | null>(null);
   const [studyPlan, setStudyPlan] = useState<StudyPathway | null>(null);
   const [loadingTree, setLoadingTree] = useState(false);
-  const [pane, setPane] = useState<Pane>("requirements");
   const [mode, setMode] = useState<AgentMode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoaded, setChatLoaded] = useState(false);
@@ -187,12 +271,16 @@ export function DegreePage() {
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
-  const [view, setView] = useState<PathwayView>("remaining");
+  const [view, setView] = useState<PathwayView>("all");
   const [scope, setScope] = useState<PathwayScope>("all");
   const [query, setQuery] = useState("");
   const [browseOpen, setBrowseOpen] = useState(false);
   const [progressByCode, setProgressByCode] = useState<Record<string, RequirementProgress>>({});
   const [years, setYears] = useState<AcademicYear[]>([]);
+  const [variantId, setVariantId] = useState("custom");
+  const [planCourses, setPlanCourses] = useState<PlanCourse[]>([]);
+  const [termStatuses, setTermStatuses] = useState<Record<string, TermStatus>>({});
+  const [planNote, setPlanNote] = useState<string | null>(null);
 
   const declared = profile?.declared_programs ?? [];
   const selectedProgram = programs.find((p) => p.code === selectedCode) ?? null;
@@ -200,7 +288,6 @@ export function DegreePage() {
   const entryYear = profile?.entry_year ?? declared.find((d) => d.intake_year)?.intake_year ?? null;
   const studyPlanCode =
     selectedCode === "COMP" || declared.some((d) => d.code === "COMP") ? "COMP" : selectedCode;
-  const studyPlanAvailable = Boolean(studyPlan?.available);
 
   async function refreshProfile() {
     const gen = ++loadGen.current;
@@ -290,7 +377,6 @@ export function DegreePage() {
     setPathways([]);
     setError(null);
     setBrowseOpen(false);
-    setPane("requirements");
   }, [plannerId]);
 
   useEffect(() => {
@@ -381,6 +467,41 @@ export function DegreePage() {
       });
   }, [studyPlanCode, entryYear, pathwayId, profile]);
 
+  const programCode = studyPlan?.program_code ?? progress?.code ?? studyPlanCode ?? "PLAN";
+  const variant = studyPlan?.variants?.find((item) => item.id === variantId) ?? studyPlan?.variants?.[0];
+
+  useEffect(() => {
+    setVariantId(suggestedVariant(studyPlan));
+  }, [studyPlan?.suggested_variant, studyPlan?.program_code]);
+
+  useEffect(() => {
+    const saved = loadDraft(pathwayId, programCode, variantId);
+    const seeded = saved?.courses ?? seedFromPathway(variant, progress);
+    skipSave.current = true;
+    setPlanCourses(reconcileDraft(seeded, progress));
+    setTermStatuses(saved?.termStatuses ?? {});
+    setPlanNote(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathwayId, programCode, variantId, studyPlan?.program_code]);
+
+  useEffect(() => {
+    if (!progress) return;
+    setPlanCourses((current) => {
+      if (current.length) return reconcileDraft(current, progress);
+      const seeded = seedFromPathway(variant, progress);
+      return seeded.length ? reconcileDraft(seeded, progress) : current;
+    });
+  }, [progress, variant]);
+
+  useEffect(() => {
+    if (skipSave.current) {
+      skipSave.current = false;
+      return;
+    }
+    if (planCourses.length === 0) return;
+    saveDraft(pathwayId, programCode, variantId, planCourses, termStatuses);
+  }, [planCourses, termStatuses, pathwayId, programCode, variantId]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
@@ -403,6 +524,19 @@ export function DegreePage() {
     } catch {
       setError("Couldn't apply that — check the server is running.");
     }
+  }
+
+  function applyPlan(data: StudyPlanActionPayload) {
+    const snapshot = snapshotFromPayload(data);
+    if (!snapshot) {
+      setError(data.error ?? "That study-plan suggestion had no courses to apply.");
+      return;
+    }
+    skipSave.current = false;
+    setPlanCourses(snapshot.courses);
+    setTermStatuses(snapshot.termStatuses);
+    setAppliedKeys((prev) => new Set(prev).add(data.title));
+    setPlanNote(data.deferral?.reason ?? data.summary);
   }
 
   async function declareSelected() {
@@ -460,6 +594,13 @@ export function DegreePage() {
         messages: next,
         planner_id: pathwayId,
         mode,
+        focus: subpage,
+        study_plan: {
+          program_code: programCode,
+          variant_id: variantId,
+          courses: planCourses,
+          term_statuses: termStatuses,
+        },
       });
       if (!res.ok || !res.body) {
         setError(await res.text());
@@ -489,6 +630,14 @@ export function DegreePage() {
           // marker parse failed — still refresh the current pathway
         }
       }
+      const planHits = [...acc.matchAll(/<<PLAN_APPLIED:([A-Za-z0-9+/=]+)>>/g)];
+      if (planHits.length) {
+        try {
+          applyPlan(JSON.parse(atob(planHits[planHits.length - 1][1])) as StudyPlanActionPayload);
+        } catch {
+          // marker parse failed
+        }
+      }
       refreshProfile();
     } catch {
       setError("Couldn't reach the degree agent. Check the server is running.");
@@ -499,11 +648,6 @@ export function DegreePage() {
   }
 
   const scopeBuckets = PATHWAY_SCOPES.find((option) => option.id === scope)?.buckets ?? PATHWAY_SCOPES[0].buckets;
-  const visibleGroups = useMemo(
-    () => (progress ? filterRequirements(progress.requirements, view, scopeBuckets, query) : []),
-    [progress, view, scopeBuckets, query],
-  );
-  const totals = useMemo(() => countStatuses(visibleGroups), [visibleGroups]);
   const identity = studentHeading(profile);
   const suggestions = useMemo(() => suggestCourses(progress, studyPlan), [progress, studyPlan]);
   const dashboardPrograms = useMemo(
@@ -521,11 +665,25 @@ export function DegreePage() {
         }),
     [declared, progressByCode, progress, selectedCode],
   );
+  const combinedProgress = useMemo(() => {
+    const codes = declared.map((item) => item.code).filter((code): code is string => Boolean(code));
+    const seen = new Set<string>();
+    const out: RequirementProgress[] = [];
+    for (const code of codes) {
+      const next = progressByCode[code] ?? (code === selectedCode ? progress : null);
+      if (next && !seen.has(next.code)) {
+        seen.add(next.code);
+        out.push(next);
+      }
+    }
+    if (out.length === 0 && progress) out.push(progress);
+    return out;
+  }, [declared, progressByCode, progress, selectedCode]);
+  const starters = STARTERS[subpage];
 
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <h1 className="text-[15px] font-semibold tracking-tight">Degree</h1>
+      <PageHeader icon={DegreeIcon} badgeClassName="bg-page-degree/15 text-page-degree" title="Degree">
         {pathways.length > 0 ? (
           <select
             value={pathwayId}
@@ -542,8 +700,8 @@ export function DegreePage() {
         <button
           type="button"
           onClick={() => setBrowseOpen((open) => !open)}
-          className={`rounded-xl px-2.5 py-1 text-[12px] ${
-            browseOpen ? "bg-fill font-medium text-ink" : "border border-line text-muted hover:text-ink"
+          className={`rounded-xl px-2.5 py-1 text-[12px] font-medium ${
+            browseOpen ? "bg-accent text-accent-ink" : "border border-line text-muted hover:text-ink"
           }`}
         >
           Browse catalog
@@ -566,18 +724,33 @@ export function DegreePage() {
             ))}
           </select>
         </label>
-        <div className="ml-auto">
-          <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto create" />
-        </div>
-      </header>
+        <ModeToggle mode={mode} onChange={setMode} autoLabel={subpage === "plan" ? "Auto apply" : "Auto create"} />
+      </PageHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-b border-line lg:border-r lg:border-b-0">
+      <nav className="flex shrink-0 gap-1 border-b border-line px-4">
+        {SUBPAGES.map((page) => (
+          <NavLink
+            key={page.id}
+            to={page.to}
+            end={page.id === "overview"}
+            className={({ isActive }) =>
+              `-mb-px border-b-2 px-2.5 py-2 text-[13px] ${
+                isActive ? "border-accent font-medium text-ink" : "border-transparent text-muted hover:text-ink"
+              }`
+            }
+          >
+            {page.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
+        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft">
           {browseOpen ? (
             <>
               <button
                 type="button"
-                className="absolute inset-0 z-20 bg-ink/20"
+                className="absolute inset-0 z-20 bg-accent/20"
                 aria-label="Close catalog"
                 onClick={() => setBrowseOpen(false)}
               />
@@ -596,80 +769,47 @@ export function DegreePage() {
             </>
           ) : null}
           <div className="min-h-0 flex-1 overflow-auto">
-          <DegreeDashboard
-            title={identity?.title ?? "Degree planner"}
-            detail={identity?.detail ?? "Declare a program to see remaining requirements."}
-            programs={dashboardPrograms}
-            selectedCode={selectedCode}
-            onSelect={setSelectedCode}
-            suggestions={suggestions}
-            exchanges={DUMMY_EXCHANGE_OPTIONS}
-          />
-          {progress ? (
-            <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-2">
-              <div className="min-w-0">
-                <h2 className="text-[13px] font-medium">
-                  {progress.name}{" "}
-                  <span className="font-mono text-[11px] text-muted">
-                    {progress.code}
-                    {progress.year ? ` · ${progress.year}` : ""}
-                  </span>
-                </h2>
-                <p className="mt-0.5 text-[12px] text-muted">{progress.summary}</p>
-              </div>
-              {declaredEntry ? (
-                <button
-                  type="button"
-                  onClick={removeSelected}
-                  disabled={acting}
-                  className="shrink-0 rounded-xl border border-line px-2.5 py-1 text-[12px] hover:bg-fill disabled:opacity-40"
-                >
-                  Remove
-                </button>
-              ) : selectedProgram ? (
-                <button
-                  type="button"
-                  onClick={declareSelected}
-                  disabled={acting}
-                  className="shrink-0 rounded-xl bg-ink px-2.5 py-1 text-[12px] font-medium text-bg disabled:opacity-40"
-                >
-                  Declare {roleFor(selectedProgram).replaceAll("_", " ")}
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <h2 className="border-b border-line px-4 py-2 text-[12px] font-medium text-muted">Requirements</h2>
-          )}
-
-          {studyPlanAvailable ? (
-          <div className="flex flex-wrap items-end gap-x-4 border-b border-line px-3">
-            <button
-              type="button"
-              onClick={() => setPane("requirements")}
-              className={`-mb-px border-b-2 py-2 text-[13px] ${
-                pane === "requirements"
-                  ? "border-ink font-medium text-ink"
-                  : "border-transparent text-muted hover:text-ink"
-              }`}
-            >
-              Requirements
-            </button>
-            <button
-              type="button"
-              onClick={() => setPane("study_plan")}
-              className={`-mb-px border-b-2 py-2 text-[13px] ${
-                pane === "study_plan"
-                  ? "border-ink font-medium text-ink"
-                  : "border-transparent text-muted hover:text-ink"
-              }`}
-            >
-              Study plan
-            </button>
-          </div>
+          {subpage === "overview" ? (
+            <DegreeDashboard
+              title={identity?.title ?? "Degree planner"}
+              detail={identity?.detail ?? "Declare a program to see remaining requirements."}
+              programs={dashboardPrograms}
+              selectedCode={selectedCode}
+              onSelect={setSelectedCode}
+              suggestions={suggestions}
+              exchanges={DUMMY_EXCHANGE_OPTIONS}
+            />
           ) : null}
 
-          {pane === "requirements" && progress ? (
+          {subpage === "requirements" ? (
             <>
+              <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-2">
+                <div className="min-w-0">
+                  <h2 className="text-[13px] font-medium">Requirements</h2>
+                  <p className="mt-0.5 text-[12px] text-muted">
+                    Completed, in progress, and remaining items across every declared program.
+                  </p>
+                </div>
+                {declaredEntry ? (
+                  <button
+                    type="button"
+                    onClick={removeSelected}
+                    disabled={acting}
+                    className="shrink-0 rounded-xl border border-line px-2.5 py-1 text-[12px] hover:bg-fill disabled:opacity-40"
+                  >
+                    Remove {selectedCode}
+                  </button>
+                ) : selectedProgram ? (
+                  <button
+                    type="button"
+                    onClick={declareSelected}
+                    disabled={acting}
+                    className="shrink-0 rounded-xl bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink disabled:opacity-40"
+                  >
+                    Declare {roleFor(selectedProgram).replaceAll("_", " ")}
+                  </button>
+                ) : null}
+              </div>
               <div className="flex flex-wrap items-end gap-x-1 border-b border-line bg-fill px-3" role="tablist" aria-label="Requirement section">
                 {PATHWAY_SCOPES.map((option) => (
                   <button
@@ -704,9 +844,6 @@ export function DegreePage() {
                   </button>
                 ))}
                 <div className="ml-auto flex min-w-0 items-center gap-3 py-1.5">
-                  <span className="hidden font-mono text-[11px] text-muted sm:inline">
-                    {totals.missing} open{progress.catalog_year || progress.year ? ` · ${progress.catalog_year ?? progress.year}` : ""}
-                  </span>
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -715,30 +852,37 @@ export function DegreePage() {
                   />
                 </div>
               </div>
+              <DegreeRequirements
+                programs={combinedProgress}
+                view={view}
+                buckets={scopeBuckets}
+                query={query}
+                loading={loadingTree && combinedProgress.length === 0}
+              />
             </>
           ) : null}
 
-          {pane === "study_plan" ? (
-            <StudyPlan data={studyPlan?.available ? studyPlan : null} progress={progress} plannerId={pathwayId} />
-          ) : loadingTree ? (
-            <p className="px-4 py-2.5 text-[13px] text-muted">Loading requirements…</p>
-          ) : progress?.error ? (
-            <p className="px-4 py-2.5 text-[13px] text-muted">{progress.error}</p>
-          ) : progress && visibleGroups.length > 0 ? (
-            <div className="flex flex-col gap-2 p-3">
-              {visibleGroups.map((group, i) => (
-                <RequirementGroup key={`${group.name}-${i}`} group={group} programCode={progress.code} />
-              ))}
-            </div>
-          ) : progress && progress.requirements.length > 0 ? (
-            <p className="px-4 py-2.5 text-[13px] text-muted">
-              Nothing in this view. Switch to All, or pick Electives.
-            </p>
-          ) : (
-            <p className="px-4 py-2.5 text-[13px] text-muted">
-              {selectedCode ? "No requirement data for this program yet." : "Select a program to see its requirements."}
-            </p>
-          )}
+          {subpage === "plan" ? (
+            !profile ? (
+              <p className="px-4 py-2.5 text-[13px] text-muted">Loading study plan…</p>
+            ) : (
+              <StudyPlan
+                data={studyPlan?.available ? studyPlan : null}
+                courses={planCourses}
+                termStatuses={termStatuses}
+                variantId={variantId}
+                onVariantId={setVariantId}
+                onCourses={setPlanCourses}
+                onTermStatuses={setTermStatuses}
+                onReset={() => {
+                  setPlanCourses(seedFromPathway(variant, progress));
+                  setTermStatuses({});
+                  setPlanNote(null);
+                }}
+                note={planNote}
+              />
+            )
+          ) : null}
           </div>
         </section>
 
@@ -753,8 +897,10 @@ export function DegreePage() {
                 <p className="text-[12px] text-muted">No conversation yet with the degree agent.</p>
               ) : (
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-[12px] text-muted">Ask about programs</p>
-                  {STARTERS.map((s) => (
+                  <p className="text-[12px] text-muted">
+                    {subpage === "plan" ? "Ask to rearrange the study plan" : subpage === "requirements" ? "Ask about remaining requirements" : "Ask about programs"}
+                  </p>
+                  {starters.map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
@@ -765,8 +911,12 @@ export function DegreePage() {
                   ))}
                   <p className="pt-1 text-[11px] leading-4 text-muted">
                     {mode === "suggest"
-                      ? "Suggest mode: click Apply to declare a program."
-                      : "Auto declare: the agent declares a program after checking fit."}
+                      ? subpage === "plan"
+                        ? "Suggest mode: click Apply to update the study plan."
+                        : "Suggest mode: click Apply to declare a program."
+                      : subpage === "plan"
+                        ? "Auto apply: the agent updates the study plan once it has a fit."
+                        : "Auto declare: the agent declares a program after checking fit."}
                   </p>
                 </div>
               )
@@ -778,6 +928,7 @@ export function DegreePage() {
                   pending={busy && panelTab === "chat" && i === messages.length - 1}
                   appliedKeys={appliedKeys}
                   onApply={applySuggestion}
+                  onApplyPlan={applyPlan}
                 />
               ))
             )}
@@ -798,14 +949,14 @@ export function DegreePage() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about programs…"
+                placeholder={subpage === "plan" ? "Ask to change the study plan…" : "Ask about programs…"}
                 disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg disabled:opacity-40"
+                className="shrink-0 rounded-xl bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink disabled:opacity-40"
               >
                 Send
               </button>

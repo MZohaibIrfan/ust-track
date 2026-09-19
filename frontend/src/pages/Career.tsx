@@ -3,6 +3,7 @@ import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
 import { CareerIcon } from "../components/NavIcons";
+import { PageHeader } from "../components/PageHeader";
 import { API_BASE, apiDelete, apiGet, apiPost, apiPostStream } from "../lib/api";
 import { usePlanner } from "../lib/PlannerContext";
 import type { CourseMatch, Experience, JobMatchResult } from "../lib/types";
@@ -254,7 +255,7 @@ function TypingDots() {
 function ChatBubble({ message, pending }: { message: ChatMessage; pending: boolean }) {
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[90%] rounded-xl bg-ink px-3 py-2 text-[13px] text-bg whitespace-pre-wrap">
+      <div className="ml-auto max-w-[90%] rounded-xl bg-accent px-3 py-2 text-[13px] text-accent-ink whitespace-pre-wrap">
         {message.content}
       </div>
     );
@@ -540,17 +541,15 @@ export function CareerPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-line px-3 py-2.5">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-page-career/15 text-page-career">
-          <CareerIcon className="size-4" />
-        </span>
-        <div className="min-w-0">
-          <h1 className="text-[15px] font-semibold tracking-tight">Career</h1>
-          <p className="text-[11px] text-muted">Internships, projects, activities, research — and what to take next</p>
-        </div>
+      <PageHeader
+        icon={CareerIcon}
+        badgeClassName="bg-page-career/15 text-page-career"
+        title="Career"
+        subtitle="Internships, projects, activities, research — and what to take next"
+      >
         <button
           onClick={() => setShowCvForm(true)}
-          className="ml-auto flex items-center gap-1.5 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:border-page-career/50 hover:text-page-career"
+          className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:border-page-career/50 hover:text-page-career"
         >
           <Icon className="size-3.5">
             <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
@@ -558,10 +557,10 @@ export function CareerPage() {
           </Icon>
           Generate CV
         </button>
-      </header>
+      </PageHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <section className="min-h-0 min-w-0 flex-1 overflow-auto border-b border-line lg:border-r lg:border-b-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
+        <section className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl border border-line bg-surface-raised shadow-soft">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <h2 className="flex items-center gap-2 text-[13px] font-medium">
               Experience
@@ -574,7 +573,7 @@ export function CareerPage() {
             <button
               onClick={() => setShowForm((v) => !v)}
               className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-[12px] font-medium transition-colors ${
-                showForm ? "bg-fill text-ink hover:bg-line" : "bg-ink text-bg hover:bg-ink/90"
+                showForm ? "bg-fill text-ink hover:bg-line" : "bg-accent text-accent-ink hover:bg-accent/90"
               }`}
             >
               {showForm ? (
@@ -594,7 +593,7 @@ export function CareerPage() {
             <form
               ref={formRef}
               onSubmit={addExperience}
-              className="flex flex-col gap-2.5 border-b border-line bg-surface-raised px-3 py-3"
+              className="flex flex-col gap-2.5 border-b border-line bg-bg px-3 py-3"
             >
               <div className="flex flex-wrap gap-2">
                 <input
@@ -602,19 +601,19 @@ export function CareerPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Title (e.g. Software Engineering Intern)"
                   required
-                  className="min-w-[14rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[14rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
                 <input
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   placeholder={KIND_META[kind]?.orgLabel ?? "Organization"}
-                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
                 <input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Location (e.g. Hong Kong, HK)"
-                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                  className="min-w-[10rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                 />
               </div>
 
@@ -643,7 +642,7 @@ export function CareerPage() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                    className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[13px] outline-none focus:border-accent"
                   />
                 </label>
                 <label className="flex items-center gap-1.5 text-[12px] text-muted">
@@ -652,7 +651,7 @@ export function CareerPage() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="rounded-xl border border-line bg-bg px-2 py-1 text-[13px] outline-none focus:border-accent"
+                    className="rounded-xl border border-line bg-surface-raised px-2 py-1 text-[13px] outline-none focus:border-accent"
                   />
                 </label>
               </div>
@@ -661,13 +660,13 @@ export function CareerPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What did you actually do? One point per line — each becomes its own bullet on your CV."
                 rows={3}
-                className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <div className="flex items-center gap-2">
                 <button
                   type="submit"
                   disabled={saving || !title.trim()}
-                  className="self-start rounded-xl bg-ink px-3 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                  className="self-start rounded-xl bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-ink transition-opacity disabled:opacity-40"
                 >
                   {saving ? "Saving…" : "Save experience"}
                 </button>
@@ -699,7 +698,7 @@ export function CareerPage() {
                 return (
                   <li
                     key={exp.id}
-                    className="group flex items-start gap-2.5 rounded-2xl border border-line bg-surface-raised px-3.5 py-3 shadow-soft transition-all hover:-translate-y-0.5 hover:border-page-career/40 hover:shadow-soft-lg"
+                    className="group flex items-start gap-2.5 rounded-2xl border border-line bg-bg px-3.5 py-3 shadow-soft transition-all hover:-translate-y-0.5 hover:border-page-career/40 hover:shadow-soft-lg"
                   >
                     <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-page-career/15 text-page-career">
                       {meta.icon}
@@ -799,12 +798,12 @@ export function CareerPage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Paste a job description or ask something…"
                 disabled={busy}
-                className="flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="flex items-center gap-1.5 rounded-xl bg-ink px-2.5 py-1.5 text-[12px] font-medium text-bg transition-opacity disabled:opacity-40"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink transition-opacity disabled:opacity-40"
               >
                 <SendIcon />
                 Send

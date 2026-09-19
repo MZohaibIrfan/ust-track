@@ -19,7 +19,7 @@ function FilterPill({
       onClick={onClick}
       className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all ${
         active
-          ? "border-transparent bg-ink text-bg shadow-soft"
+          ? "border-transparent bg-accent text-accent-ink shadow-soft"
           : "border-line bg-surface-raised text-muted hover:border-ink/20 hover:text-ink"
       }`}
     >

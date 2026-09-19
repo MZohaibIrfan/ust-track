@@ -3,34 +3,37 @@
 :root {
   color-scheme: light;
 
-  /* Linear / GitHub light: gray canvas, white panels, one indigo accent */
-  --bg: #f7f8fa;
-  --fill: #eceef2;
-  --surface: #f7f8fa;
+  /* HKUST-flavored light: pale navy canvas, white panels, navy accent + gold pop */
+  --bg: #f5f7fb;
+  --fill: #e9eef6;
+  --surface: #f5f7fb;
   --surface-raised: #ffffff;
-  --ink: #0d0d0d;
-  --muted: #6b6f76;
-  --line: #e2e5ea;
-  --accent: #5e6ad2;
+  --ink: #101f38;
+  --muted: #5c6b84;
+  --line: #dce3ef;
+  --accent: #17325c;
   --accent-ink: #ffffff;
-  --accent-soft: #eef0fb;
+  --accent-soft: #e6ebf5;
+  --gold: #d4a017;
+  --gold-ink: #17325c;
+  --gold-soft: #faf0d6;
   --danger: #dc2626;
   --danger-ink: #ffffff;
   --danger-soft: #fee2e2;
-  --focus: #5e6ad2;
+  --focus: #17325c;
 
-  --page-timetable: #5e6ad2;
+  --page-timetable: #17325c;
   --page-degree: #0f766e;
   --page-history: #0369a1;
-  --page-career: #b45309;
+  --page-career: #b8860b;
 
   /* Program-category palette — soft pastel coding, tuned per theme */
-  --cat-major: #5e6ad2;
-  --cat-major-soft: #eef0fb;
+  --cat-major: #17325c;
+  --cat-major-soft: #e6ebf5;
   --cat-minor: #0f766e;
   --cat-minor-soft: #e6f5f2;
-  --cat-extended-major: #b45309;
-  --cat-extended-major-soft: #fbf0e2;
+  --cat-extended-major: #b8860b;
+  --cat-extended-major-soft: #faf0d6;
   --cat-dual: #7c3aed;
   --cat-dual-soft: #f2ecfd;
   --cat-framework: #0369a1;
@@ -55,25 +58,28 @@ html[data-theme="dark"] {
   --ink: #eeeef0;
   --muted: #8b8d97;
   --line: #2a2b32;
-  --accent: #6e79d6;
-  --accent-ink: #ffffff;
-  --accent-soft: #22243a;
+  --accent: #6f93cc;
+  --accent-ink: #08152a;
+  --accent-soft: #1c222e;
+  --gold: #f0c04a;
+  --gold-ink: #24190a;
+  --gold-soft: #2a2416;
   --danger: #f87171;
   --danger-ink: #1a0a0a;
   --danger-soft: #3a1d1d;
-  --focus: #6e79d6;
+  --focus: #6f93cc;
 
-  --page-timetable: #6e79d6;
+  --page-timetable: #6f93cc;
   --page-degree: #2dd4bf;
   --page-history: #38bdf8;
-  --page-career: #f0a14a;
+  --page-career: #f0c04a;
 
-  --cat-major: #8891e8;
-  --cat-major-soft: #23253c;
+  --cat-major: #6f93cc;
+  --cat-major-soft: #1c222e;
   --cat-minor: #2dd4bf;
   --cat-minor-soft: #16302c;
-  --cat-extended-major: #f0a14a;
-  --cat-extended-major-soft: #362713;
+  --cat-extended-major: #f0c04a;
+  --cat-extended-major-soft: #2a2416;
   --cat-dual: #a78bfa;
   --cat-dual-soft: #2a2340;
   --cat-framework: #38bdf8;
@@ -96,6 +102,9 @@ html[data-theme="dark"] {
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-soft: var(--gold-soft);
   --color-danger: var(--danger);
   --color-danger-ink: var(--danger-ink);
   --color-danger-soft: var(--danger-soft);
@@ -238,14 +247,14 @@ body {
   font-size: 12px;
   background: var(--fill);
   padding: 0.05em 0.3em;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 .agent-md pre {
   overflow-x: auto;
   background: var(--fill);
-  border-radius: 4px;
-  padding: 0.5em 0.65em;
+  border-radius: 10px;
+  padding: 0.65em 0.8em;
 }
 
 .agent-md pre code {
@@ -262,24 +271,24 @@ body {
 .tt-block {
   background: hsl(var(--course-h) 52% 93%);
   color: hsl(var(--course-h) 38% 26%);
-  box-shadow: inset 2px 0 0 hsl(var(--course-h) 54% 46%);
+  box-shadow: inset 2px 0 0 hsl(var(--course-h) 54% 46%), 0 1px 2px rgba(16, 18, 27, 0.05), 0 4px 10px -6px rgba(16, 18, 27, 0.18);
 }
 
 html[data-theme="dark"] .tt-block {
   background: hsl(var(--course-h) 28% 22%);
   color: hsl(var(--course-h) 40% 88%);
-  box-shadow: inset 2px 0 0 hsl(var(--course-h) 48% 62%);
+  box-shadow: inset 2px 0 0 hsl(var(--course-h) 48% 62%), 0 2px 8px -4px rgba(0, 0, 0, 0.5);
 }
 
 .tt-block[data-lit="true"] {
   background: hsl(var(--course-h) 54% 44%);
   color: #fff;
-  box-shadow: inset 2px 0 0 hsl(var(--course-h) 40% 22%);
+  box-shadow: inset 2px 0 0 hsl(var(--course-h) 40% 22%), 0 4px 14px -6px hsl(var(--course-h) 54% 40% / 0.55);
 }
 
 html[data-theme="dark"] .tt-block[data-lit="true"] {
   background: hsl(var(--course-h) 50% 48%);
-  box-shadow: inset 2px 0 0 #fff;
+  box-shadow: inset 2px 0 0 #fff, 0 4px 14px -6px hsl(var(--course-h) 50% 48% / 0.6);
 }
 
 .tt-block[data-dim="true"] {

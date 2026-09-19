@@ -35,10 +35,19 @@ export function LoginPage() {
   }
 
   return (
-    <main className="flex h-full min-h-0 flex-col items-center justify-center bg-bg px-4">
-      <div className="flex w-full max-w-sm flex-col gap-6">
-        <div className="flex flex-col items-center gap-2">
-          <img src={logo} alt="USTrack" className="h-auto w-40" />
+    <main className="relative flex h-full min-h-0 flex-col items-center justify-center overflow-hidden bg-bg px-4">
+      <div
+        className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-accent-soft opacity-60 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-gold-soft opacity-70 blur-3xl"
+        aria-hidden
+      />
+
+      <div className="relative flex w-full max-w-sm flex-col gap-6 rounded-2xl border border-line bg-surface-raised p-8 shadow-soft-lg">
+        <div className="flex flex-col items-center gap-2.5">
+          <img src={logo} alt="USTrack" className="h-auto w-36" />
           <p className="text-[13px] text-muted">
             {mode === "login" ? "Log in to your plan" : "Create your account"}
           </p>
@@ -52,7 +61,7 @@ export function LoginPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Your name"
-                className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
               />
             </label>
           ) : null}
@@ -65,7 +74,7 @@ export function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@connect.ust.hk"
-              className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
             />
           </label>
 
@@ -78,7 +87,7 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+              className="rounded-xl border border-line bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
             />
           </label>
 
@@ -87,7 +96,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="mt-1 rounded-xl bg-ink px-3 py-2 text-[13px] font-medium text-bg disabled:opacity-40"
+            className="mt-1 rounded-xl bg-accent px-3 py-2.5 text-[13px] font-medium text-accent-ink shadow-soft transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-40"
           >
             {busy ? "Please wait…" : mode === "login" ? "Log in" : "Sign up"}
           </button>
