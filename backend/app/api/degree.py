@@ -22,6 +22,8 @@ class AdvisorRequest(BaseModel):
     messages: list[ChatMessage]
     planner_id: str | None = None
     mode: Mode = "suggest"
+    study_plan: dict | None = None
+    focus: str | None = None
 
 
 @router.get("/degree/chat")
@@ -42,7 +44,7 @@ def degree_advisor(body: AdvisorRequest, db: Session = Depends(get_db)) -> Strea
 
     def run():
         acc = ""
-        for chunk in stream_advisor(db, history, body.planner_id, body.mode):
+        for chunk in stream_advisor(db, history, body.planner_id, body.mode, body.study_plan, body.focus):
             acc += chunk
             yield chunk
         chat_ops.append_message(db, body.planner_id, "degree", "assistant", acc)

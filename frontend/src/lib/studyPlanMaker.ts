@@ -15,10 +15,13 @@ export type PlanCourse = {
   season: PlanSeason | null;
 };
 
+export type TermStatus = "regular" | "exchange" | "leave";
+
 export type DraftPlan = {
-  version: 2;
+  version: 2 | 3;
   variantId: string;
   courses: PlanCourse[];
+  termStatuses?: Record<string, TermStatus>;
 };
 
 export const PLAN_YEARS = [1, 2, 3, 4] as const;
@@ -26,6 +29,28 @@ export const PLAN_SEASONS: { id: PlanSeason; label: string }[] = [
   { id: "fall", label: "Fall" },
   { id: "spring", label: "Spring" },
 ];
+export const TERM_STATUSES: { id: TermStatus; label: string }[] = [
+  { id: "regular", label: "Regular" },
+  { id: "exchange", label: "Exchange" },
+  { id: "leave", label: "Leave" },
+];
+export const MAX_TERM_CREDITS = 18;
+
+export function termStatusKey(year: number, season: PlanSeason): string {
+  return `${year}-${season}`;
+}
+
+export function getTermStatus(
+  statuses: Record<string, TermStatus> | undefined,
+  year: number,
+  season: PlanSeason,
+): TermStatus {
+  return statuses?.[termStatusKey(year, season)] ?? "regular";
+}
+
+export function termLabel(year: number, season: PlanSeason): string {
+  return `Year ${year} ${season === "fall" ? "Fall" : "Spring"}`;
+}
 
 const STORAGE_PREFIX = "ust-track:study-draft";
 
@@ -150,15 +175,23 @@ export function loadDraft(plannerId: string, programCode: string, variantId: str
     const raw = localStorage.getItem(draftKey(plannerId, programCode, variantId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as DraftPlan;
-    if (parsed?.version !== 2 || !Array.isArray(parsed.courses) || parsed.courses.length === 0) return null;
+    if ((parsed?.version !== 2 && parsed?.version !== 3) || !Array.isArray(parsed.courses) || parsed.courses.length === 0) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;
   }
 }
 
-export function saveDraft(plannerId: string, programCode: string, variantId: string, courses: PlanCourse[]): void {
-  const draft: DraftPlan = { version: 2, variantId, courses };
+export function saveDraft(
+  plannerId: string,
+  programCode: string,
+  variantId: string,
+  courses: PlanCourse[],
+  termStatuses: Record<string, TermStatus> = {},
+): void {
+  const draft: DraftPlan = { version: 3, variantId, courses, termStatuses };
   try {
     localStorage.setItem(draftKey(plannerId, programCode, variantId), JSON.stringify(draft));
   } catch {
@@ -181,6 +214,157 @@ export function reconcileDraft(courses: PlanCourse[], progress: RequirementProgr
 
 export function emptyYears(): { year: number; label: string }[] {
   return PLAN_YEARS.map((year) => ({ year, label: `Year ${year}` }));
+}
+
+export function planYears(
+  courses: PlanCourse[],
+  termStatuses: Record<string, TermStatus> = {},
+): { year: number; label: string }[] {
+  const years = new Set<number>(PLAN_YEARS);
+  for (const course of courses) {
+    if (course.year) years.add(course.year);
+  }
+  for (const key of Object.keys(termStatuses)) {
+    const year = Number(key.split("-", 1)[0]);
+    if (Number.isFinite(year)) years.add(year);
+  }
+  return [...years].sort((a, b) => a - b).map((year) => ({ year, label: `Year ${year}` }));
+}
+
+export type TermMove = {
+  id: string;
+  code: string | null;
+  label: string;
+  from: string;
+  to: string;
+};
+
+export type TermStatusResult = {
+  courses: PlanCourse[];
+  termStatuses: Record<string, TermStatus>;
+  moved: TermMove[];
+  deferral: { needed: boolean; year?: number; reason: string } | null;
+  error?: string;
+};
+
+function termOrder(year: number, season: PlanSeason): number {
+  return year * 2 + (season === "spring" ? 1 : 0);
+}
+
+function packDisplaced(
+  courses: PlanCourse[],
+  displaced: PlanCourse[],
+  statuses: Record<string, TermStatus>,
+  years: number[],
+  vacated: { year: number; season: PlanSeason },
+): { courses: PlanCourse[]; leftover: PlanCourse[]; moved: TermMove[] } {
+  const next = courses.map((course) => ({ ...course }));
+  const byId = new Map(next.map((course) => [course.id, course]));
+  const after = termOrder(vacated.year, vacated.season);
+  const candidates: { year: number; season: PlanSeason }[] = [];
+  for (const year of years) {
+    for (const season of PLAN_SEASONS.map((item) => item.id)) {
+      if (getTermStatus(statuses, year, season) !== "regular") continue;
+      if (year === vacated.year && season === vacated.season) continue;
+      candidates.push({ year, season });
+    }
+  }
+  const slots = [
+    ...candidates.filter((term) => termOrder(term.year, term.season) > after),
+    ...candidates.filter((term) => termOrder(term.year, term.season) <= after),
+  ];
+
+  const moved: TermMove[] = [];
+  const leftover: PlanCourse[] = [];
+  for (const course of displaced) {
+    const target = byId.get(course.id);
+    if (!target) continue;
+    const need = target.credits || 0;
+    const slot = slots.find((term) => termCredits(next, term.year, term.season) + need <= MAX_TERM_CREDITS);
+    if (!slot) {
+      leftover.push(course);
+      continue;
+    }
+    target.year = slot.year;
+    target.season = slot.season;
+    if (target.code) target.status = "planned";
+    moved.push({
+      id: target.id,
+      code: target.code,
+      label: target.label,
+      from: termLabel(vacated.year, vacated.season),
+      to: termLabel(slot.year, slot.season),
+    });
+  }
+  return { courses: next, leftover, moved };
+}
+
+export function setTermStatus(
+  courses: PlanCourse[],
+  termStatuses: Record<string, TermStatus>,
+  year: number,
+  season: PlanSeason,
+  status: TermStatus,
+): TermStatusResult {
+  const sitting = termCourses(courses, year, season);
+  if (status === "exchange" || status === "leave") {
+    const locked = sitting.filter((course) => course.locked);
+    if (locked.length) {
+      const names = locked
+        .slice(0, 4)
+        .map((course) => course.code ?? course.label)
+        .join(", ");
+      return {
+        courses,
+        termStatuses,
+        moved: [],
+        deferral: null,
+        error: `${termLabel(year, season)} already has taken or in-progress courses (${names}). Pick a future term.`,
+      };
+    }
+    const displaced = sitting.filter((course) => !course.locked);
+    let nextCourses = courses.map((course) =>
+      displaced.some((item) => item.id === course.id)
+        ? { ...course, year: null, season: null, status: "open" as PlanStatus }
+        : course,
+    );
+    const nextStatuses = { ...termStatuses, [termStatusKey(year, season)]: status };
+    let years = planYears(nextCourses, nextStatuses).map((item) => item.year);
+    let packed = packDisplaced(nextCourses, displaced, nextStatuses, years, { year, season });
+    nextCourses = packed.courses;
+    const moved = [...packed.moved];
+    let deferral: TermStatusResult["deferral"] = null;
+    if (packed.leftover.length) {
+      const extra = Math.max(5, (years[years.length - 1] ?? 4) + 1);
+      nextStatuses[termStatusKey(extra, "fall")] = nextStatuses[termStatusKey(extra, "fall")] ?? "regular";
+      nextStatuses[termStatusKey(extra, "spring")] = nextStatuses[termStatusKey(extra, "spring")] ?? "regular";
+      years = planYears(nextCourses, nextStatuses).map((item) => item.year);
+      packed = packDisplaced(nextCourses, packed.leftover, nextStatuses, years, { year, season });
+      nextCourses = packed.courses;
+      moved.push(...packed.moved);
+      const still = packed.leftover.map((course) => course.code ?? course.label);
+      deferral = {
+        needed: true,
+        year: extra,
+        reason: `Remaining courses don't fit in years 1–4 after ${termLabel(year, season)} is ${status}. Year ${extra} was added.${still.length ? ` Still unplaced: ${still.join(", ")}.` : ""}`,
+      };
+    }
+    return { courses: nextCourses, termStatuses: nextStatuses, moved, deferral };
+  }
+  return {
+    courses,
+    termStatuses: { ...termStatuses, [termStatusKey(year, season)]: "regular" },
+    moved: [],
+    deferral: null,
+  };
+}
+
+export function snapshotFromPayload(payload: {
+  courses?: PlanCourse[];
+  term_statuses?: Record<string, TermStatus>;
+}): { courses: PlanCourse[]; termStatuses: Record<string, TermStatus> } | null {
+  if (!payload.courses) return null;
+  return { courses: payload.courses, termStatuses: payload.term_statuses ?? {} };
 }
 
 export function termCourses(courses: PlanCourse[], year: number, season: PlanSeason): PlanCourse[] {

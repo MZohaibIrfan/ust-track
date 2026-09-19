@@ -220,6 +220,39 @@ export type ProgramActionPayload = {
   label?: string;
 };
 
+export type StudyPlanMove = {
+  id?: string;
+  code?: string | null;
+  label?: string;
+  from?: string;
+  to?: string;
+};
+
+export type StudyPlanActionPayload = {
+  ok?: boolean;
+  proposed?: boolean;
+  title: string;
+  summary: string;
+  year?: number;
+  season?: string;
+  status?: string;
+  moved?: StudyPlanMove[];
+  deferral?: { needed: boolean; year?: number; reason?: string } | null;
+  courses?: {
+    id: string;
+    code: string | null;
+    label: string;
+    credits: number;
+    options: string[];
+    locked: boolean;
+    status: "done" | "in_progress" | "planned" | "open";
+    year: number | null;
+    season: "fall" | "spring" | null;
+  }[];
+  term_statuses?: Record<string, "regular" | "exchange" | "leave">;
+  error?: string;
+};
+
 export type Experience = {
   id: string;
   title: string;
