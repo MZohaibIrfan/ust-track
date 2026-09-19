@@ -11,11 +11,30 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Course, Program, StudentCourse, StudentProgram
-from app.services.catalog_queries import get_program_detail, list_academic_years
+from app.models import (
+    AcademicYear,
+    Course,
+    Planner,
+    Program,
+    RequirementGroup,
+    RequirementItem,
+    StudentClassSelection,
+    StudentCourse,
+    StudentProgram,
+)
+from app.services.catalog_queries import (
+    academic_year_for_intake,
+    catalog_year_code,
+    get_program_detail,
+    list_academic_years,
+    program_kind,
+    program_version_for_intake,
+    resolve_program,
+    version_has_requirement_courses,
+)
 from app.services.planner_ops import get_or_create_planner
 
 DONE_STATUSES = {"completed"}
@@ -31,8 +50,33 @@ OR_KINDS = {"or_group"}
 INFO_KINDS = {"remarks", "advisory_pathway", "placeholder"}
 
 
-def find_program(db: Session, program_code: str) -> Program | None:
-    return db.scalar(select(Program).where(func.upper(Program.code) == program_code.strip().upper()))
+def find_program(db: Session, program_code: str, intake_year: int | None = None) -> Program | None:
+    program, _, _ = resolve_program(db, program_code, intake_year)
+    return program
+
+
+def lookup_program(db: Session, program_code: str, intake_year: int | None = None) -> tuple[Program | None, dict[str, Any] | None]:
+    program, candidates, error = resolve_program(db, program_code, intake_year)
+    if program is not None:
+        return program, None
+    payload: dict[str, Any] = {"error": error or f"No program matching {program_code!r}"}
+    if candidates:
+        payload["candidates"] = candidates
+    return None, payload
+
+
+def planner_intake_year(db: Session, planner_id: str) -> int | None:
+    return student_entry_year(db, planner_id)
+
+
+def _program_unavailable(db: Session, program: Program, intake_year: int | None) -> str | None:
+    year = catalog_year_code(intake_year) or "this catalog"
+    version = program_version_for_intake(db, program, intake_year)
+    if version is None:
+        return f"{program.code} was not offered in the {year} catalog"
+    if not version_has_requirement_courses(db, version):
+        return f"{program.code} has no requirement tree in the {year} catalog"
+    return None
 
 
 def student_entry_year(db: Session, planner_id: str, program: Program | None = None) -> int | None:
@@ -300,9 +344,9 @@ def check_requirement_progress(
     program_code: str,
     intake_year: int | None = None,
 ) -> dict[str, Any]:
-    program = find_program(db, program_code)
-    if program is None:
-        return {"error": f"No program with code {program_code}"}
+    program, miss = lookup_program(db, program_code, intake_year)
+    if miss:
+        return miss
 
     year = intake_year if intake_year is not None else student_entry_year(db, planner_id, program)
     detail = get_program_detail(db, program.code, intake_year=year)
@@ -336,6 +380,7 @@ def get_student_profile(db: Session, planner_id: str) -> dict[str, Any]:
         declared.append(
             {
                 "code": program.code if program else None,
+                "name": program.name if program else None,
                 "role": sp.program_role,
                 "intake_year": sp.intake_year,
             }
@@ -347,11 +392,121 @@ def get_student_profile(db: Session, planner_id: str) -> dict[str, Any]:
         course = db.get(Course, sc.course_id)
         history.append({"course_code": course.course_code if course else None, "status": sc.status})
 
+    entry_year = student_entry_year(db, planner_id)
+    major = next((d for d in declared if d["role"] == "major"), declared[0] if declared else None)
+    intake_year = entry_year
+    if intake_year is None and major is not None:
+        intake_year = major["intake_year"]
+    if intake_year is None:
+        intake_year = next((d["intake_year"] for d in declared if d["intake_year"] is not None), None)
+    year = academic_year_for_intake(db, intake_year)
     return {
         "planner_id": planner.planner_id,
-        "entry_year": student_entry_year(db, planner_id),
+        "entry_year": entry_year,
+        "standing_year": _standing_year(db, intake_year),
+        "intake_year": intake_year,
+        "catalog_year": year.code if year else catalog_year_code(intake_year),
         "declared_programs": declared,
         "courses": history,
+    }
+
+
+def _standing_year(db: Session, intake_year: int | None) -> int | None:
+    if intake_year is None:
+        return None
+    latest = db.scalar(select(AcademicYear).order_by(AcademicYear.start_year.desc()))
+    if latest is None:
+        return None
+    return latest.start_year - intake_year + 1
+
+
+def _requirement_courses(db: Session, program: Program, intake_year: int | None = None) -> list[Course]:
+    version = program_version_for_intake(db, program, intake_year)
+    if version is None:
+        return []
+    return list(
+        db.scalars(
+            select(Course)
+            .join(RequirementItem, RequirementItem.course_id == Course.id)
+            .join(RequirementGroup, RequirementItem.group_id == RequirementGroup.id)
+            .where(RequirementGroup.program_version_id == version.id)
+            .distinct()
+        ).all()
+    )
+
+
+def _requirement_course_ids(db: Session, program: Program, intake_year: int | None = None) -> set[str]:
+    return {str(course.id) for course in _requirement_courses(db, program, intake_year)}
+
+
+def rank_add_on_pathways(
+    db: Session,
+    planner_id: str,
+    kinds: list[str] | None = None,
+    limit: int = 5,
+) -> dict[str, Any]:
+    """Rank catalog minors/extended majors by how much of this student's history already sits in their tree."""
+    wanted = set(kinds or ["minor", "extended_major"])
+    profile = get_student_profile(db, planner_id)
+    intake_year = profile.get("intake_year")
+    catalog_year = profile.get("catalog_year")
+    major = next((d for d in profile["declared_programs"] if d["role"] == "major"), None)
+    student_status = {c["course_code"]: c["status"] for c in profile["courses"] if c["course_code"]}
+    student_codes = set(student_status)
+
+    major_codes: set[str] = set()
+    if major and major["code"]:
+        major_program = find_program(db, major["code"])
+        if major_program is not None:
+            major_codes = {c.course_code for c in _requirement_courses(db, major_program, intake_year)}
+
+    options: list[dict[str, Any]] = []
+    skipped_empty: list[str] = []
+    skipped_unavailable: list[dict[str, str]] = []
+    for program in db.scalars(select(Program)).all():
+        kind = program_kind(program.code)
+        if kind not in wanted:
+            continue
+        if major and program.code == major["code"]:
+            continue
+        blocked = _program_unavailable(db, program, intake_year)
+        if blocked:
+            skipped_unavailable.append({"code": program.code, "reason": blocked})
+            continue
+        courses = _requirement_courses(db, program, intake_year)
+        if not courses:
+            skipped_empty.append(program.code)
+            continue
+        codes = {c.course_code for c in courses}
+        counting = sorted(codes & student_codes)
+        missing = sorted(codes - student_codes)
+        major_overlap = sorted(codes & major_codes)
+        options.append(
+            {
+                "code": program.code,
+                "name": program.name,
+                "kind": kind,
+                "role": kind,
+                "catalog_year": catalog_year,
+                "trackable": len(codes),
+                "already": len(counting),
+                "open": len(missing),
+                "already_counting": [{"course_code": code, "status": student_status[code]} for code in counting],
+                "still_open": missing[:8],
+                "major_overlap": major_overlap[:8],
+                "major_overlap_count": len(major_overlap),
+            }
+        )
+
+    options.sort(key=lambda row: (-row["already"], row["open"], row["code"]))
+    return {
+        "major": major,
+        "intake_year": intake_year,
+        "catalog_year": catalog_year,
+        "options": options[: max(1, min(limit, 8))],
+        "considered": len(options),
+        "skipped_empty": skipped_empty,
+        "skipped_unavailable": skipped_unavailable,
     }
 
 
@@ -385,14 +540,19 @@ def _requirement_course_codes(db: Session, program: Program, intake_year: int | 
 
 def check_pathway_compatibility(db: Session, planner_id: str, program_codes: list[str]) -> dict[str, Any]:
     """Course-level overlap across a candidate set of programs (declared + proposed)."""
-    programs: list[Program] = []
-    for code in program_codes:
-        program = find_program(db, code)
-        if program is None:
-            return {"error": f"No program with code {code}"}
-        programs.append(program)
-
     year = student_entry_year(db, planner_id)
+    programs: list[Program] = []
+    resolved: list[str] = []
+    for code in program_codes:
+        program, miss = lookup_program(db, code, year)
+        if miss:
+            return miss
+        blocked = _program_unavailable(db, program, year)
+        if blocked:
+            return {"error": blocked}
+        programs.append(program)
+        resolved.append(program.code)
+
     per_program = {program.code: _requirement_course_codes(db, program, year) for program in programs}
 
     overlaps: list[dict[str, Any]] = []
@@ -408,15 +568,21 @@ def check_pathway_compatibility(db: Session, planner_id: str, program_codes: lis
                 seen_pairs.add(key)
                 overlaps.append({"course_code": course_code, "programs": [codes[i], codes[j]]})
 
-    return {"programs": program_codes, "overlaps": overlaps}
+    return {"programs": resolved, "overlaps": overlaps}
 
 
 def preview_declare_program(db: Session, planner_id: str, program_code: str, role: str) -> dict[str, Any]:
-    program = find_program(db, program_code)
-    if program is None:
-        return {"error": f"No program with code {program_code}"}
+    program, miss = lookup_program(db, program_code)
+    if miss:
+        return miss
+
+    intake_year = planner_intake_year(db, planner_id)
+    blocked = _program_unavailable(db, program, intake_year)
+    if blocked:
+        return {"error": blocked, "code": program.code, "name": program.name}
 
     profile = get_student_profile(db, planner_id)
+    role = _coerce_role(profile, program, role)
     already = [d["code"] for d in profile["declared_programs"]]
     compatibility = (
         check_pathway_compatibility(db, planner_id, [*already, program.code]) if already else {"overlaps": []}
@@ -427,6 +593,8 @@ def preview_declare_program(db: Session, planner_id: str, program_code: str, rol
         "code": program.code,
         "name": program.name,
         "role": role,
+        "catalog_year": profile.get("catalog_year"),
+        "intake_year": intake_year,
         "overlaps": compatibility.get("overlaps", []),
     }
 
@@ -439,11 +607,17 @@ def declare_program(
     intake_year: int | None = None,
 ) -> dict[str, Any]:
     planner = get_or_create_planner(db, planner_id)
-    program = find_program(db, program_code)
-    if program is None:
-        return {"error": f"No program with code {program_code}"}
+    program, miss = lookup_program(db, program_code)
+    if miss:
+        return miss
 
     year = intake_year if intake_year is not None else student_entry_year(db, planner_id)
+    blocked = _program_unavailable(db, program, year)
+    if blocked:
+        return {"error": blocked, "code": program.code, "name": program.name}
+
+    profile = get_student_profile(db, planner_id)
+    role = _coerce_role(profile, program, role)
     existing = db.scalar(
         select(StudentProgram).where(
             StudentProgram.planner_id == planner.id, StudentProgram.program_id == program.id
@@ -481,9 +655,9 @@ def declare_program(
 
 def remove_declared_program(db: Session, planner_id: str, program_code: str) -> dict[str, Any]:
     planner = get_or_create_planner(db, planner_id)
-    program = find_program(db, program_code)
-    if program is None:
-        return {"error": f"No program with code {program_code}"}
+    program, miss = lookup_program(db, program_code)
+    if miss:
+        return miss
 
     removed = (
         db.query(StudentProgram)
@@ -492,6 +666,134 @@ def remove_declared_program(db: Session, planner_id: str, program_code: str) -> 
     )
     db.commit()
     return {"ok": True, "removed": removed > 0}
+
+
+def _coerce_role(profile: dict[str, Any], program: Program, role: str) -> str:
+    kind = program_kind(program.code)
+    if kind in {"minor", "extended_major", "dual_degree"}:
+        return kind
+    has_major = any(d.get("role") == "major" and d.get("code") for d in profile.get("declared_programs", []))
+    same_major = any(d.get("role") == "major" and d.get("code") == program.code for d in profile.get("declared_programs", []))
+    if has_major and not same_major and role in {"major", "second_major", "additional_major"}:
+        return "additional_major"
+    return role
+
+
+PATH_SEP = "::"
+
+
+def pathway_root(planner_id: str) -> str:
+    return planner_id.split(PATH_SEP, 1)[0]
+
+
+def _pathway_label(declared: list[dict[str, Any]]) -> str:
+    if not declared:
+        return "Empty"
+    major = next((d["code"] for d in declared if d["role"] == "major" and d["code"]), None)
+    extras = [d["code"] for d in declared if d["role"] != "major" and d["code"]]
+    head = major or declared[0]["code"] or "Plan"
+    return " + ".join([head, *extras])
+
+
+def _clone_student(db: Session, source_id: str, dest_id: str) -> Planner:
+    src = get_or_create_planner(db, source_id)
+    dest = get_or_create_planner(db, dest_id)
+    dest.entry_year = src.entry_year
+    db.execute(delete(StudentClassSelection).where(StudentClassSelection.planner_id == dest.id))
+    db.execute(delete(StudentCourse).where(StudentCourse.planner_id == dest.id))
+    db.execute(delete(StudentProgram).where(StudentProgram.planner_id == dest.id))
+    db.flush()
+    for row in db.scalars(select(StudentProgram).where(StudentProgram.planner_id == src.id)).all():
+        db.add(
+            StudentProgram(
+                planner_id=dest.id,
+                program_id=row.program_id,
+                program_role=row.program_role,
+                intake_year=row.intake_year,
+            )
+        )
+    for row in db.scalars(select(StudentCourse).where(StudentCourse.planner_id == src.id)).all():
+        db.add(
+            StudentCourse(
+                planner_id=dest.id,
+                course_id=row.course_id,
+                term_id=row.term_id,
+                status=row.status,
+            )
+        )
+    for row in db.scalars(select(StudentClassSelection).where(StudentClassSelection.planner_id == src.id)).all():
+        db.add(StudentClassSelection(planner_id=dest.id, section_id=row.section_id))
+    db.commit()
+    return dest
+
+
+def list_pathways(db: Session, planner_id: str) -> dict[str, Any]:
+    root = pathway_root(planner_id)
+    planners = db.scalars(
+        select(Planner).where(or_(Planner.planner_id == root, Planner.planner_id.like(f"{root}{PATH_SEP}%")))
+    ).all()
+    pathways = []
+    for planner in planners:
+        profile = get_student_profile(db, planner.planner_id)
+        pathways.append(
+            {
+                "planner_id": planner.planner_id,
+                "label": _pathway_label(profile["declared_programs"]),
+                "declared_programs": profile["declared_programs"],
+                "home": planner.planner_id == root,
+            }
+        )
+    pathways.sort(key=lambda row: (not row["home"], row["label"]))
+    return {"root": root, "pathways": pathways}
+
+
+def preview_pathway(db: Session, planner_id: str, program_code: str, role: str) -> dict[str, Any]:
+    preview = preview_declare_program(db, planner_id, program_code, role)
+    if preview.get("error"):
+        return preview
+    profile = get_student_profile(db, planner_id)
+    has_major = any(d["role"] == "major" for d in profile["declared_programs"])
+    preview["fork"] = has_major and preview.get("role") != "major"
+    preview["source_planner_id"] = planner_id
+    return preview
+
+
+def create_pathway(db: Session, planner_id: str, program_code: str, role: str) -> dict[str, Any]:
+    program, miss = lookup_program(db, program_code)
+    if miss:
+        return miss
+
+    profile = get_student_profile(db, planner_id)
+    role = _coerce_role(profile, program, role)
+    has_major = any(d["role"] == "major" for d in profile["declared_programs"])
+
+    if not has_major:
+        result = declare_program(db, planner_id, program.code, role)
+        result["planner_id"] = planner_id
+        result["fork"] = False
+        return result
+
+    dest_id = f"{planner_id}{PATH_SEP}{program.code}"
+    if len(dest_id) > 64:
+        dest_id = dest_id[:64]
+
+    blocked = _program_unavailable(db, program, planner_intake_year(db, planner_id))
+    if blocked:
+        return {"error": blocked, "code": program.code, "name": program.name}
+
+    existing = db.scalar(select(Planner).where(Planner.planner_id == dest_id))
+    if existing is None:
+        _clone_student(db, planner_id, dest_id)
+        result = declare_program(db, dest_id, program.code, role)
+    else:
+        result = declare_program(db, dest_id, program.code, role)
+        result["existing"] = True
+
+    result["planner_id"] = dest_id
+    result["source_planner_id"] = planner_id
+    result["fork"] = True
+    result["label"] = _pathway_label(get_student_profile(db, dest_id)["declared_programs"])
+    return result
 
 
 __all__ = [
@@ -504,4 +806,9 @@ __all__ = [
     "preview_declare_program",
     "declare_program",
     "remove_declared_program",
+    "planner_intake_year",
+    "list_pathways",
+    "preview_pathway",
+    "create_pathway",
+    "rank_add_on_pathways",
 ]

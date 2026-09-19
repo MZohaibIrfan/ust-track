@@ -25,43 +25,35 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.services import degree_ops, planner_ops
-from app.services.catalog_queries import get_course_detail, get_program_detail, list_programs
+from app.services.catalog_queries import get_course_detail, get_program_detail, list_programs, search_programs
 from app.services.search import search_courses
 
 Mode = Literal["suggest", "auto"]
 
 BASE_SYSTEM_PROMPT = (
-    "You are the USTrack degree agent, grounded strictly in HKUST's actual program catalog "
-    "— not general knowledge about universities, degrees, or HKUST specifically. Every fact "
-    "you state about a program, requirement, or credit count must come from a tool result "
-    "in this conversation. You may know real facts about HKUST's actual programs from "
-    "training — never use them here, even to fill a gap or sound more complete; this app's "
-    "catalog is deliberately partial right now and your job is to reflect that, not paper "
-    "over it. If a program or requirement isn't returned by a tool, say plainly that it "
-    "isn't in the catalog yet — do not describe what it 'typically' or 'usually' requires "
-    "from general knowledge of degree programs. You help a student figure out and build "
-    "their pathway — major, minor, extended major, additional major, or dual degree. "
-    "Always call get_student_profile before reasoning about what a student has done, and "
-    "check_requirement_progress before claiming a program is or isn't a good fit — never "
-    "estimate progress from memory. Before proposing or declaring a second program "
-    "(minor/extended/additional/dual), call check_pathway_compatibility against everything "
-    "already declared and mention any course overlaps plainly — an overlapping course "
-    "usually counts toward only one program, not both. When comparing options, present "
-    "them as trade-offs, not rankings: say what each path protects and what it costs, not "
-    "which is 'best'. Keep answers concrete: program codes, requirement group names, "
-    "specific missing courses."
+    "You are the USTrack degree agent. Students talk like students: elec, cs, mech, it, big data, "
+    "electrical, computer engineering. That is enough. Do not ask them to say the official catalog code. "
+    "When they name a field, call search_programs with their words, or pass those words as program_code — "
+    "tools resolve nicknames. HKUST's ELEC is Electronic Engineering; there is no separate Electrical major "
+    "in this catalog, so elec/electrical maps to ELEC. Never invent a program a tool did not return. "
+    "The student's intake_year is the catalog they are bound to (e.g. intake 2025 → 2025-26). "
+    "Never suggest skipped_unavailable or a later catalog year. "
+    "Playbook: (1) get_student_profile first. If a major is already declared, do not ask what their "
+    "major is. (2) If they named a program in slang or English, search_programs then check_requirement_progress "
+    "and propose_pathway for that code. (3) If they want options / a minor / extended major without naming one, "
+    "rank_add_on_pathways, then propose the top 2–3 with catalog data. (4) Talk in tool results: codes, "
+    "already_counting, still_open, major_overlap. (5) list_pathways if they ask what they already opened. "
+    "Write like an advisor: short, specific. No filler."
 )
 
 SUGGEST_ADDENDUM = (
-    " You are in SUGGEST mode: you cannot declare a program yourself. Use "
-    "propose_declare_program to put one forward — the student applies it themselves. "
-    "Never say a program has been declared; only that you're proposing it."
+    " SUGGEST mode: propose_pathway only — the student opens the pathway. Never claim it was created."
 )
 
 AUTO_ADDENDUM = (
-    " You are in AUTO mode: use declare_program directly once you and the student have "
-    "landed on a choice — don't wait for a separate confirmation step. Still run "
-    "check_pathway_compatibility first and tell them about any overlaps you found."
+    " AUTO mode: if they asked for options, still propose_pathway for 2–3 ranked add-ons. "
+    "Use create_pathway only when they named a specific program. After create_pathway, say the label "
+    "and that they can switch to it in the pathway menu."
 )
 
 READ_TOOLS: list[dict[str, Any]] = [
@@ -70,6 +62,22 @@ READ_TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "search_courses",
             "description": "Search the catalog by keyword against course code or title.",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_programs",
+            "description": (
+                "Resolve what the student said (elec, electrical, cs, mech, big data, it, ai) "
+                "to catalog program codes. Call this whenever they name a field in English or slang "
+                "instead of an official code."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {"query": {"type": "string"}},
@@ -93,7 +101,7 @@ READ_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "list_programs",
-            "description": "List every program in the catalog with its code, name, school, and kind (major/minor/extended_major).",
+            "description": "List programs that exist in this student's intake catalog year, with code, name, school, kind, and catalog_year.",
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -116,8 +124,40 @@ READ_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "get_student_profile",
-            "description": "Get the student's declared programs and course history (completed/in-progress/planned).",
+            "description": "Get standing year, intake_year, catalog_year, declared programs, and course history.",
             "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_pathways",
+            "description": "List this student's home profile and any what-if pathways already created.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rank_add_on_pathways",
+            "description": (
+                "Deterministically rank catalog minors and extended majors that existed in this "
+                "student's intake year, by how many of their courses already appear in that year's "
+                "requirement tree. Use this whenever they ask to generate pathways, add a minor, "
+                "or see options. Do not eyeball fit yourself. Ignore skipped_unavailable (not offered "
+                "that year) and skipped_empty."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kinds": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Subset of minor, extended_major. Default both.",
+                    },
+                    "limit": {"type": "integer", "description": "How many options to return (default 5)."},
+                },
+            },
         },
     },
     {
@@ -132,7 +172,7 @@ READ_TOOLS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "program_code": {"type": "string"},
+                    "program_code": {"type": "string", "description": "Official code or slang (elec, cs, big data)."},
                     "intake_year": {"type": "integer"},
                 },
                 "required": ["program_code"],
@@ -191,7 +231,10 @@ MARK_COURSE_TOOL: dict[str, Any] = {
 _DECLARE_PARAMS = {
     "type": "object",
     "properties": {
-        "program_code": {"type": "string"},
+        "program_code": {
+            "type": "string",
+            "description": "Official code or slang (elec, cs, mech, big data).",
+        },
         "role": {
             "type": "string",
             "description": "major, minor, extended_major, second_major, additional_major, dual_degree, or school_requirement",
@@ -203,8 +246,12 @@ _DECLARE_PARAMS = {
 PROPOSE_TOOL: dict[str, Any] = {
     "type": "function",
     "function": {
-        "name": "propose_declare_program",
-        "description": "Propose declaring a program for the student without writing anything yet. Returns any compatibility overlaps.",
+        "name": "propose_pathway",
+        "description": (
+            "Propose a pathway without writing. If the home profile has no major, this is "
+            "declaring that major. If it already has a major, this is a new what-if copy "
+            "plus the extra program (minor/extended/etc.)."
+        ),
         "parameters": _DECLARE_PARAMS,
     },
 }
@@ -212,20 +259,36 @@ PROPOSE_TOOL: dict[str, Any] = {
 DECLARE_TOOL: dict[str, Any] = {
     "type": "function",
     "function": {
-        "name": "declare_program",
-        "description": "Declare a program directly for the student. Returns any compatibility overlaps with what's already declared.",
+        "name": "create_pathway",
+        "description": (
+            "Write a pathway. No major yet: declare it on the home profile. Otherwise copy "
+            "the current profile and declare the extra program on the copy. Returns planner_id "
+            "for the new pathway."
+        ),
         "parameters": _DECLARE_PARAMS,
     },
 }
 
 
 def _tools_for_mode(mode: Mode) -> list[dict[str, Any]]:
-    action_tool = PROPOSE_TOOL if mode == "suggest" else DECLARE_TOOL
-    return [*READ_TOOLS, REMOVE_TOOL, MARK_COURSE_TOOL, action_tool]
+    if mode == "suggest":
+        return [*READ_TOOLS, REMOVE_TOOL, MARK_COURSE_TOOL, PROPOSE_TOOL]
+    return [*READ_TOOLS, REMOVE_TOOL, MARK_COURSE_TOOL, PROPOSE_TOOL, DECLARE_TOOL]
 
 
-def _system_prompt(mode: Mode) -> str:
-    return BASE_SYSTEM_PROMPT + (SUGGEST_ADDENDUM if mode == "suggest" else AUTO_ADDENDUM)
+def _system_prompt(mode: Mode, profile: dict[str, Any] | None = None, roster: str | None = None) -> str:
+    extra = ""
+    if profile:
+        major = next((d for d in profile.get("declared_programs", []) if d.get("role") == "major"), None)
+        extra = (
+            f" This student: standing_year={profile.get('standing_year')}, "
+            f"intake_year={profile.get('intake_year')}, catalog_year={profile.get('catalog_year')}, "
+            f"major={(major or {}).get('code')}. Bind every suggestion to that catalog year."
+        )
+    if roster:
+        extra += f" Programs in their catalog year: {roster}"
+    extra += " Slang: elec/electrical/ee=ELEC Electronic Engineering; cs/comp=COMP; ce=CPEG; mech=MECH; it=MINOR-IT; big data=MINOR-BDT; ai=AI; extended ai=EXTM-AI."
+    return BASE_SYSTEM_PROMPT + extra + (SUGGEST_ADDENDUM if mode == "suggest" else AUTO_ADDENDUM)
 
 
 def _client() -> OpenAI:
@@ -244,22 +307,28 @@ def _marker(kind: str, payload: Any) -> str:
 
 def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any]) -> tuple[Any, str | None]:
     """Returns (result, marker_or_None)."""
+    intake_year = degree_ops.planner_intake_year(db, planner_id)
     if name == "search_courses":
         return search_courses(db, args.get("query", "")), None
+    if name == "search_programs":
+        return search_programs(db, args.get("query", ""), intake_year), None
     if name == "get_course":
-        return get_course_detail(db, args["course_code"]), None
-    entry_year = args.get("intake_year")
-    if entry_year is None:
-        entry_year = degree_ops.student_entry_year(db, planner_id)
+        return get_course_detail(db, args["course_code"], intake_year), None
     if name == "list_programs":
-        return list_programs(db, intake_year=entry_year), None
+        return list_programs(db, intake_year), None
     if name == "get_program":
-        return get_program_detail(db, args["program_code"], entry_year), None
+        return get_program_detail(db, args["program_code"], args.get("intake_year", intake_year)), None
     if name == "get_student_profile":
         return degree_ops.get_student_profile(db, planner_id), None
+    if name == "list_pathways":
+        return degree_ops.list_pathways(db, planner_id), None
+    if name == "rank_add_on_pathways":
+        kinds = args.get("kinds") or None
+        limit = int(args["limit"]) if args.get("limit") is not None else 5
+        return degree_ops.rank_add_on_pathways(db, planner_id, kinds, limit), None
     if name == "check_requirement_progress":
         return degree_ops.check_requirement_progress(
-            db, planner_id, args["program_code"], args.get("intake_year", entry_year)
+            db, planner_id, args["program_code"], args.get("intake_year", intake_year)
         ), None
     if name == "check_pathway_compatibility":
         return degree_ops.check_pathway_compatibility(db, planner_id, args.get("program_codes", [])), None
@@ -268,11 +337,11 @@ def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any])
     if name == "remove_declared_program":
         result = degree_ops.remove_declared_program(db, planner_id, args["program_code"])
         return result, _marker("PROGRAM_REMOVED", result) if result.get("ok") else None
-    if name == "propose_declare_program":
-        result = degree_ops.preview_declare_program(db, planner_id, args["program_code"], args["role"])
+    if name == "propose_pathway" or name == "propose_declare_program":
+        result = degree_ops.preview_pathway(db, planner_id, args["program_code"], args["role"])
         return result, _marker("PROGRAM_SUGGEST", result) if result.get("proposed") else None
-    if name == "declare_program":
-        result = degree_ops.declare_program(db, planner_id, args["program_code"], args["role"], entry_year)
+    if name == "create_pathway" or name == "declare_program":
+        result = degree_ops.create_pathway(db, planner_id, args["program_code"], args["role"])
         return result, _marker("PROGRAM_APPLIED", result) if result.get("ok") else None
     return {"error": f"Unknown tool {name}"}, None
 
@@ -293,10 +362,13 @@ def stream_advisor(
 
     client = _client()
     tools = _tools_for_mode(mode)
-    history: list[dict[str, Any]] = [{"role": "system", "content": _system_prompt(mode)}, *messages]
+    profile = degree_ops.get_student_profile(db, planner_id)
+    offered = list_programs(db, profile.get("intake_year"))
+    roster = "; ".join(f"{row['code']}={row['name']}" for row in offered)
+    history: list[dict[str, Any]] = [{"role": "system", "content": _system_prompt(mode, profile, roster)}, *messages]
 
     try:
-        for _ in range(8):
+        for _ in range(12):
             completion = client.chat.completions.create(
                 model=settings.openrouter_model,
                 messages=history,

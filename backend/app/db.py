@@ -27,6 +27,7 @@ elif _supabase:
     _engine_kwargs["pool_use_lifo"] = True
 else:
     _engine_kwargs["pool_pre_ping"] = True
+    _engine_kwargs["connect_args"] = {"prepare_threshold": None}
 
 engine = create_engine(_url, **_engine_kwargs)
 

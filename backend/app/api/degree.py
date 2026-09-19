@@ -59,6 +59,16 @@ def remove_declaration(body: RemoveBody, db: Session = Depends(get_db)) -> dict:
     return degree_ops.remove_declared_program(db, body.planner_id, body.program_code)
 
 
+@router.get("/degree/pathways")
+def get_pathways(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return degree_ops.list_pathways(db, planner_id)
+
+
+@router.post("/degree/pathways")
+def post_pathway(body: DeclareBody, db: Session = Depends(get_db)) -> dict:
+    return degree_ops.create_pathway(db, body.planner_id, body.program_code, body.role)
+
+
 @router.get("/degree/profile")
 def get_profile(planner_id: str, db: Session = Depends(get_db)) -> dict:
     return degree_ops.get_student_profile(db, planner_id)

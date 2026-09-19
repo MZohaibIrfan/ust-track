@@ -1,4 +1,10 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import logo from "../assets/ustrack-logo.png";
+import { apiGet } from "../lib/api";
+import { getPlannerId, studentHeading } from "../lib/planner";
+import type { DegreeProfile } from "../lib/types";
+import { ProfileMenu } from "./ProfileMenu";
 import { ThemeToggle } from "./ThemeToggle";
 
 const links = [
@@ -10,14 +16,24 @@ const links = [
 ];
 
 export function Sidebar() {
+  const [identity, setIdentity] = useState<{ title: string; detail: string } | null>(null);
+
+  useEffect(() => {
+    apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${getPlannerId()}`)
+      .then((profile) => setIdentity(studentHeading(profile)))
+      .catch(() => {
+        // backend may not be running yet
+      });
+  }, []);
+
   return (
     <header className="flex w-full min-w-0 shrink-0 flex-col border-b border-line bg-bg sm:h-full sm:w-48 sm:border-r sm:border-b-0">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <NavLink to="/" className="flex items-center gap-2">
-          <span className="h-3.5 w-3.5 rounded-[3px] bg-accent" aria-hidden />
-          <span className="text-[13px] font-semibold tracking-tight">USTrack</span>
+          <img src={logo} alt="USTrack" className="h-auto w-28 max-w-full sm:w-40" />
         </NavLink>
-        <div className="sm:hidden">
+        <div className="flex items-center gap-2 sm:hidden">
+          <ProfileMenu identity={identity} plannerId={getPlannerId()} />
           <ThemeToggle />
         </div>
       </div>
@@ -40,8 +56,13 @@ export function Sidebar() {
       </nav>
 
       <div className="hidden flex-col gap-2 px-3 py-3 sm:flex">
-        <ThemeToggle />
-        <p className="text-[11px] leading-4 text-muted">HKUST catalog</p>
+        <p className="text-[11px] leading-4 text-muted">
+          {identity ? identity.title : "HKUST catalog"}
+        </p>
+        <div className="flex items-center justify-between gap-2">
+          <ProfileMenu identity={identity} plannerId={getPlannerId()} />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

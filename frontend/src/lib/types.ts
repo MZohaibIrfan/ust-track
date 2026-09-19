@@ -112,12 +112,20 @@ export type RemovedPayload = {
   plan?: Plan;
 };
 
-export type DeclaredProgram = { code: string | null; role: string; intake_year: number | null };
+export type DeclaredProgram = {
+  code: string | null;
+  name?: string | null;
+  role: string;
+  intake_year: number | null;
+};
 export type CourseRecord = { course_code: string | null; status: string };
 
 export type DegreeProfile = {
   planner_id: string;
   entry_year: number | null;
+  standing_year?: number | null;
+  intake_year?: number | null;
+  catalog_year?: string | null;
   declared_programs: DeclaredProgram[];
   courses: CourseRecord[];
 };
@@ -162,6 +170,8 @@ export type RequirementProgress = {
   year?: string | null;
   duration?: string | null;
   award_title?: string | null;
+  catalog_year?: string | null;
+  intake_year?: number | null;
   requirements: RequirementGroupProgress[];
   summary?: string;
   error?: string;
@@ -177,4 +187,14 @@ export type ProgramActionPayload = {
   role: string;
   overlaps: ProgramOverlap[];
   error?: string;
+  fork?: boolean;
+  planner_id?: string;
+  label?: string;
+};
+
+export type DegreePathway = {
+  planner_id: string;
+  label: string;
+  home: boolean;
+  declared_programs: DeclaredProgram[];
 };

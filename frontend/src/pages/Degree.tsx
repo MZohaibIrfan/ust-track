@@ -1,14 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentMarkdown } from "../components/AgentMarkdown";
+import { AgentPanel } from "../components/AgentPanel";
 import { ModeToggle, type AgentMode } from "../components/ModeToggle";
 import { ProgramsPanel, roleFor } from "../components/ProgramsPanel";
 import { RequirementGroup } from "../components/RequirementTree";
 import { ThinkingDots } from "../components/ThinkingDots";
 import { apiGet, apiGetCached, apiPost, apiPostStream, apiPut } from "../lib/api";
-import { DEMO_PLANNER_ID } from "../lib/planner";
+import {
+  DEFAULT_SCOPE,
+  PATHWAY_SCOPES,
+  PATHWAY_VIEWS,
+  countStatuses,
+  filterRequirements,
+  type PathwayScope,
+  type PathwayView,
+} from "../lib/pathway";
+import { getDegreePathwayId, getPlannerId, setDegreePathwayId } from "../lib/planner";
 import type {
   AcademicYear,
   CatalogProgram,
+  DegreePathway,
   DegreeProfile,
   ProgramActionPayload,
   RequirementProgress,
@@ -82,13 +93,15 @@ function ProgramCard({
         {isRemoved ? (
           <span className="shrink-0 text-[12px] text-muted">Removed</span>
         ) : isApplied ? (
-          <span className="shrink-0 text-[12px] font-medium text-accent">Declared</span>
+          <span className="shrink-0 text-[12px] font-medium text-accent">
+            {data.fork ? data.label ?? "Pathway created" : "Declared"}
+          </span>
         ) : (
           <button
             onClick={() => onApply(data)}
             className="shrink-0 rounded-md bg-ink px-2.5 py-1 text-[12px] font-medium text-bg hover:bg-ink/90"
           >
-            Apply
+            {data.fork ? "Open pathway" : "Apply"}
           </button>
         )}
       </div>
@@ -148,6 +161,8 @@ function ChatBubble({
 export function DegreePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [pathwayId, setPathwayId] = useState(getDegreePathwayId);
+  const [pathways, setPathways] = useState<DegreePathway[]>([]);
   const [profile, setProfile] = useState<DegreeProfile | null>(null);
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [programs, setPrograms] = useState<CatalogProgram[]>([]);
@@ -161,6 +176,9 @@ export function DegreePage() {
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<PathwayView>("remaining");
+  const [scope, setScope] = useState<PathwayScope>(DEFAULT_SCOPE);
+  const [query, setQuery] = useState("");
 
   const declared = profile?.declared_programs ?? [];
   const selectedProgram = programs.find((p) => p.code === selectedCode) ?? null;
@@ -169,7 +187,11 @@ export function DegreePage() {
 
   async function refreshProfile() {
     try {
-      const p = await apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${DEMO_PLANNER_ID}`);
+      const [listed, p] = await Promise.all([
+        apiGet<{ pathways: DegreePathway[] }>(`/api/degree/pathways?planner_id=${getPlannerId()}`),
+        apiGet<DegreeProfile>(`/api/degree/profile?planner_id=${pathwayId}`),
+      ]);
+      setPathways(listed.pathways);
       setProfile(p);
       setAppliedKeys((prev) => {
         const next = new Set(prev);
@@ -209,7 +231,7 @@ export function DegreePage() {
     try {
       const yearQuery = year ? `&intake_year=${year}` : "";
       const next = await apiGet<RequirementProgress>(
-        `/api/degree/progress?planner_id=${DEMO_PLANNER_ID}&program_code=${encodeURIComponent(code)}${yearQuery}`,
+        `/api/degree/progress?planner_id=${pathwayId}&program_code=${encodeURIComponent(code)}${yearQuery}`,
       );
       setProgress(next);
     } catch {
@@ -224,7 +246,7 @@ export function DegreePage() {
     setError(null);
     try {
       const next = await apiPut<DegreeProfile>("/api/degree/entry-year", {
-        planner_id: DEMO_PLANNER_ID,
+        planner_id: pathwayId,
         entry_year: year,
       });
       setProfile(next);
@@ -239,7 +261,12 @@ export function DegreePage() {
     });
     refreshProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathwayId]);
+
+  function selectPathway(id: string) {
+    setPathwayId(id);
+    setDegreePathwayId(id);
+  }
 
   useEffect(() => {
     if (!profile) return;
@@ -260,15 +287,19 @@ export function DegreePage() {
 
   async function applySuggestion(data: ProgramActionPayload) {
     try {
-      await apiPost("/api/degree/apply", {
-        planner_id: DEMO_PLANNER_ID,
+      const result = await apiPost<ProgramActionPayload>("/api/degree/pathways", {
+        planner_id: pathwayId,
         program_code: data.code,
         role: data.role,
         intake_year: entryYear,
       });
       setAppliedKeys((prev) => new Set(prev).add(data.code));
       setSelectedCode(data.code);
-      refreshProfile();
+      if (result.planner_id && result.planner_id !== pathwayId) {
+        selectPathway(result.planner_id);
+      } else {
+        refreshProfile();
+      }
     } catch {
       setError("Couldn't apply that — check the server is running.");
     }
@@ -280,7 +311,7 @@ export function DegreePage() {
     setError(null);
     try {
       await apiPost("/api/degree/apply", {
-        planner_id: DEMO_PLANNER_ID,
+        planner_id: pathwayId,
         program_code: selectedProgram.code,
         role: roleFor(selectedProgram),
         intake_year: entryYear,
@@ -300,7 +331,7 @@ export function DegreePage() {
     setError(null);
     try {
       await apiPost("/api/degree/remove", {
-        planner_id: DEMO_PLANNER_ID,
+        planner_id: pathwayId,
         program_code: selectedCode,
       });
       setAppliedKeys((prev) => {
@@ -327,7 +358,7 @@ export function DegreePage() {
     try {
       const res = await apiPostStream("/api/degree/advisor", {
         messages: next,
-        planner_id: DEMO_PLANNER_ID,
+        planner_id: pathwayId,
         mode,
       });
       if (!res.ok || !res.body) {
@@ -345,6 +376,19 @@ export function DegreePage() {
         acc += decoder.decode(value, { stream: true });
         setMessages([...next, { role: "assistant", content: acc }]);
       }
+      const applied = [...acc.matchAll(/<<PROGRAM_APPLIED:([A-Za-z0-9+/=]+)>>/g)];
+      if (applied.length) {
+        try {
+          const data = JSON.parse(atob(applied[applied.length - 1][1])) as ProgramActionPayload;
+          if (data.planner_id && data.planner_id !== pathwayId) {
+            setAppliedKeys((prev) => new Set(prev).add(data.code));
+            selectPathway(data.planner_id);
+            return;
+          }
+        } catch {
+          // marker parse failed — still refresh the current pathway
+        }
+      }
       refreshProfile();
     } catch {
       setError("Couldn't reach the degree agent. Check the server is running.");
@@ -354,10 +398,30 @@ export function DegreePage() {
     }
   }
 
+  const scopeBuckets = PATHWAY_SCOPES.find((option) => option.id === scope)?.buckets ?? PATHWAY_SCOPES[0].buckets;
+  const visibleGroups = useMemo(
+    () => (progress ? filterRequirements(progress.requirements, view, scopeBuckets, query) : []),
+    [progress, view, scopeBuckets, query],
+  );
+  const totals = useMemo(() => countStatuses(visibleGroups), [visibleGroups]);
+
   return (
     <main className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-3 py-2">
         <h1 className="text-[15px] font-semibold tracking-tight">Degree</h1>
+        {pathways.length > 0 ? (
+          <select
+            value={pathwayId}
+            onChange={(e) => selectPathway(e.target.value)}
+            className="max-w-[16rem] rounded-md border border-line bg-bg px-1.5 py-1 text-[13px] text-ink"
+          >
+            {pathways.map((option) => (
+              <option key={option.planner_id} value={option.planner_id}>
+                {option.home ? `${option.label} · home` : option.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <label className="flex items-center gap-1.5 text-[12px] text-muted">
           Entry
           <select
@@ -377,7 +441,7 @@ export function DegreePage() {
           </select>
         </label>
         <div className="ml-auto">
-          <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto declare" />
+          <ModeToggle mode={mode} onChange={setMode} autoLabel="Auto create" />
         </div>
       </header>
 
@@ -426,16 +490,61 @@ export function DegreePage() {
             <h2 className="border-b border-line px-4 py-2 text-[12px] font-medium text-muted">Requirements</h2>
           )}
 
+          {progress ? (
+            <div className="flex flex-wrap items-end gap-x-4 border-b border-line px-3">
+              {PATHWAY_VIEWS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setView(option.id)}
+                  className={`-mb-px border-b-2 py-2 text-[13px] ${
+                    view === option.id
+                      ? "border-ink font-medium text-ink"
+                      : "border-transparent text-muted hover:text-ink"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+              <div className="ml-auto flex min-w-0 items-center gap-3 py-1.5">
+                <span className="hidden font-mono text-[11px] text-muted sm:inline">
+                  {totals.missing} open{progress.catalog_year || progress.year ? ` · ${progress.catalog_year ?? progress.year}` : ""}
+                </span>
+                <select
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as PathwayScope)}
+                  className="bg-bg py-0.5 text-[13px] text-ink"
+                >
+                  {PATHWAY_SCOPES.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Find a course"
+                  className="w-28 bg-transparent py-0.5 text-[13px] outline-none placeholder:text-muted focus:w-40 sm:w-36"
+                />
+              </div>
+            </div>
+          ) : null}
+
           {loadingTree ? (
             <p className="px-4 py-2.5 text-[13px] text-muted">Loading requirements…</p>
           ) : progress?.error ? (
             <p className="px-4 py-2.5 text-[13px] text-muted">{progress.error}</p>
-          ) : progress && progress.requirements.length > 0 ? (
+          ) : progress && visibleGroups.length > 0 ? (
             <div className="flex flex-col gap-2 p-3">
-              {progress.requirements.map((group, i) => (
+              {visibleGroups.map((group, i) => (
                 <RequirementGroup key={`${group.name}-${i}`} group={group} />
               ))}
             </div>
+          ) : progress && progress.requirements.length > 0 ? (
+            <p className="px-4 py-2.5 text-[13px] text-muted">
+              Nothing in this view. Switch to All, or pick Electives.
+            </p>
           ) : (
             <p className="px-4 py-2.5 text-[13px] text-muted">
               {selectedCode ? "No requirement data for this program yet." : "Select a program to see its requirements."}
@@ -443,7 +552,7 @@ export function DegreePage() {
           )}
         </section>
 
-        <section className="flex h-64 min-h-0 shrink-0 flex-col bg-surface-raised lg:h-auto lg:w-80">
+        <AgentPanel>
           <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
             {messages.length === 0 ? (
               <div className="flex flex-col gap-1.5">
@@ -502,7 +611,7 @@ export function DegreePage() {
               Send
             </button>
           </form>
-        </section>
+        </AgentPanel>
       </div>
     </main>
   );
