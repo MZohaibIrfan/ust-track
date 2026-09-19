@@ -192,6 +192,34 @@ export type ProgramActionPayload = {
   label?: string;
 };
 
+export type Experience = {
+  id: string;
+  title: string;
+  organization: string;
+  kind: string;
+  start_date: string | null;
+  end_date: string | null;
+  description: string;
+};
+
+export type CourseMatch = {
+  course_code: string;
+  title: string;
+  credits: number;
+  matched_terms: string[];
+  score: number;
+  in_major: boolean;
+  status: string | null;
+};
+
+export type JobMatchResult = {
+  matched_keywords: string[];
+  major?: string | null;
+  already_relevant: CourseMatch[];
+  recommended: CourseMatch[];
+  error?: string;
+};
+
 export type DegreePathway = {
   planner_id: string;
   label: string;
