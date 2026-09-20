@@ -207,7 +207,8 @@ export function TimetablePage() {
   const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
   const [mode, setMode] = useState<Mode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatLoaded, setChatLoaded] = useState(false);
+  const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [panelTab, setPanelTab] = useState<"chat" | "history">("chat");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -275,16 +276,18 @@ export function TimetablePage() {
       .catch(() => {
         // no terms yet — the calendar still shows, just anchored on today with no nav bounds
       });
-    setChatLoaded(false);
+    // The Chat tab always starts fresh — this only feeds the read-only
+    // History tab, so a past conversation doesn't come back on reopen.
+    setHistoryLoaded(false);
     apiGet<{ messages: ChatMessage[] }>(`/api/timetable/chat?planner_id=${plannerId}`)
       .then((res) => {
-        if (!cancelled) setMessages(res.messages);
+        if (!cancelled) setHistoryMessages(res.messages);
       })
       .catch(() => {
-        // backend may not be running yet — chat just starts empty
+        // backend may not be running yet — history just starts empty
       })
       .finally(() => {
-        if (!cancelled) setChatLoaded(true);
+        if (!cancelled) setHistoryLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -292,7 +295,7 @@ export function TimetablePage() {
   }, [plannerId]);
 
   async function clearChat() {
-    setMessages([]);
+    setHistoryMessages([]);
     try {
       await apiDelete(`/api/timetable/chat?planner_id=${plannerId}`);
     } catch {
@@ -364,6 +367,9 @@ export function TimetablePage() {
         }
       }
       refreshPlan();
+      // The backend persisted this turn server-side — mirror it into the
+      // History tab's list so it shows up without needing a page reload.
+      setHistoryMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: acc }]);
     } catch {
       setError("Couldn't reach the timetable agent. Check the server is running.");
       setMessages(next);
@@ -439,42 +445,54 @@ export function TimetablePage() {
         </div>
 
         <AgentPanel>
-          <ChatTabs tab={panelTab} onChange={setPanelTab} historyCount={messages.length} />
+          <ChatTabs tab={panelTab} onChange={setPanelTab} historyCount={historyMessages.length} />
 
           <div
             ref={scrollRef}
             className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5"
           >
-            {!chatLoaded ? (
-              <p className="text-[12px] text-muted">Loading chat…</p>
-            ) : messages.length === 0 ? (
-              panelTab === "history" ? (
+            {panelTab === "history" ? (
+              !historyLoaded ? (
+                <p className="text-[12px] text-muted">Loading…</p>
+              ) : historyMessages.length === 0 ? (
                 <p className="text-[12px] text-muted">No conversation yet with the timetable agent.</p>
               ) : (
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-[12px] text-muted">Ask about a class</p>
-                  {STARTERS.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => send(s)}
-                      className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                  <p className="pt-1 text-[11px] leading-4 text-muted">
-                    {mode === "suggest"
-                      ? "Suggest mode: click Apply to put a class on the calendar."
-                      : "Auto apply: the agent adds a class as soon as it finds a fit."}
-                  </p>
-                </div>
+                historyMessages.map((m, i) => (
+                  <ChatBubble
+                    key={i}
+                    message={m}
+                    pending={false}
+                    appliedKeys={appliedKeys}
+                    preview={null}
+                    onApply={applySuggestion}
+                    onPreview={() => {}}
+                  />
+                ))
               )
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[12px] text-muted">Ask about a class</p>
+                {STARTERS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
+                    className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                  >
+                    {s}
+                  </button>
+                ))}
+                <p className="pt-1 text-[11px] leading-4 text-muted">
+                  {mode === "suggest"
+                    ? "Suggest mode: click Apply to put a class on the calendar."
+                    : "Auto apply: the agent adds a class as soon as it finds a fit."}
+                </p>
+              </div>
             ) : (
               messages.map((m, i) => (
                 <ChatBubble
                   key={i}
                   message={m}
-                  pending={busy && panelTab === "chat" && i === messages.length - 1}
+                  pending={busy && i === messages.length - 1}
                   appliedKeys={appliedKeys}
                   preview={preview}
                   onApply={applySuggestion}
@@ -517,7 +535,7 @@ export function TimetablePage() {
             <ChatHistoryFooter
               label="Full conversation with the timetable agent"
               onClear={clearChat}
-              disabled={messages.length === 0}
+              disabled={historyMessages.length === 0}
             />
           )}
         </AgentPanel>
