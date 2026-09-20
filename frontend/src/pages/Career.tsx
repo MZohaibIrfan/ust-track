@@ -455,7 +455,8 @@ export function CareerPage() {
   const [cvHistoryBusyId, setCvHistoryBusyId] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatLoaded, setChatLoaded] = useState(false);
+  const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [panelTab, setPanelTab] = useState<"chat" | "history">("chat");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -485,7 +486,8 @@ export function CareerPage() {
     setChatError(null);
     setLoading(true);
     setExperiences([]);
-    setChatLoaded(false);
+    setHistoryLoaded(false);
+    setHistoryMessages([]);
     apiGet<{ experiences: Experience[] }>(`/api/career/experiences?planner_id=${plannerId}`)
       .then((result) => {
         if (!cancelled) setExperiences(result.experiences);
@@ -496,15 +498,17 @@ export function CareerPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    // The Chat tab always starts fresh (see send()'s comment) — this only
+    // feeds the read-only History tab, so past chats don't come back.
     apiGet<{ messages: ChatMessage[] }>(`/api/career/chat?planner_id=${plannerId}`)
       .then((res) => {
-        if (!cancelled) setMessages(res.messages);
+        if (!cancelled) setHistoryMessages(res.messages);
       })
       .catch(() => {
-        // backend may not be running yet — chat just starts empty
+        // backend may not be running yet — history just starts empty
       })
       .finally(() => {
-        if (!cancelled) setChatLoaded(true);
+        if (!cancelled) setHistoryLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -603,7 +607,7 @@ export function CareerPage() {
   }
 
   async function clearChat() {
-    setMessages([]);
+    setHistoryMessages([]);
     try {
       await apiDelete(`/api/career/chat?planner_id=${plannerId}`);
     } catch {
@@ -776,6 +780,9 @@ export function CareerPage() {
       if (/<<EXPERIENCE_(ADDED|REMOVED):/.test(acc)) {
         refreshExperiences();
       }
+      // The backend persisted this turn server-side — mirror it into the
+      // History tab's list so it shows up without needing a page reload.
+      setHistoryMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: acc }]);
     } catch {
       setChatError("Couldn't reach the career agent. Check the server is running.");
       setMessages(next);
@@ -1237,7 +1244,7 @@ export function CareerPage() {
           <ChatTabs
             tab={panelTab}
             onChange={setPanelTab}
-            historyCount={messages.length}
+            historyCount={historyMessages.length}
             icon={
               <span className="text-page-career">
                 <SparkleIcon />
@@ -1246,35 +1253,39 @@ export function CareerPage() {
           />
 
           <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-            {!chatLoaded ? (
-              <p className="text-[12px] text-muted">Loading chat…</p>
-            ) : messages.length === 0 ? (
-              panelTab === "history" ? (
+            {panelTab === "history" ? (
+              !historyLoaded ? (
+                <p className="text-[12px] text-muted">Loading…</p>
+              ) : historyMessages.length === 0 ? (
                 <p className="text-[12px] text-muted">No conversation yet with the career agent.</p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  <p className="text-[12px] text-muted">
-                    Paste a job description, or tell it about past experience
-                  </p>
-                  <div className="flex flex-col gap-1.5">
-                    {STARTERS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => send(s)}
-                        className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[13px] leading-5 text-ink transition-colors hover:border-page-career/50 hover:bg-page-career/5"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                historyMessages.map((m, i) => (
+                  <ChatBubble key={i} message={m} pending={false} onApplySelection={applySelectionFromChat} />
+                ))
               )
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-[12px] text-muted">
+                  Paste a job description, or tell it about past experience
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {STARTERS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => send(s)}
+                      className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[13px] leading-5 text-ink transition-colors hover:border-page-career/50 hover:bg-page-career/5"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : (
               messages.map((m, i) => (
                 <ChatBubble
                   key={i}
                   message={m}
-                  pending={busy && panelTab === "chat" && i === messages.length - 1}
+                  pending={busy && i === messages.length - 1}
                   onApplySelection={applySelectionFromChat}
                 />
               ))
@@ -1313,7 +1324,7 @@ export function CareerPage() {
             <ChatHistoryFooter
               label="Full conversation with the career agent"
               onClear={clearChat}
-              disabled={messages.length === 0}
+              disabled={historyMessages.length === 0}
             />
           )}
         </AgentPanel>

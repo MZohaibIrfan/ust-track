@@ -264,7 +264,8 @@ export function DegreePage() {
   const [loadingTree, setLoadingTree] = useState(false);
   const [mode, setMode] = useState<AgentMode>("suggest");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatLoaded, setChatLoaded] = useState(false);
+  const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [panelTab, setPanelTab] = useState<"chat" | "history">("chat");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -390,16 +391,18 @@ export function DegreePage() {
   useEffect(() => {
     refreshProfile();
 
-    setChatLoaded(false);
+    // The Chat tab always starts fresh — this only feeds the read-only
+    // History tab, so a past conversation doesn't come back on reopen.
+    setHistoryLoaded(false);
     apiGet<{ messages: ChatMessage[] }>(`/api/degree/chat?planner_id=${pathwayId}`)
-      .then((res) => setMessages(res.messages))
-      .catch(() => setMessages([]))
-      .finally(() => setChatLoaded(true));
+      .then((res) => setHistoryMessages(res.messages))
+      .catch(() => setHistoryMessages([]))
+      .finally(() => setHistoryLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathwayId]);
 
   async function clearChat() {
-    setMessages([]);
+    setHistoryMessages([]);
     try {
       await apiDelete(`/api/degree/chat?planner_id=${pathwayId}`);
     } catch {
@@ -654,6 +657,9 @@ export function DegreePage() {
         acc += decoder.decode(value, { stream: true });
         setMessages([...next, { role: "assistant", content: acc }]);
       }
+      // The backend persisted this turn server-side — mirror it into the
+      // History tab's list so it shows up without needing a page reload.
+      setHistoryMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: acc }]);
       const applied = [...acc.matchAll(/<<PROGRAM_APPLIED:([A-Za-z0-9+/=]+)>>/g)];
       if (applied.length) {
         try {
@@ -930,45 +936,56 @@ export function DegreePage() {
         </section>
 
         <AgentPanel>
-          <ChatTabs tab={panelTab} onChange={setPanelTab} historyCount={messages.length} />
+          <ChatTabs tab={panelTab} onChange={setPanelTab} historyCount={historyMessages.length} />
 
           <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
-            {!chatLoaded ? (
-              <p className="text-[12px] text-muted">Loading chat…</p>
-            ) : messages.length === 0 ? (
-              panelTab === "history" ? (
+            {panelTab === "history" ? (
+              !historyLoaded ? (
+                <p className="text-[12px] text-muted">Loading…</p>
+              ) : historyMessages.length === 0 ? (
                 <p className="text-[12px] text-muted">No conversation yet with the degree agent.</p>
               ) : (
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-[12px] text-muted">
-                    {subpage === "plan" ? "Ask to rearrange the study plan" : subpage === "requirements" ? "Ask about remaining requirements" : "Ask about programs"}
-                  </p>
-                  {starters.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => send(s)}
-                      className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                  <p className="pt-1 text-[11px] leading-4 text-muted">
-                    {mode === "suggest"
-                      ? subpage === "plan"
-                        ? "Suggest mode: click Apply to update the study plan."
-                        : "Suggest mode: click Apply to declare a program."
-                      : subpage === "plan"
-                        ? "Auto apply: the agent updates the study plan once it has a fit."
-                        : "Auto declare: the agent declares a program after checking fit."}
-                  </p>
-                </div>
+                historyMessages.map((m, i) => (
+                  <ChatBubble
+                    key={i}
+                    message={m}
+                    pending={false}
+                    appliedKeys={appliedKeys}
+                    onApply={applySuggestion}
+                    onApplyPlan={applyPlan}
+                  />
+                ))
               )
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[12px] text-muted">
+                  {subpage === "plan" ? "Ask to rearrange the study plan" : subpage === "requirements" ? "Ask about remaining requirements" : "Ask about programs"}
+                </p>
+                {starters.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
+                    className="rounded-xl border border-line px-2.5 py-1.5 text-left text-[12px] hover:bg-bg"
+                  >
+                    {s}
+                  </button>
+                ))}
+                <p className="pt-1 text-[11px] leading-4 text-muted">
+                  {mode === "suggest"
+                    ? subpage === "plan"
+                      ? "Suggest mode: click Apply to update the study plan."
+                      : "Suggest mode: click Apply to declare a program."
+                    : subpage === "plan"
+                      ? "Auto apply: the agent updates the study plan once it has a fit."
+                      : "Auto declare: the agent declares a program after checking fit."}
+                </p>
+              </div>
             ) : (
               messages.map((m, i) => (
                 <ChatBubble
                   key={i}
                   message={m}
-                  pending={busy && panelTab === "chat" && i === messages.length - 1}
+                  pending={busy && i === messages.length - 1}
                   appliedKeys={appliedKeys}
                   onApply={applySuggestion}
                   onApplyPlan={applyPlan}
@@ -1008,7 +1025,7 @@ export function DegreePage() {
             <ChatHistoryFooter
               label="Full conversation with the degree agent"
               onClear={clearChat}
-              disabled={messages.length === 0}
+              disabled={historyMessages.length === 0}
             />
           )}
         </AgentPanel>
