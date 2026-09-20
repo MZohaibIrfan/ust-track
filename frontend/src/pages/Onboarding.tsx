@@ -317,9 +317,9 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
 
   return (
     <StepShell
-      eyebrow="Step 2"
+      eyebrow="Step 2 · Starting point"
       progress={progressFor("courses")}
-      title="Add courses you've already taken"
+      title="Have you taken any courses yet?"
       subtitle="Search by code — mark each as completed, in progress, or planned."
       footer={
         <>
@@ -328,7 +328,15 @@ function CoursesStep({ plannerId, onNext, onSkip }: { plannerId: string; onNext:
         </>
       }
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={onNext}
+          className="self-start rounded-xl border border-dashed border-line px-3.5 py-2 text-left text-[13px] text-muted transition-colors hover:border-accent hover:text-accent"
+        >
+          I have no courses yet — skip this step
+        </button>
+
         <div className="flex flex-wrap gap-2">
           <input
             value={courseCode ?? query}
