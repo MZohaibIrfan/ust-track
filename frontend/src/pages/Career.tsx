@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { AgentMarkdown } from "../components/AgentMarkdown";
 import { AgentPanel } from "../components/AgentPanel";
 import { ChatHistoryFooter, ChatTabs } from "../components/ChatTabs";
@@ -74,6 +75,13 @@ const SECTION_ORDER: { kind: string; title: string }[] = [
   { kind: "research", title: "Research Experience" },
   { kind: "project", title: "Projects" },
   { kind: "extracurricular", title: "Extracurricular Activities" },
+];
+
+type CareerSubpage = "experience" | "cv";
+
+const CAREER_SUBPAGES: { id: CareerSubpage; to: string; label: string }[] = [
+  { id: "experience", to: "/career", label: "Experience" },
+  { id: "cv", to: "/career/cv", label: "CV Generator" },
 ];
 
 const TrashIcon = () => (
@@ -398,6 +406,9 @@ function ChatBubble({
 
 export function CareerPage() {
   const { plannerId } = usePlanner();
+  const routerLocation = useLocation();
+  const navigate = useNavigate();
+  const subpage: CareerSubpage = routerLocation.pathname === "/career/cv" ? "cv" : "experience";
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -413,7 +424,6 @@ export function CareerPage() {
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const [showCvForm, setShowCvForm] = useState(false);
   const [cvPanelTab, setCvPanelTab] = useState<"build" | "history">("build");
   const [cvFullName, setCvFullName] = useState("");
   const [cvEmail, setCvEmail] = useState("");
@@ -520,8 +530,8 @@ export function CareerPage() {
 
   function applySelectionFromChat(ids: string[]) {
     setSelectedExpIds(new Set(ids));
-    setShowCvForm(true);
     setCvPanelTab("build");
+    navigate("/career/cv");
   }
 
   async function loadCvHistory() {
@@ -631,14 +641,19 @@ export function CareerPage() {
     }
   }
 
-  function closeCvModal() {
-    if (cvTexUrl) URL.revokeObjectURL(cvTexUrl);
-    if (cvPdfUrl) URL.revokeObjectURL(cvPdfUrl);
-    setCvTexUrl(null);
-    setCvPdfUrl(null);
-    setCvError(null);
-    setShowCvForm(false);
-  }
+  useEffect(() => {
+    if (subpage === "cv") loadCvHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subpage, plannerId]);
+
+  // Release the blob URLs when the page unmounts (planner switch, navigation away).
+  useEffect(() => {
+    return () => {
+      if (cvTexUrl) URL.revokeObjectURL(cvTexUrl);
+      if (cvPdfUrl) URL.revokeObjectURL(cvPdfUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function generateCv(e: React.FormEvent) {
     e.preventDefault();
@@ -736,24 +751,33 @@ export function CareerPage() {
         badgeClassName="bg-page-career/15 text-page-career"
         title="Career"
         subtitle="Internships, projects, activities, research — and what to take next"
-      >
-        <button
-          onClick={() => {
-            setShowCvForm(true);
-            loadCvHistory();
-          }}
-          className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:border-page-career/50 hover:text-page-career"
-        >
-          <Icon className="size-3.5">
-            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
-            <path d="M13 2v7h7" />
-          </Icon>
-          Generate CV
-        </button>
-      </PageHeader>
+      />
+
+      <nav className="flex shrink-0 gap-1 border-b border-line px-4">
+        {CAREER_SUBPAGES.map((page) => (
+          <NavLink
+            key={page.id}
+            to={page.to}
+            end={page.id === "experience"}
+            className={({ isActive }) =>
+              `-mb-px border-b-2 px-2.5 py-2 text-[13px] ${
+                isActive ? "border-accent font-medium text-ink" : "border-transparent text-muted hover:text-ink"
+              }`
+            }
+          >
+            {page.label}
+          </NavLink>
+        ))}
+      </nav>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 bg-bg p-2 lg:flex-row lg:gap-3 lg:p-3">
-        <section className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl border border-line bg-surface-raised shadow-soft">
+        <section
+          className={`min-h-0 min-w-0 flex-1 rounded-2xl border border-line bg-surface-raised shadow-soft ${
+            subpage === "cv" ? "overflow-hidden" : "overflow-auto"
+          }`}
+        >
+          {subpage === "experience" ? (
+            <>
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <h2 className="flex items-center gap-2 text-[13px] font-medium">
               Experience
@@ -909,6 +933,223 @@ export function CareerPage() {
           )}
 
           {error ? <p className="px-3 py-2 text-[12px] text-accent">{error}</p> : null}
+            </>
+          ) : (
+            <div className="flex h-full min-h-0 flex-col lg:flex-row">
+              <div className="flex min-h-0 w-full shrink-0 flex-col overflow-y-auto lg:max-w-sm lg:border-r lg:border-line">
+                <div className="flex items-center justify-between border-b border-line px-4 py-3">
+                  <div className="flex items-center gap-1 rounded-xl bg-fill p-0.5">
+                    <button
+                      onClick={() => setCvPanelTab("build")}
+                      className={`rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                        cvPanelTab === "build" ? "bg-surface-raised text-ink shadow-soft" : "text-muted hover:text-ink"
+                      }`}
+                    >
+                      Build
+                    </button>
+                    <button
+                      onClick={() => setCvPanelTab("history")}
+                      className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                        cvPanelTab === "history" ? "bg-surface-raised text-ink shadow-soft" : "text-muted hover:text-ink"
+                      }`}
+                    >
+                      History
+                      {cvHistory.length > 0 ? (
+                        <span className="rounded-full bg-fill px-1.5 py-0.5 text-[10px] text-muted">{cvHistory.length}</span>
+                      ) : null}
+                    </button>
+                  </div>
+                </div>
+
+                {cvPanelTab === "build" ? (
+                  <div className="flex flex-col gap-3 p-4">
+                    <p className="text-[12px] text-muted">
+                      Choose what to include below, or ask the career agent in chat to pick relevant
+                      experience for a specific role. Contact info isn't saved — just used for this
+                      generation.
+                    </p>
+
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Include</p>
+                        <div className="flex gap-2 text-[11px] text-accent">
+                          <button type="button" onClick={() => setSelectedExpIds(new Set(experiences.map((e) => e.id)))}>
+                            All
+                          </button>
+                          <button type="button" onClick={() => setSelectedExpIds(new Set())}>
+                            None
+                          </button>
+                        </div>
+                      </div>
+                      {experiences.length === 0 ? (
+                        <p className="text-[12px] text-muted">Nothing logged yet — add experience first.</p>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {SECTION_ORDER.map(({ kind: sectionKind, title }) => {
+                            const items = experiences.filter((exp) => exp.kind === sectionKind);
+                            if (items.length === 0) return null;
+                            return (
+                              <div key={sectionKind}>
+                                <p className="mb-1 text-[10px] font-medium text-muted">{title}</p>
+                                <div className="flex flex-col gap-1">
+                                  {items.map((exp) => (
+                                    <label
+                                      key={exp.id}
+                                      className="flex cursor-pointer items-start gap-2 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[12px] hover:border-page-career/40"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedExpIds.has(exp.id)}
+                                        onChange={() => toggleExpSelected(exp.id)}
+                                        className="mt-0.5 accent-page-career"
+                                      />
+                                      <span>
+                                        <span className="font-medium">{exp.title}</span>
+                                        {exp.organization ? <span className="text-muted"> · {exp.organization}</span> : null}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <form onSubmit={generateCv} className="flex flex-col gap-2.5">
+                      <input
+                        value={cvFullName}
+                        onChange={(e) => setCvFullName(e.target.value)}
+                        placeholder="Full name"
+                        required
+                        className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <input
+                          value={cvEmail}
+                          onChange={(e) => setCvEmail(e.target.value)}
+                          placeholder="Email"
+                          className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                        />
+                        <input
+                          value={cvPhone}
+                          onChange={(e) => setCvPhone(e.target.value)}
+                          placeholder="Phone"
+                          className="min-w-[8rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <input
+                          value={cvLinkedin}
+                          onChange={(e) => setCvLinkedin(e.target.value)}
+                          placeholder="LinkedIn URL"
+                          className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                        />
+                        <input
+                          value={cvGithub}
+                          onChange={(e) => setCvGithub(e.target.value)}
+                          placeholder="GitHub URL"
+                          className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                        />
+                      </div>
+                      <input
+                        value={cvWebsite}
+                        onChange={(e) => setCvWebsite(e.target.value)}
+                        placeholder="Website (optional)"
+                        className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                      />
+                      <textarea
+                        value={cvSkills}
+                        onChange={(e) => setCvSkills(e.target.value)}
+                        placeholder={"Skills, one category per line, e.g.\nLanguages: Python, C++, SQL\nFrameworks: React, FastAPI, PyTorch"}
+                        rows={4}
+                        className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                      />
+                      {cvError ? <p className="whitespace-pre-wrap text-[12px] text-accent">{cvError}</p> : null}
+                      <button
+                        type="submit"
+                        disabled={cvGenerating || !cvFullName.trim()}
+                        className="flex items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-[13px] font-medium text-bg transition-opacity disabled:opacity-40"
+                      >
+                        {cvGenerating ? "Generating…" : cvPdfUrl ? "Regenerate" : "Generate CV"}
+                      </button>
+                      {cvTexUrl || cvPdfUrl ? (
+                        <div className="flex gap-2">
+                          {cvTexUrl ? (
+                            <a
+                              href={cvTexUrl}
+                              download="resume.tex"
+                              className="flex-1 rounded-xl border border-line px-3 py-1.5 text-center text-[12px] font-medium hover:bg-fill"
+                            >
+                              Download .tex
+                            </a>
+                          ) : null}
+                          {cvPdfUrl ? (
+                            <a
+                              href={cvPdfUrl}
+                              download="resume.pdf"
+                              className="flex-1 rounded-xl border border-line px-3 py-1.5 text-center text-[12px] font-medium hover:bg-fill"
+                            >
+                              Download PDF
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </form>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 p-4">
+                    {cvHistoryLoading ? (
+                      <p className="text-[12px] text-muted">Loading…</p>
+                    ) : cvHistory.length === 0 ? (
+                      <p className="text-[12px] text-muted">No CVs generated yet.</p>
+                    ) : (
+                      cvHistory.map((gen) => (
+                        <div
+                          key={gen.id}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-[12px] font-medium">{gen.full_name}</p>
+                            <p className="text-[11px] text-muted">
+                              {new Date(gen.created_at).toLocaleString()} · {gen.experience_count} included
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              onClick={() => viewCvHistoryItem(gen.id)}
+                              disabled={cvHistoryBusyId === gen.id}
+                              className="rounded-lg px-2 py-1 text-[11px] font-medium text-accent hover:bg-fill disabled:opacity-40"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => deleteCvHistoryItem(gen.id)}
+                              disabled={cvHistoryBusyId === gen.id}
+                              className="rounded-lg p-1.5 text-muted hover:bg-fill hover:text-accent disabled:opacity-40"
+                              aria-label="Delete"
+                            >
+                              <TrashIcon />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="hidden min-h-0 min-w-0 flex-1 items-center justify-center bg-fill/40 lg:flex">
+                {cvPdfUrl ? (
+                  <iframe title="CV preview" src={cvPdfUrl} className="h-full w-full" />
+                ) : (
+                  <p className="max-w-[16rem] text-center text-[12px] text-muted">
+                    Generate a CV to preview it here.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         <AgentPanel>
@@ -997,233 +1238,6 @@ export function CareerPage() {
         </AgentPanel>
       </div>
 
-      {showCvForm ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-4">
-          <div
-            className={`flex max-h-[92vh] w-full overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-soft-lg ${
-              cvPdfUrl ? "max-w-5xl" : "max-w-md"
-            }`}
-          >
-            <div className="flex max-h-[92vh] w-full max-w-md shrink-0 flex-col overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                <div className="flex items-center gap-1 rounded-xl bg-fill p-0.5">
-                  <button
-                    onClick={() => setCvPanelTab("build")}
-                    className={`rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ${
-                      cvPanelTab === "build" ? "bg-surface-raised text-ink shadow-soft" : "text-muted hover:text-ink"
-                    }`}
-                  >
-                    Build
-                  </button>
-                  <button
-                    onClick={() => setCvPanelTab("history")}
-                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ${
-                      cvPanelTab === "history" ? "bg-surface-raised text-ink shadow-soft" : "text-muted hover:text-ink"
-                    }`}
-                  >
-                    History
-                    {cvHistory.length > 0 ? (
-                      <span className="rounded-full bg-fill px-1.5 py-0.5 text-[10px] text-muted">{cvHistory.length}</span>
-                    ) : null}
-                  </button>
-                </div>
-                <button
-                  onClick={closeCvModal}
-                  className="rounded p-1 text-muted hover:bg-fill hover:text-ink"
-                  aria-label="Close"
-                >
-                  <Icon className="size-4">
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </Icon>
-                </button>
-              </div>
-
-              {cvPanelTab === "build" ? (
-                <div className="flex flex-col gap-3 p-4">
-                  <p className="text-[12px] text-muted">
-                    Choose what to include below, or ask the career agent in chat to pick relevant
-                    experience for a specific role. Contact info isn't saved — just used for this
-                    generation.
-                  </p>
-
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Include</p>
-                      <div className="flex gap-2 text-[11px] text-accent">
-                        <button type="button" onClick={() => setSelectedExpIds(new Set(experiences.map((e) => e.id)))}>
-                          All
-                        </button>
-                        <button type="button" onClick={() => setSelectedExpIds(new Set())}>
-                          None
-                        </button>
-                      </div>
-                    </div>
-                    {experiences.length === 0 ? (
-                      <p className="text-[12px] text-muted">Nothing logged yet — add experience first.</p>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {SECTION_ORDER.map(({ kind: sectionKind, title }) => {
-                          const items = experiences.filter((exp) => exp.kind === sectionKind);
-                          if (items.length === 0) return null;
-                          return (
-                            <div key={sectionKind}>
-                              <p className="mb-1 text-[10px] font-medium text-muted">{title}</p>
-                              <div className="flex flex-col gap-1">
-                                {items.map((exp) => (
-                                  <label
-                                    key={exp.id}
-                                    className="flex cursor-pointer items-start gap-2 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[12px] hover:border-page-career/40"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedExpIds.has(exp.id)}
-                                      onChange={() => toggleExpSelected(exp.id)}
-                                      className="mt-0.5 accent-page-career"
-                                    />
-                                    <span>
-                                      <span className="font-medium">{exp.title}</span>
-                                      {exp.organization ? <span className="text-muted"> · {exp.organization}</span> : null}
-                                    </span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <form onSubmit={generateCv} className="flex flex-col gap-2.5">
-                    <input
-                      value={cvFullName}
-                      onChange={(e) => setCvFullName(e.target.value)}
-                      placeholder="Full name"
-                      required
-                      className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <input
-                        value={cvEmail}
-                        onChange={(e) => setCvEmail(e.target.value)}
-                        placeholder="Email"
-                        className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                      />
-                      <input
-                        value={cvPhone}
-                        onChange={(e) => setCvPhone(e.target.value)}
-                        placeholder="Phone"
-                        className="min-w-[8rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <input
-                        value={cvLinkedin}
-                        onChange={(e) => setCvLinkedin(e.target.value)}
-                        placeholder="LinkedIn URL"
-                        className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                      />
-                      <input
-                        value={cvGithub}
-                        onChange={(e) => setCvGithub(e.target.value)}
-                        placeholder="GitHub URL"
-                        className="min-w-[10rem] flex-1 rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                      />
-                    </div>
-                    <input
-                      value={cvWebsite}
-                      onChange={(e) => setCvWebsite(e.target.value)}
-                      placeholder="Website (optional)"
-                      className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                    />
-                    <textarea
-                      value={cvSkills}
-                      onChange={(e) => setCvSkills(e.target.value)}
-                      placeholder={"Skills, one category per line, e.g.\nLanguages: Python, C++, SQL\nFrameworks: React, FastAPI, PyTorch"}
-                      rows={4}
-                      className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
-                    />
-                    {cvError ? <p className="whitespace-pre-wrap text-[12px] text-accent">{cvError}</p> : null}
-                    <button
-                      type="submit"
-                      disabled={cvGenerating || !cvFullName.trim()}
-                      className="flex items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-[13px] font-medium text-bg transition-opacity disabled:opacity-40"
-                    >
-                      {cvGenerating ? "Generating…" : cvPdfUrl ? "Regenerate" : "Generate CV"}
-                    </button>
-                    {cvTexUrl || cvPdfUrl ? (
-                      <div className="flex gap-2">
-                        {cvTexUrl ? (
-                          <a
-                            href={cvTexUrl}
-                            download="resume.tex"
-                            className="flex-1 rounded-xl border border-line px-3 py-1.5 text-center text-[12px] font-medium hover:bg-fill"
-                          >
-                            Download .tex
-                          </a>
-                        ) : null}
-                        {cvPdfUrl ? (
-                          <a
-                            href={cvPdfUrl}
-                            download="resume.pdf"
-                            className="flex-1 rounded-xl border border-line px-3 py-1.5 text-center text-[12px] font-medium hover:bg-fill"
-                          >
-                            Download PDF
-                          </a>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </form>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2 p-4">
-                  {cvHistoryLoading ? (
-                    <p className="text-[12px] text-muted">Loading…</p>
-                  ) : cvHistory.length === 0 ? (
-                    <p className="text-[12px] text-muted">No CVs generated yet.</p>
-                  ) : (
-                    cvHistory.map((gen) => (
-                      <div
-                        key={gen.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-[12px] font-medium">{gen.full_name}</p>
-                          <p className="text-[11px] text-muted">
-                            {new Date(gen.created_at).toLocaleString()} · {gen.experience_count} included
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            onClick={() => viewCvHistoryItem(gen.id)}
-                            disabled={cvHistoryBusyId === gen.id}
-                            className="rounded-lg px-2 py-1 text-[11px] font-medium text-accent hover:bg-fill disabled:opacity-40"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => deleteCvHistoryItem(gen.id)}
-                            disabled={cvHistoryBusyId === gen.id}
-                            className="rounded-lg p-1.5 text-muted hover:bg-fill hover:text-accent disabled:opacity-40"
-                            aria-label="Delete"
-                          >
-                            <TrashIcon />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-            {cvPdfUrl ? (
-              <div className="hidden min-w-0 flex-1 border-l border-line bg-fill/40 md:block">
-                <iframe title="CV preview" src={cvPdfUrl} className="h-full w-full" />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }

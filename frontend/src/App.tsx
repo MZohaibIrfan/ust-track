@@ -26,6 +26,7 @@ const pages = [
 
 function pageVisible(path: string, pathname: string) {
   if (path === "/degree") return pathname === "/degree" || pathname.startsWith("/degree/");
+  if (path === "/career") return pathname === "/career" || pathname.startsWith("/career/");
   return pathname === path;
 }
 
