@@ -247,18 +247,6 @@ function JobMatchCard({ data }: { data: JobMatchResult }) {
           ))}
         </div>
       ) : null}
-      {data.already_relevant.length > 0 ? (
-        <div>
-          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-muted">
-            <CheckIcon /> Already covered by courses you've taken
-          </p>
-          <div className="flex flex-col gap-1.5">
-            {data.already_relevant.map((c) => (
-              <CourseMatchCard key={c.course_code} course={c} maxScore={maxScore} />
-            ))}
-          </div>
-        </div>
-      ) : null}
       <div>
         <p className="mb-1.5 text-[11px] font-medium text-muted">Recommended next</p>
         {data.recommended.length === 0 ? (
@@ -271,6 +259,18 @@ function JobMatchCard({ data }: { data: JobMatchResult }) {
           </div>
         )}
       </div>
+      {data.already_relevant.length > 0 ? (
+        <div>
+          <p className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-muted">
+            <CheckIcon /> Already covered by courses you've taken
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {data.already_relevant.map((c) => (
+              <CourseMatchCard key={c.course_code} course={c} maxScore={maxScore} />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -33,13 +33,17 @@ BASE_SYSTEM_PROMPT = (
     "this conversation. Never describe a course from general knowledge, even to fill a small gap. "
     "Playbook: (1) get_student_profile once at the start of a conversation so you know their major "
     "and course history — don't ask for it if the tool already has it. (2) Whenever they paste or "
-    "describe a job posting, call match_job_description with the full text verbatim. Then explain the "
-    "result in plain language: which of their completed courses already cover parts of it (say why, "
-    "using matched_terms), and which recommended courses would fill the gaps — mention in_major when "
-    "true, since that means it's already free real estate in their degree. If a recommended course has "
-    "prereq_gap true, say plainly that it likely needs a prerequisite they haven't completed yet — "
-    "don't recommend it as freely available without that caveat. If already_relevant or "
-    "recommended come back empty, say so plainly; don't pad it with generic advice. (3) If they "
+    "describe a job posting, call match_job_description with the full text verbatim (default limit is "
+    "5 — leave it unless they've already seen those 5 and ask for more, then call it again with a "
+    "higher limit). Lead with the recommended courses first — that's what they came for — before "
+    "mentioning what's already covered: name each one, why it matched (using matched_terms), and "
+    "mention in_major when true, since that means it's already free real estate in their degree. If a "
+    "recommended course has prereq_gap true, say plainly that it likely needs a prerequisite they "
+    "haven't completed yet — don't recommend it as freely available without that caveat. After the "
+    "recommendations, mention which of their completed courses already cover part of the posting, if "
+    "any. Close by telling them they can ask for more recommendations if the top 5 aren't enough. If "
+    "already_relevant or recommended come back empty, say so plainly; don't pad it with generic "
+    "advice. (3) If they "
     "describe an internship, project, extracurricular activity, or research experience they've done, "
     "offer to log it with add_experience, and "
     "call it once they confirm the details (title, organization, kind, dates if given). (4) "
@@ -78,7 +82,13 @@ TOOLS: list[dict[str, Any]] = [
             ),
             "parameters": {
                 "type": "object",
-                "properties": {"job_description": {"type": "string"}},
+                "properties": {
+                    "job_description": {"type": "string"},
+                    "limit": {
+                        "type": "integer",
+                        "description": "How many recommended courses to return. Defaults to 5 — only raise this if the student has already seen the top 5 and explicitly asks for more.",
+                    },
+                },
                 "required": ["job_description"],
             },
         },
@@ -192,7 +202,8 @@ def _execute_tool(db: Session, planner_id: str, name: str, args: dict[str, Any])
     if name == "get_student_profile":
         return get_student_profile(db, planner_id), None
     if name == "match_job_description":
-        result = career_ops.recommend_courses_for_job(db, planner_id, args.get("job_description", ""))
+        limit = int(args["limit"]) if args.get("limit") else 5
+        result = career_ops.recommend_courses_for_job(db, planner_id, args.get("job_description", ""), limit)
         return result, _marker("JOB_MATCH", result) if not result.get("error") else None
     if name == "search_courses":
         return search_courses(db, args.get("query", "")), None

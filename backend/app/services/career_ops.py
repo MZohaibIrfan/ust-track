@@ -137,7 +137,7 @@ def recommend_courses_for_job(
     db: Session,
     planner_id: str,
     job_description: str,
-    limit: int = 8,
+    limit: int = 5,
 ) -> dict[str, Any]:
     keywords = _keywords(job_description)
     if not keywords:
