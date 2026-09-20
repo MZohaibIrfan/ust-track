@@ -148,14 +148,14 @@ export function OnboardingPage() {
     return Math.min(4, Math.max(1, latestYear.start_year - entryYear + 1));
   }, [entryYear, latestYear]);
 
-  async function finish() {
+  function finish() {
     if (finishing) return;
     setFinishing(true);
-    try {
-      await markOnboarded();
-    } finally {
-      navigate("/");
-    }
+    // markOnboarded() flips the local auth state synchronously before its network
+    // call resolves, so navigating right away (not awaiting it) is safe and feels
+    // instant instead of waiting on a round-trip.
+    void markOnboarded();
+    navigate("/");
   }
 
   function advance() {
