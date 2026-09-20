@@ -1,34 +1,45 @@
 # UST Track
 
-Degree and timetable planning for HKUST undergraduates.
+Degree, timetable, and career planning for HKUST undergraduates.
 
-This repo is a **framework only**: schema, API stubs, and UI shells. Parsers, ingestion, timetable behavior, and the LLM advisor are not implemented yet.
+> **⚠️ Work in progress.** This is an active hackathon project — pages, agents, and data are still being built out and can change or break without notice. Nothing here is production-ready.
+
+## What's here
+
+- **Overview** — dashboard summary of your plan.
+- **Timetable** — weekly calendar of enrolled sections, conflict checking, ICS export, and a chat agent that can search/add/drop classes.
+- **Degree** — declared programs, requirement-tree progress, an editable multi-year study plan, and a chat agent that can declare programs and rearrange the plan.
+- **Career** — logged internships/projects/research/extracurriculars, a deterministic job-description-to-course matcher, and a one-click LaTeX/PDF CV generator (Jake's Resume template) with per-CV include/exclude selection and generation history.
+- **Auth & onboarding** — email/password accounts with a guided setup flow.
+
+Each agent chat is grounded in real Postgres data (catalog + the student's own planner rows) rather than the model's general knowledge, and persists its own conversation history per page.
 
 ## Stack
 
 - **Web:** React + Vite + TypeScript + Tailwind
-- **API:** FastAPI stubs under `/api`
+- **API:** FastAPI under `/api`
 - **Database:** Supabase Postgres (`catalog` and `planner` schemas), via the session pooler in `DATABASE_URL`
-- **Advisor (later):** OpenRouter-backed agent that reads catalog/planner rows and drafts a timetable plus a degree plan
-- **Search (later):** Postgres FTS / trigram. Qdrant is deferred.
+- **Agents:** OpenRouter-backed chat agents (per page) that call deterministic backend tools rather than reasoning over catalog data themselves
+- **PDF generation:** shells out to a local `pdflatex` install for the CV builder
 
 ## Layout
 
 ```text
 backend/                 FastAPI, SQLAlchemy 2, Alembic
-  app/models/            catalog + planner + ingestion tables
-  app/ingestion/         WCQ / SIS stubs
-  app/services/          search, conflicts, ics, rules, advisor stubs
-  app/api/               route stubs
-frontend/                Vite + React shells
+  app/models/            catalog + planner + auth tables
+  app/services/          degree/timetable/career ops, study plans, CV generation
+  app/services/agents/   per-page chat agents (degree, timetable, career)
+  app/api/               routes
+frontend/                Vite + React app
+  src/pages/             Overview, Timetable, Degree, Career, History, Profile, Login/Onboarding
 data/raw/                official HTML + PDFs (gitignored)
-data/sample-sis.txt      SIS paste fixture placeholder
 ```
 
 ## Setup
 
 ```bash
 cp .env.example .env
+# fill in DATABASE_URL, SECRET_KEY, and OPENROUTER_API_KEY
 
 python3 -m venv backend/.venv
 source backend/.venv/bin/activate
@@ -43,5 +54,7 @@ cd frontend && npm install && npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
+
+The CV builder's PDF export needs a local `pdflatex` (e.g. MacTeX/TeXLive) — without it, generating the `.tex` file still works, just not the inline PDF preview.
 
 Do not collect HKUST passwords or SIS login. Do not commit files under `data/raw/`.
