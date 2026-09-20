@@ -53,8 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function markOnboarded() {
-    const u = await apiPost<AuthUser>("/api/auth/complete-onboarding", {});
-    setUser(u);
+    // Optimistic: flip the local flag immediately so the caller can navigate to the
+    // main app right away instead of waiting on this round-trip. The real timestamp
+    // still lands in the background — if it fails, the app just isn't gated on
+    // /onboarding again, which is harmless for a completed session.
+    setUser((current) => (current ? { ...current, onboarding_completed_at: new Date().toISOString() } : current));
+    try {
+      const u = await apiPost<AuthUser>("/api/auth/complete-onboarding", {});
+      setUser(u);
+    } catch {
+      // already marked onboarded locally — fine to leave it there
+    }
   }
 
   return (

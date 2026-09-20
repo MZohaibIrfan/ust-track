@@ -27,7 +27,9 @@ def _serializer() -> URLSafeTimedSerializer:
 
 
 def hash_password(raw: str) -> str:
-    return bcrypt.hashpw(raw.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    # Default cost (12 rounds) is noticeably slow for a live demo signup on top of
+    # this DB's own connection latency; 10 is still a reasonable cost for this app.
+    return bcrypt.hashpw(raw.encode("utf-8"), bcrypt.gensalt(rounds=10)).decode("utf-8")
 
 
 def verify_password(raw: str, hashed: str) -> bool:
