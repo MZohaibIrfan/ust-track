@@ -289,9 +289,17 @@ export type JobMatchResult = {
 
 export type CvGenerationSummary = {
   id: string;
+  name: string;
   full_name: string;
   experience_count: number;
   created_at: string;
+};
+
+export type CvEducationDefaults = {
+  institution: string;
+  location: string;
+  degree_line: string;
+  dates: string;
 };
 
 export type ExperienceMatch = {

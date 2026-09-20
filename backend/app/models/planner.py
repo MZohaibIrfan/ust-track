@@ -144,6 +144,7 @@ class CvGeneration(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     planner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("planner.planner.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255), default="")
     full_name: Mapped[str] = mapped_column(String(255))
     latex: Mapped[str] = mapped_column(Text)
     experience_count: Mapped[int] = mapped_column(Integer, default=0)

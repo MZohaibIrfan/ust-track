@@ -53,6 +53,29 @@ _LATEX_SPECIAL = {
 _LATEX_SPECIAL_RE = re.compile("|".join(re.escape(c) for c in _LATEX_SPECIAL))
 
 DEGREE_LENGTH_YEARS = 4
+DEFAULT_INSTITUTION = "The Hong Kong University of Science and Technology"
+DEFAULT_LOCATION = "Hong Kong, HK"
+
+# Catalog program names for minors are often already prefixed ("Minor Program
+# in Bioengineering") — strip that before adding our own "Minor in" so it
+# doesn't double up into "Minor in Minor Program in Bioengineering".
+_MINOR_PREFIX_RE = re.compile(r"^\s*minor\s+(program\s+)?in\s+", re.IGNORECASE)
+_EXTENDED_MAJOR_RE = re.compile(r"extended\s+major", re.IGNORECASE)
+
+# Roles that name a second, co-equal degree (joined onto the major with "&"),
+# vs. roles that add a credential alongside it (joined with ", "). None means
+# a role that isn't a credential worth listing (e.g. school_requirement).
+CO_MAJOR_ROLES = {"second_major", "additional_major", "dual_degree"}
+
+
+def _format_extra_role(role: str, name: str) -> str | None:
+    if role == "minor":
+        return f"Minor in {_MINOR_PREFIX_RE.sub('', name).strip()}"
+    if role == "extended_major":
+        return name if _EXTENDED_MAJOR_RE.search(name) else f"Extended Major in {name}"
+    if role == "school_requirement":
+        return None
+    return name
 
 
 def _escape(text: str | None) -> str:
@@ -117,20 +140,61 @@ def _section(title: str, entries: list[str]) -> str:
     )
 
 
-def _education_section(profile: dict[str, Any]) -> str:
+def _default_degree_line(profile: dict[str, Any]) -> str:
     major = next((d for d in profile["declared_programs"] if d["role"] == "major"), None)
-    minors = [d for d in profile["declared_programs"] if d["role"] != "major" and d.get("name")]
-
     degree_line = major["name"] if major and major.get("name") else "Undergraduate Studies"
-    if minors:
-        degree_line += ", " + ", ".join(f"Minor in {m['name']}" for m in minors)
 
+    co_majors: list[str] = []
+    extras: list[str] = []
+    for d in profile["declared_programs"]:
+        if d["role"] == "major" or not d.get("name"):
+            continue
+        if d["role"] in CO_MAJOR_ROLES:
+            co_majors.append(d["name"])
+            continue
+        formatted = _format_extra_role(d["role"], d["name"])
+        if formatted:
+            extras.append(formatted)
+
+    if co_majors:
+        degree_line += " & " + " & ".join(co_majors)
+    if extras:
+        degree_line += ", " + ", ".join(extras)
+    return degree_line
+
+
+def _default_dates(profile: dict[str, Any]) -> str:
     entry_year = profile.get("entry_year") or profile.get("intake_year")
-    dates = f"Aug {entry_year} -- May {entry_year + DEGREE_LENGTH_YEARS}" if entry_year else ""
+    return f"Aug {entry_year} -- May {entry_year + DEGREE_LENGTH_YEARS}" if entry_year else ""
+
+
+def education_defaults(db: Session, planner_id: str) -> dict[str, str]:
+    """The same auto-derived education fields generate_cv_latex falls back
+    to, exposed so the CV builder can prefill an editable form with them."""
+    profile = get_student_profile(db, planner_id)
+    return {
+        "institution": DEFAULT_INSTITUTION,
+        "location": DEFAULT_LOCATION,
+        "degree_line": _default_degree_line(profile),
+        "dates": _default_dates(profile),
+    }
+
+
+def _education_section(
+    profile: dict[str, Any],
+    institution: str = "",
+    location: str = "",
+    degree_line: str = "",
+    dates: str = "",
+) -> str:
+    institution = institution.strip() or DEFAULT_INSTITUTION
+    location = location.strip() or DEFAULT_LOCATION
+    degree_line = degree_line.strip() or _default_degree_line(profile)
+    dates = dates.strip() or _default_dates(profile)
 
     entry = (
-        "    \\resumeSubheading\n"
-        "      {The Hong Kong University of Science and Technology}{Hong Kong, HK}\n"
+        "    \\resumeEducation\n"
+        f"      {{{_escape(institution)}}}{{{_escape(location)}}}\n"
         f"      {{{_escape(degree_line)}}}{{{_escape(dates)}}}\n"
     )
     return _section("Education", [entry])
@@ -211,6 +275,20 @@ PREAMBLE = r"""\documentclass[letterpaper,10pt]{article}
     \end{tabular*}\vspace{-7pt}
 }
 
+% Like resumeSubheading, but the subtitle (degree/major line) is a wrapping
+% paragraph column instead of a plain "l" column — a long "Major, Minor in
+% X, Second Major in Y" line would otherwise run straight off the page since
+% tabular* never wraps an "l" cell.
+\newcommand{\resumeEducation}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+    \end{tabular*}\vspace{2pt}
+    \begin{tabular*}{0.97\textwidth}[t]{@{}p{0.72\textwidth}@{\extracolsep{\fill}}r@{}}
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
 \newcommand{\resumeProjectHeading}[2]{
     \item
     \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
@@ -240,6 +318,10 @@ def generate_cv_latex(
     website: str = "",
     skills_text: str = "",
     include_ids: list[str] | None = None,
+    education_institution: str = "",
+    education_location: str = "",
+    education_degree_line: str = "",
+    education_dates: str = "",
 ) -> str:
     profile = get_student_profile(db, planner_id)
     experiences = list_experiences(db, planner_id)["experiences"]
@@ -272,7 +354,7 @@ def generate_cv_latex(
     )
 
     sections = [
-        _education_section(profile),
+        _education_section(profile, education_institution, education_location, education_degree_line, education_dates),
         _section("Experience", [_subheading_entry(e) for e in by_kind.get("internship", [])]),
         _section("Research Experience", [_subheading_entry(e) for e in by_kind.get("research", [])]),
         _section("Projects", [_project_entry(e) for e in by_kind.get("project", [])]),
@@ -311,18 +393,32 @@ def compile_pdf(latex: str) -> bytes:
         return pdf_path.read_bytes()
 
 
-def save_generation(db: Session, planner_id: str, full_name: str, latex: str, experience_count: int) -> dict[str, Any]:
+def save_generation(
+    db: Session,
+    planner_id: str,
+    full_name: str,
+    latex: str,
+    experience_count: int,
+    name: str = "",
+) -> dict[str, Any]:
     planner = get_or_create_planner(db, planner_id)
     row = CvGeneration(
         planner_id=planner.id,
         full_name=full_name.strip() or "Your Name",
+        name=name.strip(),
         latex=latex,
         experience_count=experience_count,
     )
     db.add(row)
     db.commit()
     db.refresh(row)
-    return {"id": str(row.id), "full_name": row.full_name, "experience_count": row.experience_count, "created_at": row.created_at.isoformat()}
+    return {
+        "id": str(row.id),
+        "name": row.name,
+        "full_name": row.full_name,
+        "experience_count": row.experience_count,
+        "created_at": row.created_at.isoformat(),
+    }
 
 
 def list_generations(db: Session, planner_id: str) -> list[dict[str, Any]]:
@@ -333,6 +429,7 @@ def list_generations(db: Session, planner_id: str) -> list[dict[str, Any]]:
     return [
         {
             "id": str(row.id),
+            "name": row.name,
             "full_name": row.full_name,
             "experience_count": row.experience_count,
             "created_at": row.created_at.isoformat(),
@@ -369,4 +466,5 @@ __all__ = [
     "list_generations",
     "get_generation_latex",
     "delete_generation",
+    "education_defaults",
 ]

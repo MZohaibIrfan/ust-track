@@ -104,6 +104,16 @@ class CvBody(BaseModel):
     website: str = ""
     skills_text: str = ""
     include_ids: list[str] | None = None
+    name: str = ""
+    education_institution: str = ""
+    education_location: str = ""
+    education_degree_line: str = ""
+    education_dates: str = ""
+
+
+@router.get("/career/cv/education-defaults")
+def get_cv_education_defaults(planner_id: str, db: Session = Depends(get_db)) -> dict:
+    return cv_ops.education_defaults(db, planner_id)
 
 
 @router.post("/career/cv")
@@ -119,9 +129,13 @@ def generate_cv(body: CvBody, db: Session = Depends(get_db)) -> PlainTextRespons
         body.website,
         body.skills_text,
         body.include_ids,
+        body.education_institution,
+        body.education_location,
+        body.education_degree_line,
+        body.education_dates,
     )
     count = len(body.include_ids) if body.include_ids is not None else len(career_ops.list_experiences(db, body.planner_id)["experiences"])
-    cv_ops.save_generation(db, body.planner_id, body.full_name, latex, count)
+    cv_ops.save_generation(db, body.planner_id, body.full_name, latex, count, body.name)
     return PlainTextResponse(
         latex,
         media_type="application/x-tex",
@@ -142,6 +156,10 @@ def generate_cv_pdf(body: CvBody, db: Session = Depends(get_db)) -> Response:
         body.website,
         body.skills_text,
         body.include_ids,
+        body.education_institution,
+        body.education_location,
+        body.education_degree_line,
+        body.education_dates,
     )
     try:
         pdf_bytes = cv_ops.compile_pdf(latex)
