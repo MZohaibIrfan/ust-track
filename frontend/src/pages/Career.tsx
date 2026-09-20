@@ -7,7 +7,14 @@ import { CareerIcon } from "../components/NavIcons";
 import { PageHeader } from "../components/PageHeader";
 import { API_BASE, apiDelete, apiGet, apiPost, apiPostStream } from "../lib/api";
 import { usePlanner } from "../lib/PlannerContext";
-import type { CourseMatch, CvGenerationSummary, Experience, ExperienceSelectionResult, JobMatchResult } from "../lib/types";
+import type {
+  CourseMatch,
+  CvEducationDefaults,
+  CvGenerationSummary,
+  Experience,
+  ExperienceSelectionResult,
+  JobMatchResult,
+} from "../lib/types";
 
 function Icon({ children, className }: { children: ReactNode; className?: string }) {
   return (
@@ -425,12 +432,18 @@ export function CareerPage() {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const [cvPanelTab, setCvPanelTab] = useState<"build" | "history">("build");
+  const [cvName, setCvName] = useState("");
   const [cvFullName, setCvFullName] = useState("");
   const [cvEmail, setCvEmail] = useState("");
   const [cvPhone, setCvPhone] = useState("");
   const [cvLinkedin, setCvLinkedin] = useState("");
   const [cvGithub, setCvGithub] = useState("");
   const [cvWebsite, setCvWebsite] = useState("");
+  const [eduInstitution, setEduInstitution] = useState("");
+  const [eduLocation, setEduLocation] = useState("");
+  const [eduDegreeLine, setEduDegreeLine] = useState("");
+  const [eduDates, setEduDates] = useState("");
+  const [eduLoaded, setEduLoaded] = useState(false);
   const [cvSkills, setCvSkills] = useState("");
   const [cvGenerating, setCvGenerating] = useState(false);
   const [cvError, setCvError] = useState<string | null>(null);
@@ -549,6 +562,11 @@ export function CareerPage() {
   async function viewCvHistoryItem(id: string) {
     setCvHistoryBusyId(id);
     setCvError(null);
+    const gen = cvHistory.find((g) => g.id === id);
+    if (gen) {
+      setCvName(gen.name);
+      setCvFullName(gen.full_name);
+    }
     try {
       const [texRes, pdfRes] = await Promise.all([
         fetch(`${API_BASE}/api/career/cv/history/${id}?planner_id=${plannerId}`),
@@ -646,6 +664,23 @@ export function CareerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subpage, plannerId]);
 
+  // Prefill the editable education block from the student's actual profile
+  // once per planner — after that, leave whatever the student typed alone.
+  useEffect(() => {
+    setEduLoaded(false);
+    apiGet<CvEducationDefaults>(`/api/career/cv/education-defaults?planner_id=${plannerId}`)
+      .then((defaults) => {
+        setEduInstitution(defaults.institution);
+        setEduLocation(defaults.location);
+        setEduDegreeLine(defaults.degree_line);
+        setEduDates(defaults.dates);
+      })
+      .catch(() => {
+        // stays blank — the backend still falls back to its own defaults if empty
+      })
+      .finally(() => setEduLoaded(true));
+  }, [plannerId]);
+
   // Release the blob URLs when the page unmounts (planner switch, navigation away).
   useEffect(() => {
     return () => {
@@ -666,6 +701,7 @@ export function CareerPage() {
     setCvPdfUrl(null);
     const payload = JSON.stringify({
       planner_id: plannerId,
+      name: cvName,
       full_name: cvFullName,
       email: cvEmail,
       phone: cvPhone,
@@ -674,6 +710,10 @@ export function CareerPage() {
       website: cvWebsite,
       skills_text: cvSkills,
       include_ids: Array.from(selectedExpIds),
+      education_institution: eduInstitution,
+      education_location: eduLocation,
+      education_degree_line: eduDegreeLine,
+      education_dates: eduDates,
     });
     try {
       const [texRes, pdfRes] = await Promise.all([
@@ -1019,6 +1059,12 @@ export function CareerPage() {
 
                     <form onSubmit={generateCv} className="flex flex-col gap-2.5">
                       <input
+                        value={cvName}
+                        onChange={(e) => setCvName(e.target.value)}
+                        placeholder="Name this CV (e.g. Google SWE Application) — optional"
+                        className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                      />
+                      <input
                         value={cvFullName}
                         onChange={(e) => setCvFullName(e.target.value)}
                         placeholder="Full name"
@@ -1059,6 +1105,40 @@ export function CareerPage() {
                         placeholder="Website (optional)"
                         className="rounded-xl border border-line bg-bg px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
                       />
+
+                      <div className="flex flex-col gap-1.5 rounded-xl border border-line bg-bg p-2.5">
+                        <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">
+                          Education {eduLoaded ? "" : "(loading from your profile…)"}
+                        </p>
+                        <input
+                          value={eduInstitution}
+                          onChange={(e) => setEduInstitution(e.target.value)}
+                          placeholder="Institution"
+                          className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <input
+                            value={eduLocation}
+                            onChange={(e) => setEduLocation(e.target.value)}
+                            placeholder="Location"
+                            className="min-w-[8rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                          />
+                          <input
+                            value={eduDates}
+                            onChange={(e) => setEduDates(e.target.value)}
+                            placeholder="Dates (e.g. Aug 2023 -- May 2027)"
+                            className="min-w-[10rem] flex-1 rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                          />
+                        </div>
+                        <textarea
+                          value={eduDegreeLine}
+                          onChange={(e) => setEduDegreeLine(e.target.value)}
+                          placeholder="Degree / major / minor line"
+                          rows={2}
+                          className="rounded-xl border border-line bg-surface-raised px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
+                        />
+                      </div>
+
                       <textarea
                         value={cvSkills}
                         onChange={(e) => setCvSkills(e.target.value)}
@@ -1111,8 +1191,9 @@ export function CareerPage() {
                           className="flex items-center justify-between gap-2 rounded-xl border border-line bg-bg px-3 py-2"
                         >
                           <div className="min-w-0">
-                            <p className="truncate text-[12px] font-medium">{gen.full_name}</p>
+                            <p className="truncate text-[12px] font-medium">{gen.name || gen.full_name}</p>
                             <p className="text-[11px] text-muted">
+                              {gen.name ? `${gen.full_name} · ` : ""}
                               {new Date(gen.created_at).toLocaleString()} · {gen.experience_count} included
                             </p>
                           </div>
